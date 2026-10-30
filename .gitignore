@@ -8,3 +8,4 @@ __pycache__/
 var/
 wake-mcu/.pio/
 .DS_Store
+_site/
