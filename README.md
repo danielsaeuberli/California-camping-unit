@@ -4,6 +4,9 @@ Replacement for the E153 camping control panel in a VW T6 California (MY 2018, A
 A Raspberry Pi 5 drives roof, fridge and parking heater, shows tanks, temperatures and
 Victron data on a 1280 × 480 touch display. See `CLAUDE.md` and `docs/SOFTWARE_SPEC.md`.
 
+**Live demo of the touch UI:** https://danielsaeuberli.github.io/California-camping-unit/
+(runs a simulator in the browser instead of `camperd`; built from `ui/` by `demo/build.sh`)
+
 ## Quick start (Mac, no hardware)
 
 ```
