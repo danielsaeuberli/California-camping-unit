@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>camperd simulator</title>
+<!-- Development tool, only served with --hal sim. Not part of the unit UI. -->
+<style>
+:root{--bg:#f4f6f8;--ink:#13212c;--muted:#51606d;--line:#cfd8df}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1419;--ink:#eef3f7;--muted:#9aa9b7;--line:#2c3845}}
+body{margin:0;padding:16px;background:var(--bg);color:var(--ink);font:15px system-ui,sans-serif}
+h1{font-size:18px;margin:0 0 4px}
+p{color:var(--muted);margin:0 0 16px}
+form{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px 24px;max-width:900px}
+label{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:40px;border-bottom:1px solid var(--line)}
+input[type=number],select{width:110px;min-height:32px}
+a{color:inherit}
+</style>
+</head>
+<body>
+<h1>camperd simulator</h1>
+<p>Changes the simulated vehicle. The unit UI is at <a href="/">/</a>.</p>
+<form id="f"></form>
+<script>
+const FIELDS = {
+  ignition: 'bool', moving: 'bool', dim58: 'bool', waste_full: 'bool', fresh_step: [0, 1, 2, 3],
+  fridge_fault: [null, 1, 2, 3, 4, 5, 6], outside_c: 'num', fridge_c: 'num', roof_pos: 'num',
+  di_card_fail: 'bool', cerbo: 'bool', scenario: ['solar', 'night', 'shore'], overload: 'bool',
+};
+const f = document.getElementById('f');
+const post = body => fetch('/api/sim', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)}).then(r => r.json());
+function build(world) {
+  f.innerHTML = '';
+  for (const [k, kind] of Object.entries(FIELDS)) {
+    const l = document.createElement('label'); l.textContent = k;
+    let el;
+    if (kind === 'bool') { el = document.createElement('input'); el.type = 'checkbox'; el.checked = !!world[k]; el.onchange = () => post({[k]: el.checked}); }
+    else if (kind === 'num') { el = document.createElement('input'); el.type = 'number'; el.step = '0.1'; el.value = world[k]; el.onchange = () => post({[k]: parseFloat(el.value)}); }
+    else {
+      el = document.createElement('select');
+      for (const o of kind) { const opt = document.createElement('option'); opt.value = JSON.stringify(o); opt.textContent = o === null ? 'none' : o; el.appendChild(opt); }
+      el.value = JSON.stringify(world[k]); el.onchange = () => post({[k]: JSON.parse(el.value)});
+    }
+    l.appendChild(el); f.appendChild(l);
+  }
+}
+fetch('/api/sim').then(r => r.json()).then(build);
+</script>
+</body>
+</html>

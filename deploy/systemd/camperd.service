@@ -1,0 +1,19 @@
+[Unit]
+Description=Cali camping unit control service
+After=network.target systemd-networkd.service
+Wants=systemd-networkd.service
+
+[Service]
+Type=simple
+User=camper
+Group=camper
+SupplementaryGroups=gpio i2c dialout
+Environment=CAMPERD_HAL=hw
+Environment=CAMPERD_DATA=/data
+WorkingDirectory=/data/releases/current
+ExecStart=/data/releases/current/.venv/bin/python -m camperd --host 127.0.0.1 --port 8080
+Restart=always
+RestartSec=1
+
+[Install]
+WantedBy=multi-user.target
