@@ -35,3 +35,4 @@ roof:
   truth_table: { "10": open, "01": closed, "00": between, "11": fault }
 
 release: { roof: true, fridge: true, heater: true }   # simulator only
+victron: { control: true, current_limit_a: { min: 3.0, max: 16.0 } }   # simulator only

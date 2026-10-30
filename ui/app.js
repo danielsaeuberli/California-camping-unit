@@ -185,6 +185,29 @@ $('st-theme').querySelectorAll('button').forEach(b => b.addEventListener('click'
 $('st-idle').querySelectorAll('button').forEach(b => b.addEventListener('click', () => send({type: 'settings', set: {idle_min: +b.dataset.v}})));
 $('x-tabs').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { S.expertTab = b.dataset.v; render(); }));
 
+/* ---------- MultiPlus-Steuerung: jede Änderung zweimal tippen ---------- */
+let arm = null;  // {key, value, until}
+function armOrSend(key, value) {
+  if (arm && arm.key === key && arm.value === value && Date.now() < arm.until) {
+    cmd('victron', key === 'mode' ? {mode: value} : {current_limit_a: value});
+    arm = null;
+  } else {
+    arm = {key, value, until: Date.now() + 3000};
+    setTimeout(render, 3100);
+  }
+  render();
+}
+$('x-mode').querySelectorAll('button').forEach(b => b.addEventListener('click', () => armOrSend('mode', +b.dataset.v)));
+const limStep = d => {
+  const c = S.st?.victron_control; if (!c || c.limit_min_a == null) return;
+  const cur = S.limDraft ?? vic('vebus.current_limit') ?? c.limit_min_a;
+  S.limDraft = Math.min(c.limit_max_a, Math.max(c.limit_min_a, Math.round((cur + d) * 2) / 2));
+  render();
+};
+$('x-lim-minus').addEventListener('click', () => limStep(-0.5));
+$('x-lim-plus').addEventListener('click', () => limStep(0.5));
+$('x-lim-set').addEventListener('click', () => { if (S.limDraft != null) armOrSend('limit', S.limDraft); });
+
 /* ---------- Expertenansicht ---------- */
 function buildExpert() {
   const row = (el, ch, name, key) => {
@@ -393,6 +416,30 @@ function renderExpert() {
     [t('x.ac.mode'), mode == null ? '–' : t('x.ac.mode.' + mode)], [t('x.ac.overload'), alarm(vic('vebus.alarm_overload'))],
     [t('x.ac.low_bat'), alarm(vic('vebus.alarm_low_battery'))], [t('x.ac.temp'), alarm(vic('vebus.alarm_temperature'))],
     [t('x.ac.ripple'), alarm(vic('vebus.alarm_ripple'))]]);
+
+  const c = S.st?.victron_control || {enabled: false, modes: []};
+  const online = !!(S.vic && S.vic.connected) && S.online;
+  const armed = k => arm && arm.key === k.key && arm.value === k.value && Date.now() < arm.until;
+  const curMode = vic('vebus.mode');
+  $('x-mode').querySelectorAll('button').forEach(b => {
+    const v = +b.dataset.v, isArmed = armed({key: 'mode', value: v});
+    b.hidden = !c.modes.includes(v);
+    b.disabled = !c.enabled || !online;
+    b.textContent = isArmed ? t('x.confirm') : t('x.mode.' + v);
+    b.classList.toggle('armed', isArmed);
+    b.setAttribute('aria-pressed', String(curMode === v && !isArmed));
+  });
+  if (S.limDraft != null && !arm && vic('vebus.current_limit') === S.limDraft) S.limDraft = null;
+  const limOk = c.enabled && online && c.limit_min_a != null;
+  const limShown = S.limDraft ?? vic('vebus.current_limit');
+  set('x-lim', fmt(limShown, 'A', 1));
+  for (const id of ['x-lim-minus', 'x-lim-plus', 'x-lim-set']) $(id).disabled = !limOk;
+  const limArmed = S.limDraft != null && armed({key: 'limit', value: S.limDraft});
+  $('x-lim-set').textContent = limArmed ? t('x.confirm') : t('x.lim_set');
+  $('x-lim-set').classList.toggle('armed', limArmed);
+  text('x-ctl-note', !c.enabled ? t('x.ctl.disabled') : !online ? t('x.ctl.offline')
+    : c.unconfirmed ? t('x.ctl.unconfirmed') : c.pending?.length ? t('x.ctl.pending')
+    : c.limit_min_a == null ? t('x.ctl.hint') + ' ' + t('x.ctl.limit_disabled') : t('x.ctl.hint'));
 
   $('x-conn-cerbo').innerHTML = rowsHtml([[t('x.conn.state'), S.vic?.connected ? t('x.conn.online') : t('x.conn.offline')],
     [t('x.conn.portal'), S.vic?.portal_id || '–']]);

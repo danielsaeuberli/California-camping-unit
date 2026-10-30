@@ -31,9 +31,17 @@ def test_discovery_and_ingest():
     assert store.snapshot()["load_pct"] == 50
 
 
-def test_keepalive_is_a_read_request():
+def test_keepalive_payload():
     assert "suppress-republish" in KEEPALIVE_PAYLOAD
-    from tests.conftest import ROOT
 
-    src = (ROOT / "camperd" / "hal" / "cerbo_mqtt.py").read_text()
-    assert '"W/' not in src and "'W/" not in src and 'f"W/' not in src
+
+def test_only_whitelisted_writes():
+    import pytest
+
+    from camperd.hal.cerbo_mqtt import write_topic
+
+    assert write_topic("p1", "276", "Mode") == "W/p1/vebus/276/Mode"
+    assert write_topic("p1", "276", "Ac/In/1/CurrentLimit") == "W/p1/vebus/276/Ac/In/1/CurrentLimit"
+    for path in ("Settings/Something", "Hub4/L1/AcPowerSetpoint", "../system/0/Relay/0/State"):
+        with pytest.raises(ValueError):
+            write_topic("p1", "276", path)

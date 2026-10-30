@@ -120,6 +120,15 @@ power:
   undervoltage_hold_s: 60
   heartbeat_s: 5
 
+# MultiPlus control through the Cerbo GX (SPEC 5.1). Off by default; when true, camperd may
+# write exactly two VE.Bus settings, each only on a user action: Mode and the shore current limit.
+victron:
+  control: false
+  modes: [1, 3, 4]               # 1 charger only (switch II), 3 on (I), 4 off (O)
+  current_limit_a: { min: TODO_CHECK, max: TODO_CHECK }   # from type plate / VEConfigure
+  confirm_s: 5                   # read-back must show the new value within this time
+  min_interval_s: 2
+
 # Release per switching function (SPEC 11, M7). false = measurement pending: camperd never
 # energises the outputs of that function and rejects its commands. Set true only after the
 # function has been measured and approved at the vehicle.
