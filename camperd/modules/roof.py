@@ -21,6 +21,7 @@ class RoofConfig:
     reverse_gap_s: float
     max_run_s: float
     block_open_when_moving: bool
+    require_ignition: bool
     truth_table: dict[str, str] | None
     k1_dir: str
     direction_verified: bool
@@ -38,6 +39,7 @@ class RoofConfig:
             reverse_gap_s=float(p.require("roof.reverse_gap_ms")) / 1000,
             max_run_s=float(p.require("roof.max_run_s")),
             block_open_when_moving=bool(p.require("roof.block_open_when_moving")),
+            require_ignition=bool(p.get("roof.require_ignition", True)),
             truth_table={str(k): str(v) for k, v in table.items()} if isinstance(table, dict) else None,
             k1_dir=k1_dir,
             direction_verified=verified,
@@ -79,6 +81,9 @@ class Roof:
         if not self._inputs.di_ok:
             self.block = "unit_io"
             return "blocked_io"
+        if self.cfg.require_ignition and not self._inputs.ignition:
+            self.block = "ignition"
+            return "blocked_ignition"
         if self._inputs.vehicle_moving:
             if direction == "open" and self.cfg.block_open_when_moving:
                 self.block = "moving"
@@ -116,6 +121,10 @@ class Roof:
         if self.cmd is not None:
             if now - self._last_hold > self.cfg.hold_timeout_s:
                 self.release()  # S3: hold messages stopped
+            elif self.cfg.require_ignition and not inputs.ignition:
+                self._deenergize(now)  # ignition switched off while moving the roof
+                self.cmd = None
+                self.block = "ignition"
             elif not inputs.di_ok:
                 self._deenergize(now)  # S5
                 self.cmd = None
@@ -141,6 +150,8 @@ class Roof:
         if self.cmd is None and not inputs.vehicle_moving and inputs.di_ok and self.block == "moving":
             self.block = "none"
         if self.cmd is None and inputs.di_ok and self.block == "unit_io":
+            self.block = "none"
+        if self.cmd is None and inputs.ignition and self.block == "ignition":
             self.block = "none"
         self.k1 = self._energized == self.cfg.k1_dir
         self.k2 = self._energized is not None and not self.k1
@@ -174,6 +185,7 @@ class Roof:
             "cmd": self.cmd or "none",
             "block": self.block,
             "direction_verified": self.cfg.direction_verified,
+            "require_ignition": self.cfg.require_ignition,
         }
 
     def alerts(self) -> list[dict[str, str]]:

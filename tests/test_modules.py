@@ -65,3 +65,51 @@ async def test_roof_travel_in_sim(rig):
     rig.ctrl.roof_release()
     await rig.run_for(0.2)
     assert rig.ctrl.roof.position() == "open"
+
+
+async def test_speed_from_hardware_counter(rig):
+    assert rig.ctrl.speed_counter
+    rig.hal.world.moving = True
+    await rig.run_for(1.2)
+    assert rig.ctrl.vehicle.moving
+    rig.hal.world.moving = False
+    await rig.run_for(1.2)
+    assert not rig.ctrl.vehicle.moving
+
+
+async def test_open_sensor_and_external_voltage(rig):
+    rig.hal.world.outside_c = -80  # NTC ~ open
+    await rig.run_for(0.3)
+    assert rig.ctrl.state_data()["outside_q"] in ("open", "implausible")
+
+
+async def test_divider_overvoltage_alert(rig):
+    orig = rig.hal.read_ai
+
+    async def high():
+        ai = await orig()
+        ai[7] = 3.2  # AI8 battery divider above 3.0 V
+        return ai
+
+    rig.hal.read_ai = high
+    await rig.run_for(0.2)
+    assert any(a["id"] == "ai_overvoltage" for a in rig.ctrl.alerts())
+
+
+async def test_58d_pwm_counts_as_on(rig):
+    orig = rig.hal.read_di
+    t = {"n": 0}
+
+    async def pwm():
+        di = await orig()
+        t["n"] += 1
+        di[6] = t["n"] % 10 == 0  # 58d high only every 10th sample (200 ms period, 10 % duty)
+        return di
+
+    rig.hal.read_di = pwm
+    await rig.run_for(0.3)  # first high sample
+    states = set()
+    for _ in range(50):
+        await rig.run_for(0.02)
+        states.add(rig.ctrl.vehicle.dim58)
+    assert states == {True}

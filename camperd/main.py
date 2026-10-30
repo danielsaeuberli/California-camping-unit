@@ -17,6 +17,7 @@ from camperd.api.store import EventLog, Settings
 from camperd.clock import SystemClock
 from camperd.core import Controller
 from camperd.hal import create_hal
+from camperd.hal.cerbo_mqtt import CerboClient
 from camperd.hal.sim import SimCerbo, SimHal
 from camperd.modules.energy import VictronStore
 from camperd.power import Watchdog
@@ -71,7 +72,15 @@ async def run(args: argparse.Namespace) -> None:
     if isinstance(hal, SimHal):
         cerbo = SimCerbo(victron, hal.world)
         await cerbo.start()
-    # M2: CerboMqtt client for --hal hw.
+    cerbo_hw: CerboClient | None = None
+    if args.hal == "hw":
+        cerbo_hw = CerboClient(
+            victron,
+            str(profile.require("buses.cerbo.host")),
+            int(profile.get("buses.cerbo.port", 1883)),
+            float(profile.get("buses.cerbo.keepalive_s", 30)),
+        )
+        await cerbo_hw.start()
 
     settings = Settings(args.data_dir / "settings.json", profile)
     events = EventLog(args.data_dir / "log" / "events.jsonl")
@@ -96,6 +105,8 @@ async def run(args: argparse.Namespace) -> None:
         watchdog.stop()
         if cerbo:
             await cerbo.stop()
+        if cerbo_hw:
+            await cerbo_hw.stop()
         await runner.cleanup()
         hal.all_off_sync()
         await hal.stop()

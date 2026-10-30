@@ -71,6 +71,22 @@ class EdgeCounter:
         return len(self._edges)
 
 
+class CounterWindow:
+    """Edges within a sliding window from a free-running hardware counter (32 bit)."""
+
+    def __init__(self, window_s: float) -> None:
+        self.window_s = window_s
+        self._samples: deque[tuple[float, int]] = deque()
+
+    def update(self, count: int, now: float) -> int:
+        if self._samples and count < self._samples[-1][1]:
+            self._samples.clear()  # counter reset or wrap: start over
+        self._samples.append((now, count))
+        while len(self._samples) > 1 and now - self._samples[0][0] > self.window_s:
+            self._samples.popleft()
+        return count - self._samples[0][1]
+
+
 class MedianFilter:
     def __init__(self, window_s: float) -> None:
         self.window_s = window_s
@@ -86,18 +102,27 @@ class MedianFilter:
         self._samples.clear()
 
 
-def sensor_resistance(v_ai: float, v_ref: float, pullup_ohm: float) -> float:
-    """Resistance of a sensor against ground, measured through a pull-up from ``v_ref``."""
+def sensor_resistance(v_ai: float, v_ref: float, pullup_ohm: float, input_ohm: float | None = None) -> float:
+    """Resistance of a sensor against ground, measured through a pull-up from ``v_ref``.
+
+    ``input_ohm`` is the AI input impedance, which sits in parallel with the sensor.
+    """
     if v_ai >= v_ref:
         return math.inf
     if v_ai <= 0:
         return 0.0
-    return pullup_ohm * v_ai / (v_ref - v_ai)
+    parallel = pullup_ohm * v_ai / (v_ref - v_ai)
+    if input_ohm is None:
+        return parallel
+    if parallel >= input_ohm:
+        return math.inf
+    return 1 / (1 / parallel - 1 / input_ohm)
 
 
-def resistance_to_voltage(ohm: float, v_ref: float, pullup_ohm: float) -> float:
+def resistance_to_voltage(ohm: float, v_ref: float, pullup_ohm: float, input_ohm: float | None = None) -> float:
     """Inverse of :func:`sensor_resistance` (simulator)."""
-    return v_ref * ohm / (pullup_ohm + ohm)
+    load = ohm if input_ohm is None else 1 / (1 / ohm + 1 / input_ohm)
+    return v_ref * load / (pullup_ohm + load)
 
 
 def classify_resistance(ohm: float, open_ohm: float, short_ohm: float) -> Quality:

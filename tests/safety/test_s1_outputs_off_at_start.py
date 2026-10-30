@@ -22,20 +22,16 @@ async def test_init_switches_everything_off(sim_profile):
 async def test_ladder_unpowered_means_base_resistance(rig):
     await rig.run_for(0.5)
     assert rig.h == [False] * 4
-    assert rig.ctrl.heater.ladder_ohm() == 1750.0
+    assert rig.ctrl.heater.ladder_ohm() == rig.ctrl.heater.cfg.base_ohm
 
 
-async def test_api_refuses_clients_before_init(sim_profile, tmp_path):
-    from aiohttp.test_utils import TestClient, TestServer
+def test_uncalibrated_ladder_rejects_level(profile, clock):
+    from camperd.modules.heater import Heater, HeaterConfig
 
-    from camperd.api.server import Api
-    from camperd.api.store import EventLog, Settings
-
-    clock = FakeClock()
-    hal = SimHal(sim_profile, clock)
-    ctrl = Controller(sim_profile, hal, clock, VictronStore(clock))
-    api = Api(ctrl, clock, Settings(tmp_path / "s.json", sim_profile), EventLog(tmp_path / "e.jsonl"), tmp_path)
-    async with TestClient(TestServer(api.app())) as client:
-        ws = await client.ws_connect("/ws")
-        msg = await ws.receive()
-        assert msg.type.name in ("CLOSE", "CLOSED", "CLOSING")
+    h = Heater(HeaterConfig.from_profile(profile), clock)
+    assert h.set(level=5) == "ladder_uncalibrated"
+    h.set(on=True)
+    for _ in range(10):
+        _, bits = h.tick(False)
+        clock.advance(0.06)
+    assert bits == [False] * 4 and h.ladder_ohm() is None

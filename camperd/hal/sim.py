@@ -57,13 +57,14 @@ class SimHal(Hal):
         self.world = SimWorld()
         self.relays = [False] * N_RELAY
         self.gpio = [False] * N_GPIO
+        self._speed_edges = 0.0
         self._lock = threading.Lock()
         self._last = clock.now()
         self._k1_dir = profile.get("outputs.roof_a.meaning")
         if not is_cal(self._k1_dir):
             self._k1_dir = "open"
         self._afterrun_s = float(profile.require("heater.afterrun_expected_s"))
-        self._ref_v = 5.1
+        self._ref_v = 3.3  # card rail feeding the pull-ups
 
     # ----- physics -----
     def _step(self) -> None:
@@ -75,6 +76,8 @@ class SimHal(Hal):
             opening = (k1 and self._k1_dir == "open") or (k2 and self._k1_dir != "open")
             w.roof_pos = min(1.0, max(0.0, w.roof_pos + (1 if opening else -1) * dt / ROOF_TRAVEL_S))
         w.fridge_c += (-0.02 if k3 else 0.008) * dt
+        if w.moving:
+            self._speed_edges += 10 * dt  # 5 Hz square wave = 10 edges/s
         if k4:
             if not w.heater_running:
                 w._heater_t += dt
@@ -94,7 +97,7 @@ class SimHal(Hal):
         self._step()
         w = self.world
         if w.di_card_fail:
-            raise HalError("sim: SM-I-009 not responding")
+            raise HalError("sim: SM-H-001 not responding")
         di = [False] * N_DI
         t = self.clock.now()
         di[0] = w.roof_pos >= 1.0  # sim truth table: "10" open, "01" closed, "00" between
@@ -112,15 +115,29 @@ class SimHal(Hal):
     async def read_ai(self) -> list[float | None]:
         w = self.world
         ai: list[float | None] = [None] * N_AI
-        ai[4] = self._ref_v / 2.0  # AI5 measures the rail through a 1:1 divider
         ai[0] = self._ntc_v("fridge_temp", w.fridge_c)
         ai[1] = self._step_v("fresh_water", w.fresh_step)
         ai[2] = self._step_v("waste_water", 1 if w.waste_full else 0)
         ai[3] = self._ntc_v("outside_temp", w.outside_c)
-        ai[5] = 12.4 / 2 if self.relays[0] else 0.0
-        ai[6] = 12.4 / 2 if self.relays[1] else 0.0
-        ai[7] = 12.8 / 2
+        ai[5] = self._divided("roof_cmd_a_v", 12.4 if self.relays[0] else 0.0)
+        ai[6] = self._divided("roof_cmd_b_v", 12.4 if self.relays[1] else 0.0)
+        ai[7] = self._divided("battery_v", 12.8)
         return ai
+
+    async def read_rail(self) -> float | None:
+        return self._ref_v
+
+    async def read_counters(self, channels: tuple[int, ...]) -> dict[int, int]:
+        speed = self.p.channel_index("inputs.speed", "DI")
+        return {speed: int(self._speed_edges)} if speed in channels else {}
+
+    def _divided(self, name: str, volts: float) -> float | None:
+        div = self.p.get(f"analog.{name}.divider")
+        return volts / float(div) if is_cal(div) else None
+
+    def _input_ohm(self, name: str) -> float | None:
+        v = self.p.get("buses.sm_h001.ai_input_ohm", None)
+        return float(v) if is_cal(v) else None
 
     def _pullup(self, name: str) -> float | None:
         v = self.p.get(f"analog.{name}.pullup_ohm")
@@ -131,14 +148,14 @@ class SimHal(Hal):
         pull = self._pullup(name)
         if not isinstance(curve, SteinhartHart) or pull is None:
             return 1.2  # some voltage; the uncalibrated chain ignores it anyway
-        return resistance_to_voltage(curve.ohm(temp_c), self._ref_v, pull)
+        return resistance_to_voltage(curve.ohm(temp_c), self._ref_v, pull, self._input_ohm(name))
 
     def _step_v(self, name: str, step: int) -> float | None:
         curve = build_curve(self.p.get(f"curves.{self.p.require(f'analog.{name}.curve')}", None))
         pull = self._pullup(name)
         if not isinstance(curve, StepCurve) or pull is None:
             return 1.0
-        return resistance_to_voltage(curve.ohm[step], self._ref_v, pull)
+        return resistance_to_voltage(curve.ohm[step], self._ref_v, pull, self._input_ohm(name))
 
     async def write_relay(self, ch: int, on: bool) -> None:
         with self._lock:

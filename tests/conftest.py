@@ -52,12 +52,14 @@ class Rig:
 
     @property
     def h(self) -> list[bool]:
+        """Heater ladder outputs H1-H4 (Purecrea module on GPIO)."""
         return self.hal.gpio
 
 
 @pytest.fixture
 async def rig(sim_profile: Profile, clock: FakeClock) -> Rig:
     r = Rig(sim_profile, clock)
+    r.hal.world.ignition = True  # the roof needs ignition on (roof.require_ignition)
     await r.ctrl.init_outputs()
     r.cerbo.feed()
     return r

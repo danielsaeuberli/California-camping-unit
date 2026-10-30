@@ -6,28 +6,45 @@ from dataclasses import dataclass
 from typing import Any
 
 from camperd.clock import Clock
-from camperd.profile import Profile, is_cal
+from camperd.profile import Profile, ProfileError, is_cal
 
 
 @dataclass(frozen=True)
 class HeaterConfig:
     levels: int
-    base_ohm: float
-    segment_ohm: tuple[float, ...]
+    n_segments: int
+    base_ohm: float | None
+    segment_ohm: tuple[float, ...] | None
     switch_gap_s: float
     start_timeout_s: float
     afterrun_expected_s: float
     level_to_c: tuple[float, ...] | None
 
+    @property
+    def ladder_calibrated(self) -> bool:
+        return self.base_ohm is not None and self.segment_ohm is not None
+
     @classmethod
     def from_profile(cls, p: Profile) -> HeaterConfig:
-        segs = p.require("outputs.heater_ladder.segments")
+        lad = "outputs.heater_ladder"
+        if p.require(f"{lad}.topology") != "series":
+            raise ProfileError(f"{lad}.topology: only 'series' is supported")
+        segs = p.require(f"{lad}.segments")
+        for i, seg in enumerate(segs, start=1):
+            if seg.get("channel") != f"H{i}":
+                raise ProfileError(f"{lad}.segments[{i - 1}]: expected channel H{i}")
+        base = p.get(f"{lad}.base_ohm")
+        ohms = [s.get("ohm") for s in segs]
         l2c = p.get("heater.level_to_c")
+        levels = int(p.require("heater.levels"))
+        if not 2 <= levels <= 2 ** len(segs):
+            raise ProfileError(f"heater.levels must be 2..{2 ** len(segs)} for {len(segs)} ladder relays")
         return cls(
-            levels=int(p.require("heater.levels")),
-            base_ohm=float(p.require("outputs.heater_ladder.base_ohm")),
-            segment_ohm=tuple(float(s["ohm"]) for s in segs),
-            switch_gap_s=float(p.require("outputs.heater_ladder.switch_gap_ms")) / 1000,
+            levels=levels,
+            n_segments=len(segs),
+            base_ohm=float(base) if is_cal(base) else None,
+            segment_ohm=tuple(float(o) for o in ohms) if all(is_cal(o) for o in ohms) else None,
+            switch_gap_s=float(p.require(f"{lad}.switch_gap_ms")) / 1000,
             start_timeout_s=float(p.require("heater.start_timeout_s")),
             afterrun_expected_s=float(p.require("heater.afterrun_expected_s")),
             level_to_c=tuple(float(x) for x in l2c) if is_cal(l2c) else None,
@@ -57,14 +74,16 @@ class Heater:
         self.cfg = cfg
         self.clock = clock
         self.on = False
-        self.level = cfg.levels // 2
+        self.level = cfg.levels // 2 if cfg.ladder_calibrated else 0
         self.phase = "off"
         self._phase_since = clock.now()
-        self.ladder = Ladder(len(cfg.segment_ohm), cfg.switch_gap_s)
+        self.ladder = Ladder(cfg.n_segments, cfg.switch_gap_s)
         self.running = False
 
     def set(self, on: bool | None = None, level: int | None = None) -> str | None:
         if level is not None:
+            if not self.cfg.ladder_calibrated:
+                return "ladder_uncalibrated"
             lv = int(level)
             if not 0 <= lv < self.cfg.levels:
                 return "out_of_range"
@@ -96,10 +115,15 @@ class Heater:
         elif self.phase == "off" and self.running:
             self._enter("afterrun", now)  # e.g. after restart while the heater still runs on
         k4 = self.on and self.phase in ("start", "heating")
-        # Ladder relays stay unpowered (1750 ohm, lowest level) while the heater is off.
-        return k4, self.ladder.tick(self.level if self.on else 0, now)
+        # Ladder relays stay unpowered (base resistance = level 0) while the heater is off
+        # and as long as the ladder resistors are not in the profile.
+        target = self.level if self.on and self.cfg.ladder_calibrated else 0
+        return k4, self.ladder.tick(target, now)
 
-    def ladder_ohm(self) -> float:
+    def ladder_ohm(self) -> float | None:
+        """Resistance seen by J604 at T2p (series ladder), ``None`` if not calibrated."""
+        if self.cfg.base_ohm is None or self.cfg.segment_ohm is None:
+            return None
         return self.cfg.base_ohm + sum(o for o, b in zip(self.cfg.segment_ohm, self.ladder.bits, strict=True) if b)
 
     def afterrun_left_s(self) -> int:
@@ -114,6 +138,8 @@ class Heater:
             "phase": self.phase,
             "afterrun_s": self.afterrun_left_s(),
             "level_c": self.cfg.level_to_c[self.level] if self.cfg.level_to_c else None,
+            "level_ok": self.cfg.ladder_calibrated,
+            "levels": self.cfg.levels,
         }
 
     def alerts(self) -> list[dict[str, str]]:

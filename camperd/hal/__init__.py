@@ -11,8 +11,9 @@ def create_hal(kind: str, profile: Profile, clock: Clock) -> Hal:
 
         return SimHal(profile, clock)
     if kind == "hw":
-        # M2: sm_h001, sm_i009, gpio_ladder drivers.
-        raise SystemExit("hardware HAL is not implemented yet (milestone M2); use --hal sim")
+        from camperd.hal.hw import HwHal
+
+        return HwHal(profile)
     raise SystemExit(f"unknown HAL {kind!r}")
 
 

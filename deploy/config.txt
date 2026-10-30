@@ -11,3 +11,9 @@ dtoverlay=uart2-pi5        # wake MCU on GPIO4/5 (HARDWARE.md, O4)
 hdmi_force_hotplug=1
 # HDMI mode for the Viewe 480x1280 driver board: take from its datasheet, then rotate
 # to 1280x480 landscape. OPEN: O1 - set and verify in M1 on the Pi.
+
+# Boot level of the heater ladder lines H1-H4 (GPIO17/27/22/23), HARDWARE.md 4.4:
+# keep the Purecrea relays off until camperd runs. Uncomment ONE line once the
+# polarity (profile outputs.heater_ladder.gpio_active) is checked.
+#gpio=17,22,23,27=op,dh   # relays energise on LOW
+#gpio=17,22,23,27=op,dl   # relays energise on HIGH

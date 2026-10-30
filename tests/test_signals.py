@@ -110,3 +110,22 @@ def test_pulse_decoder_rejects_long_pulse_and_clears():
             dec2.update(not (i < 50), t)  # 1 s low pulse: invalid
             t += 0.02
     assert dec2.code is None
+
+
+def test_input_impedance_correction():
+    from camperd.signals import CounterWindow  # noqa: F401
+
+    v = resistance_to_voltage(2200, 3.3, 15000, input_ohm=50000)
+    assert math.isclose(sensor_resistance(v, 3.3, 15000, input_ohm=50000), 2200, rel_tol=1e-9)
+    # without the correction the reading would be too low
+    assert sensor_resistance(v, 3.3, 15000) < 2200
+
+
+def test_counter_window_handles_reset():
+    from camperd.signals import CounterWindow
+
+    w = CounterWindow(1.0)
+    assert w.update(100, 0.0) == 0
+    assert w.update(105, 0.5) == 5
+    assert w.update(112, 1.2) == 7  # window now starts at t=0.5
+    assert w.update(3, 1.3) == 0  # counter reset

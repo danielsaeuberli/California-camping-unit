@@ -1,6 +1,8 @@
 # Cali Camping Unit – Hardware
 
-Version 1.0 | 30. Oktober 2026 | Grundlage: Stückliste rev b (27.10.2026), Pin-Check Nr. 133, Software-Spezifikation 1.0
+Version 1.2 | 30. Oktober 2026 | Grundlage: Stückliste rev b (27.10.2026), Pin-Check Nr. 133, Recherche 30.10.2026, Software-Spezifikation 1.1
+
+Änderungen gegenüber 1.0: Analogeingänge korrigiert (0–3,3 V, nicht 0–10 V; Kapitel 4.3, Pos. 43). Ausgangsstufen für Heizung, Kühlbox und Dach sind **«Messung ausstehend», nicht zum Bau freigegeben** (Kapitel 4.1). Sollwertleiter-Werte offen. Version 1.1 (zwei SM-H-001) ist verworfen: Die Opto-Eingänge des SM-H-001 belasten die Fahrzeugsignale mit 10–13 mA statt rund 5 mA, und die Sollwertleiter braucht Öffner mit getrennter COM.
 
 Preise sind Budgetwerte in CHF, keine Offerten. Status «Bestätigen/Anfragen/Prüfen» heisst: vor der Bestellung klären.
 
@@ -42,9 +44,9 @@ Viewe-Display ── HDMI ── Pi 5;  Touch ── I²C/USB ── Pi 5, IRQ �
 | 10 | Wake | Always-on-MCU | Seeed XIAO ESP32-S3 | 1 | Bestellen | 12.00 | 12.00 | Zündung, Touch-IRQ, DCDC-Enable | Zündung nur über 12-V-Eingangsstufe |
 | 11 | I/O | Home Automation HAT | Sequent SM-H-001 | 1 | Geplant | 80.00 | 80.00 | K1–K4, AI1–AI8 | Relais-COM gemeinsam je Vierergruppe; K5–K8 frei |
 | 13 | I/O | 16 LV-Digitaleingänge | Sequent SM-I-009 | 1 | Geplant | 60.00 | 60.00 | DI1–DI16 (3–24 V) | abgesetzt über Pos. 41 |
-| 14 | Heizung | 4-fach-Relaismodul, getrennte COM/NC/NO | Purecrea 420053 | 1 | Geplant | 12.90 | 12.90 | H1–H4 Sollwertleiter | Einschaltpegel bei 3,3-V-Logik prüfen |
-| 16 | Heizung | Präzisionswiderstand 1750 Ω 0,1 % | Metallfilm | 1 | Bestellen | 4.00 | 4.00 | Basis der Sollwertleiter |  |
-| 17 | Heizung | Präzisionswiderstände 27,4 / 54,9 / 110 / 237 Ω 0,1 % | Metallfilm, je 1 | 1 | Bestellen | 8.00 | 8.00 | Segmente H1–H4 |  |
+| 14 | Heizung | 4-fach-Relaismodul, getrennte COM/NC/NO | Purecrea 420053 | 1 | Geplant | 12.90 | 12.90 | H1–H4 Sollwertleiter | Einschaltpegel bei 3,3-V-Logik und Polarität prüfen (Kapitel 4.4); Mindestlast der Kontakte |
+| 16 | Heizung | Präzisionswiderstand Basis R0 0,1 % | Metallfilm | 1 | Messung ausstehend | 4.00 | 4.00 | Basis der Sollwertleiter | Wert erst nach Messung T2p je Stufe; 1750 Ω unbestätigt |
+| 17 | Heizung | Präzisionswiderstände Segmente H1–H4 0,1 % | Metallfilm, je 1 | 1 | Messung ausstehend | 8.00 | 8.00 | Segmente H1–H4 | Werte nach Messung; 27,4 / 54,9 / 110 / 237 Ω unbestätigt |
 | 18 | Fahrzeug | Gegenstecker T32b | VW, Codierung am E153 ablesen | 1 | Bestätigen | 35.00 | 35.00 | Originalkabelbaum | Teilenummer nach Gehäusefoto |
 | 19 | Fahrzeug | MQS-Kontakte/Reparaturleitungen | 32 + 6 Reserve | 38 | Bestellen | 2.20 | 83.60 | alle 32 Pins |  |
 | 20 | Fahrzeug | Gegenstecker T6ap komplett | VW | 1 | Bestätigen | 18.00 | 18.00 | Heizung, Zündung |  |
@@ -61,11 +63,11 @@ Viewe-Display ── HDMI ── Pi 5;  Touch ── I²C/USB ── Pi 5, IRQ �
 | 36 | Service | Panel-USB-C-Verlängerung | mit Kappe | 1 | Bestellen | 18.00 | 18.00 | Service |  |
 | 41 | I/O | Abgesetzte I²C-Leitung SM-I-009 | LiYCY 4×0,25 mm² + 2×20-Adapter | 1 | Bestätigen | 15.00 | 15.00 | SM-I-009 neben dem Stack | max. ca. 30 cm; I²C-Adressen prüfen |
 | 42 | Netz | Patchkabel Cat 6, 0,5 m, flach | – | 1 | Bestellen | 8.00 | 8.00 | Pi ↔ Cerbo GX | neu (ersetzt Pos. 15) |
-| 43 | Messung | Messnetzwerk: Pull-ups und Spannungsteiler | Metallfilm 0,1 %, Sortiment | 1 | Bestellen | 12.00 | 12.00 | AI1–AI8 (Kapitel 4) | neu |
+| 43 | Messung | Messnetzwerk: Pull-ups 0805, Teiler 47 k / 10 k, Serienwiderstände, Klemmdioden BAT54S | Metallfilm 0,1 % + BAT54S | 1 | Bestellen | 18.00 | 18.00 | AI1–AI8 (Kapitel 4.3) | SM-H-001 hat keinen Eingangsschutz |
 | 44 | Strom | ATO-Sicherungshalter + 2 A | Inline | 1 | Bestellen | 6.00 | 6.00 | +12 V an Relais-COM K1–K4 | neu |
-| | | **Zwischensumme** | | | | | **1'053.50** | | |
-| | | Reserve 15 % | | | | | 158.03 | | |
-| | | **Planungsbudget** | | | | | **1'211.52** | | |
+| | | **Zwischensumme** | | | | | **1'059.50** | | |
+| | | Reserve 15 % | | | | | 158.92 | | |
+| | | **Planungsbudget** | | | | | **1'218.42** | | |
 
 Entfallen gegenüber rev b: Pos. 12 USB-RS485 (I²C reicht), Pos. 15 VE.Direct-USB (Daten kommen vom Cerbo).
 
@@ -85,65 +87,87 @@ Quelle der Wahrheit für die Software ist `profiles/t6-california-a8l-2018.yaml`
 
 ### 4.1 Ausgänge
 
+**Status: Messung ausstehend, nicht zum Bau freigegeben.** Die VW-Schaltpläne bestätigen die Leitungswege (Nr. 133/2–10), aber nicht Pegel, Ströme, Richtungen und Widerstandswerte. Bis zur Messung am Original-E153 bleiben die Ausgangsstufen für Dach, Kühlbox und Heizung vorläufig. Die Software schaltet sie erst, wenn sie im Profil freigegeben sind (`release.roof`, `release.fridge`, `release.heater`, alle `false`).
+
 | Kanal | Karte | VW-Pin | Gerät | Schaltet | Bemerkung |
 | --- | --- | --- | --- | --- | --- |
-| K1 | SM-H-001 Relais 1 | T32b/11 | J768 Dach Befehl A | +12 V über COM (Annahme) | Richtung und Pegel messen (O6) |
-| K2 | SM-H-001 Relais 2 | T32b/12 | J768 Dach Befehl B | +12 V | dito |
-| K3 | SM-H-001 Relais 3 | T32b/10 | J1029 Kühlanforderung | +12 V | Pegel messen |
-| K4 | SM-H-001 Relais 4 | T6ap/3 | J604 S+ | +12 V | S+ bestätigt (T10ba/9) |
+| K1 | SM-H-001 Relais 1 | T32b/11 (gn 0,5 → T6bx/2 → J768 T32d/22) | J768 Dach Befehl A | +12 V über COM (Annahme) | Richtung unbestätigt (O6) |
+| K2 | SM-H-001 Relais 2 | T32b/12 (ws 0,5 → T6bx/1 → J768 T32d/23) | J768 Dach Befehl B | +12 V (Annahme) | dito; «/12 öffnet, /11 schliesst» ist unbestätigt |
+| K3 | SM-H-001 Relais 3 | T32b/10 (ge 0,5 → T6bj/3) | J698/J1029 Kühlanforderung | +12 V (Annahme) | Pegel und Strom messen; Typenschild entscheidet J698 oder J1029 |
+| K4 | SM-H-001 Relais 4 | T6ap/3 (ws/ge 0,35 → J604 T10ba/9) | J604 S+ | +12 V (Annahme) | Funktion S+ bestätigt; Spannung und Strom messen |
 | K5–K8 | SM-H-001 Relais 5–8 | – | frei | – | nicht für Sollwertleiter (gemeinsame COM) |
-| H1 | Purecrea Relais 1, GPIO17 | T2p | Segment 27,4 Ω | NC überbrückt | Relais an = Segment wirksam |
-| H2 | Purecrea Relais 2, GPIO27 | T2p | Segment 54,9 Ω | NC | |
-| H3 | Purecrea Relais 3, GPIO22 | T2p | Segment 110 Ω | NC | |
-| H4 | Purecrea Relais 4, GPIO23 | T2p | Segment 237 Ω | NC | Summe max. 2179,3 Ω |
+| H1–H4 | Purecrea Relais 1–4, GPIO17/27/22/23 | T2p/1 (rt/ws → T10ba/7), T2p/2 (br/ws → T10ba/10) | Sollwertleiter Segmente | NC überbrückt | Relais an = Segment wirksam; Werte offen |
 
-**COM K1–K4:** Die vier Relais teilen sich eine COM. Annahme: alle schalten +12 V über die 2-A-Sicherung (Pos. 44). Zeigt die Messung, dass ein Eingang nach Masse geschaltet werden muss, braucht dieser Kanal ein Relais aus der zweiten Gruppe (K5–K8) mit COM auf Masse.
+**COM K1–K4:** Die vier Relais teilen sich eine COM. Annahme: alle schalten +12 V über die 2-A-Sicherung (Pos. 44). Zeigt die Messung, dass ein Eingang nach Masse geschaltet werden muss, braucht dieser Kanal ein Relais aus der zweiten Gruppe (K5–K8) mit COM auf Masse. E153 überwacht seine Ausgänge auf Kurzschluss und Unterbrechung (Fehlercodes 1100–3101); ob J768/J604/J1029 einen Relaiskontakt ohne Fehlermeldung akzeptieren, zeigt erst der Test.
 
-**Sollwertleiter:** T2p/1 → 1750 Ω → Segment H1 → H2 → H3 → H4 → T2p/2. Jedes Segment hat einen NC-Kontakt parallel. Stromlos sind alle Segmente überbrückt: 1750 Ω.
+**Sollwertleiter:** T2p/1 → R0 → Segment H1 → H2 → H3 → H4 → T2p/2. Jedes Segment hat einen NC-Kontakt parallel. Stromlos sind alle Segmente überbrückt: R0. Laut SSP 329 hat das Original 10 Stufen (+10 bis +30 °C). Nicht veröffentlicht: der Widerstand je Stufe und ob mehr Widerstand wärmer oder kälter bedeutet. **R0 und die Segmentwerte erst nach der Messung bestellen.** Ist die Stufe mit grösserem Widerstand die wärmere, ist R0 die kälteste Stufe; sonst R0 und die Abbildung Stufe → Bits umkehren.
 
 ### 4.2 Digitaleingänge (SM-I-009, 3–24 V)
 
+Eingangsstufe: Optokoppler mit 2,2 kΩ, typisch 5 mA. I²C-Adresse (0x20 + Stack) XOR 7, Stack 0 = 0x27. Flankenzähler nur auf Hardware V3.
+
 | Kanal | VW-Pin | Signal | Bemerkung |
 | --- | --- | --- | --- |
-| DI1 | T32b/15 | J768 Rückmeldung A | |
-| DI2 | T32b/14 | J768 Rückmeldung B | |
-| DI3 | T32b/9 | Kühlbox Diagnose Klemme D | low-aktive Pulse; Pegel messen |
-| DI4 | T6ap/2 | J604 Betriebsanzeige | |
-| DI5 | T32b/22 | A11 Ladegerät Status | evtl. ohne Funktion (O5) |
-| DI6 | T32b/3 | Geschwindigkeitssignal J285 | Frequenz; Eingangsbandbreite des SM-I-009 prüfen |
-| DI7 | T32b/27 | Klemme 58d (mit dimmbarer Instrumentenbeleuchtung) | |
-| DI8 | T32b/28 | Klemme 86s | |
-| DI9 | T32b/29 | J519 T73a/3, Hypothese D+ | messen |
+| DI1 | T32b/15 (vi/br → T6bx/5 → J768 T32d/9) | J768 Rückmeldung A | Wahrheitstabelle messen; 4,5/12-V-Pegel sind unbestätigt |
+| DI2 | T32b/14 (ge/br → T6bx/6 → J768 T32d/10) | J768 Rückmeldung B | dito |
+| DI3 | T32b/9 (ge/rt → T6bj/4) | Kühlbox Diagnose Klemme D | vermutlich Low-Side-Ausgang; Pegel messen. BD35F: Codes 1–5, ca. 250 ms je Puls, 4 s Pause; Code 6 nicht Secop-Standard |
+| DI4 | T6ap/2 (ge/gr → J604 T10ba/2) | J604 Betriebsanzeige | Verhalten bei Start, Heizen, Nachlauf messen |
+| DI5 | T32b/22 (vi → A11 T6bp/1) | A11 Ladegerät Status | Polarität undokumentiert; evtl. ohne Funktion (O5) |
+| DI6 | T32b/3 (ws/vi → B464 → J285) | Geschwindigkeitssignal | Amplitude und Pulse/km messen; Flankenzähler SM-I-009 V3 |
+| DI7 | T32b/27 (B341) | Klemme 58d (mit dimmbarer Instrumentenbeleuchtung) | evtl. PWM; Software wertet «hoch im Fenster von 500 ms» als an. Wellenform aufzeichnen |
+| DI8 | T32b/28 (B518) | Klemme 86s | bestätigt; Schlüssel ab = aus, gesteckt = an (messen) |
+| DI9 | T32b/29 (B478 → J519 T73a/3 und Spule J713) | Laderelais-Befehl / Motor läuft | kein rohes D+; schaltet vermutlich nach Bordspannung, wenn J713 angesteuert wird. Nur loggen (O8) |
 | DI10 | T32b/30 | Zündung 15a (SC34) | zusätzlich entkoppelt an Wake-MCU |
-| DI11 | T6ap/4 | 58d Variante ohne dimmbare Beleuchtung | nur falls belegt |
+| DI11 | T6ap/4 (B340) | 58d Variante ohne dimmbare Beleuchtung | nur falls belegt |
 | DI12 | T6ap/6 | 15a Variante (SC32) | Reserve |
 | DI13–16 | – | frei | |
 
-### 4.3 Analogeingänge (SM-H-001, 0–10 V)
+Welche 58d-/15a-Kontakte belegt sind, hängt von der Ausstattung ab. PR-Codes vom Datenaufkleber notieren (A8L/A8R; 9CE/9CI ändern Licht- und Ladezweige), bevor Pins 27–30 festgelegt werden.
 
-Die VW-Geber sind Widerstände ohne eigene Speisung. Jeder bekommt ein Messnetzwerk (Pos. 43): Pull-up von der 5,1-V-Schiene, Geber-Ende B auf Masse, AI misst Ende A. AI5 misst die 5,1-V-Schiene selbst, damit die Software ratiometrisch rechnet.
+### 4.3 Analogeingänge (SM-H-001, 0–3,3 V)
 
-| Kanal | VW-Pin | Geber | Messnetzwerk |
+**Korrektur gegenüber Version 1.0:** Die Analogeingänge messen 0–3,3 V mit 12 bit, nicht 0–10 V. 0–10 V gilt nur für die vier Analogausgänge (DAC) der Karte.
+
+- Sequent User's Guide v3.0: 0–3,3 V, 12 bit, je Eingang 15 kΩ Pull-up auf der Karte für Thermistoren; mit einem parallelen 0805-Widerstand verkleinerbar.
+- Schema: je Kanal 51 Ω Serie, 15 kΩ Pull-up und 220 nF, direkt am STM32. **Keine Klemmdioden, kein Teiler.**
+- Händlerangabe V4: max. 3 V, 50 kΩ Eingangsimpedanz. Passt nicht zur v3-Anleitung; der Pull-up kann je Revision anders sein. Auslegung: **max. 3,0 V**.
+- Karte prüfen: PCB-Revision, Firmware und Spannung an jedem vorgesehenen AI-Eingang offen gegen Masse notieren. Etwa 3,3 V heisst: Pull-up bestückt.
+
+**Widerstandsgeber (G817, G249, G120, G126):** Geber zwischen AI und Masse, Pull-up von **3,3 V** (der 15-kΩ-Pull-up der Karte oder ein externer Widerstand an die 3,3-V-Schiene der Karte). **Nie von der 5,1-V-Schiene hochziehen:** Ein offener Geber legte sonst 5 V an einen ungeschützten 3,3-V-Eingang. Die Tankgeber brauchen voraussichtlich einen kleineren Pull-up als 15 kΩ für brauchbare Auflösung. G120 ist ein Stufengeber (diskrete Stufen), G126 praktisch binär. Für keinen der vier Geber gibt es verlässliche Widerstandswerte: messen. Die Software rechnet ratiometrisch gegen die gemessene 3,3-V-Schiene der Karte (Register 0x3F); AI5 wird dafür nicht mehr gebraucht.
+
+**12-V-Kanäle (AI6, AI7, AI8):** Teiler auf **≤ 3,0 V**, nicht ≤ 6 V / ≤ 8 V. Beispiel 47 kΩ / 10 kΩ: etwa 2,6 V bei 14,8 V und 2,8 V bei 16 V. Zusätzlich Serienwiderstand und Klemmung auf 3,3 V (z. B. BAT54S), weil die Karte keinen Eingangsschutz hat. Ist der 15-kΩ-Pull-up bestückt, verschiebt er den Teiler: entweder in die Rechnung aufnehmen oder auf diesen Kanälen entfernen. Die Software meldet «Analogeingang über 3,0 V», wenn ein Teilerkanal die Grenze überschreitet.
+
+| Kanal | VW-Pin | Geber / Signal | Messnetzwerk |
 | --- | --- | --- | --- |
-| AI1 | T32b/7 (A), /8 (B) | G817 NTC Kühlbox | Pull-up Wert nach Messung des NTC (`TODO_MEASURE`) |
-| AI2 | T32b/20, /21 | G120 Frischwasser, 4 Stufen | Pull-up nach Messung der Stufenwiderstände |
+| AI1 | T32b/7 (ws/br), /8 (gn/br) | G817 NTC Kühlbox | Pull-up 3,3 V; Wert nach Messung (`TODO_MEASURE`) |
+| AI2 | T32b/20, /21 | G120 Frischwasser, Stufengeber | Pull-up 3,3 V, kleiner als 15 kΩ; nach Messung |
 | AI3 | T32b/18, /19 | G126 Abwasser, voll/nicht voll | dito |
-| AI4 | T32b/16, /17 | G249 NTC aussen | dito |
-| AI5 | – | Referenz 5,1-V-Schiene | Teiler 1:1 |
-| AI6 | T32b/11 | Dachbefehl A (Messmodus) | Teiler 12 V → ≤ 6 V |
-| AI7 | T32b/12 | Dachbefehl B (Messmodus) | Teiler 12 V → ≤ 6 V |
-| AI8 | T32b/32 | Batteriespannung, Rückfall ohne Cerbo | Teiler 16 V → ≤ 8 V |
+| AI4 | T32b/16, /17 | G249 NTC aussen | Pull-up 3,3 V; nach Messung |
+| AI5 | – | frei (Referenz kommt aus der Karte) | – |
+| AI6 | T32b/11 | Dachbefehl A (Messmodus) | Teiler 47 k / 10 k + Serie + BAT54S |
+| AI7 | T32b/12 | Dachbefehl B (Messmodus) | dito |
+| AI8 | T32b/32 (rt/ge 0,5, SH21 5 A) | Batteriespannung, Rückfall ohne Cerbo | dito; Abfall über SH21 direkt an beiden Sicherungsklemmen messen |
 
-**Achtung Messmodus:** Solange das Original-E153 angeschlossen ist, dürfen keine Pull-ups an AI1–AI4 hängen; sie würden die Messung des E153 verfälschen. Im Messmodus die Pull-ups über die Patchstecker abtrennen und nur hochohmig mithören.
+**Achtung Messmodus:** Der 15-kΩ-Pull-up sitzt auf der Karte und lässt sich mit den Patchsteckern nicht abtrennen. Parallel zum Original-E153 würden AI1–AI4 die Geberleitungen belasten und die Messung des E153 verfälschen. Für die Aufzeichnung am Original deshalb Multimeter oder Logikanalysator am Breakout verwenden, nicht die Karte.
 
 ### 4.4 Pi-5-Header
 
 | GPIO | Funktion | Bemerkung |
 | --- | --- | --- |
-| 2 / 3 | I²C SDA/SCL → SM-H-001, SM-I-009, (Touch) | Adressen der Karten prüfen, Jumper setzen |
-| 4 / 5 | UART2 TX/RX ↔ XIAO ESP32-S3 | `dtoverlay=uart2-pi5`; mit Belegung des SM-H-001 abgleichen (O4) |
-| 17, 27, 22, 23 | H1–H4 | Platzhalter, mit Belegung des SM-H-001 abgleichen (O4) |
+| 2 / 3 | I²C SDA/SCL → SM-H-001 (0x28), SM-I-009 (0x27), (Touch) | beide Karten nutzen laut Sequent nur I²C (O4 erledigt) |
+| 4 / 5 | UART2 TX/RX ↔ XIAO ESP32-S3 | `dtoverlay=uart2-pi5` |
+| 17, 27, 22, 23 | H1–H4 (Purecrea) | Polarität `outputs.heater_ladder.gpio_active` prüfen |
 | 26 | `ALIVE` → XIAO (high, solange `camperd` läuft) | Power-Good-Ersatz, zusätzlich zur 3,3-V-Schiene |
+
+**Bootzustand H1–H4:** GPIO17/27/22/23 sind nach dem Einschalten Eingänge mit Pull-down. Zieht das Purecrea-Modul bei Low an (typisch für solche Module), würden die Relais bis zum Start von `camperd` anziehen. Deshalb in `config.txt` den Ruhepegel festlegen, z. B. `gpio=17,22,23,27=op,dh` bei Low-aktiv (`=op,dl` bei High-aktiv). Bis die Polarität geprüft ist, steuert `camperd` H1–H4 nicht an.
+
+### 4.5 Steckerlage (VW Einbauseite 805/3, Blick auf die Rückseite von E153)
+
+- T32b: Pin 1 oben links, 16 oben rechts, 17 unten links, 32 unten rechts.
+- T6ap: Pin 1 oben links, 3 oben rechts, 4 unten links, 6 unten rechts.
+- T2p: senkrecht, Pin 2 über Pin 1.
+
+Bestellnummern der Gehäuse sind daraus nicht ableitbar: Herstellermarkierungen und Codierrippen fotografieren.
 
 ## 5. Stromversorgung
 
@@ -169,11 +193,13 @@ Mit `cog` statt Chromium dürfte der typische Wert für den Pi tiefer liegen. In
 
 ## 6. Vor dem Einbau messen (Daniel)
 
-1. Widerstand T2p am Original-Panel bei Minimum und Maximum
-2. Pegel und Polarität an T32b/10, /11, /12 und T6ap/3 im Betrieb
-3. Wahrheitstabelle T32b/14 und /15 beim Öffnen und Schliessen
-4. T32b/29 bei Motor aus und an (D+?)
-5. Widerstände G120 je Stufe, G126 leer/voll, Kennlinien G817 und G249
-6. Typenschild Kühlbox-Kompressor und -Elektronik
-7. Typenschild MultiPlus, Batteriemonitor vorhanden?
-8. Bauraum hinter dem E153-Ausschnitt (max. 18 cm Breite laut Daniel)
+1. **J604:** Widerstand T2p je Anzeigestufe (E153-Seite, T2p abgezogen); T6ap/2 und /3 Spannung, Strom und Zeitverlauf (Start, Heizen, Nachlauf)
+2. **Kühlbox:** T32b/9 und /10 Spannung, Strom, Zeitverlauf; Kennlinie G817; beide Typenschilder (Kompressor, Elektronik)
+3. **Dach:** T32b/11, /12, /14, /15 gleichzeitig in allen vier Dachzuständen (zu, öffnet, offen, schliesst)
+4. **Fahrzeug:** T32b/3 Frequenz und Amplitude, /29, /28, beide 58d (Wellenform), beide 15a
+5. **Geber:** Kennlinien G120, G126, G249
+6. **Typenschilder/Fotos:** A11, MultiPlus, Victron-Monitor (Cerbo-Geräteliste zeigt SmartShunt/BMV und das MultiPlus-Modell), SM-H-001 (PCB-Revision, Firmware, offene AI-Spannungen), alle drei E153-Stecker; PR-Codes vom Datenaufkleber
+7. **Bauraum** hinter dem E153-Ausschnitt: Breite, Höhe, Tiefe, Biegeradien, Halterungen (keine veröffentlichten Masse; max. 18 cm Breite laut Daniel)
+8. Purecrea-Modul: Eingangspegel, der ein Relais anzieht (Low oder High), bei 3,3-V-Ansteuerung
+
+Hilfreich: das Werkstattmenü des Original-E153 (Escape > 1 s halten, Drehknopf drücken) zeigt Rohwerte; gleichzeitig am abgezogenen Geber messen.

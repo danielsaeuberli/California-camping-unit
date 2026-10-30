@@ -97,3 +97,46 @@ Belegung des Steckers T10ba an J604 laut zwei Threads im TX-Board. Die Farben de
 - Eberspächer Airtronic Technische Beschreibung: https://eberspacherdirect.com/wp-content/uploads/2020/09/Eberspacher-Airtronic-D2-Manual-Technical-Description.pdf
 - Secop BD35F Datenblatt: https://selector.secop.com/fileadmin/user_upload/SEPS/datasheets/en/bd35f_101z0204_r134a_12-24vdc_01-2024_desd100p722.pdf
 - minitools, Reparatur Bedienteil T5/T6 California: https://www.minitools.com/volkswagen-t5-t6-california-camper-control-panel-repair/
+
+## Nachtrag 30. Oktober 2026: Suche nach den fehlenden Messwerten
+
+Gesucht in VW-SSP, Foren (VW California Club, TX-Board, T6-Forum, YBW) und GitHub.
+
+### Gefunden
+
+| Thema | Ergebnis | Quelle | Verlässlichkeit |
+| --- | --- | --- | --- |
+| Dach-Freigabe | E153 verlangt **Zündung ein und Fahrzeug steht** («Ignition on? Vehicle Stationary?»). Stillstand kommt über das Geschwindigkeitssignal J285 (T32b/3). Software muss das nachbilden. | VW California Club, «Electric Roof fault code» | Forum, plausibel mit Nr. 133 |
+| Dach-Geber G491–G494 | GMR-/Hall-Geber mit 12-V-Speisung durch J768, ca. 3 mA mit und 13 mA ohne Magnetfeld. Hängen nur an J768, nicht an E153. | VW California Club, «roof end-switches» | Forum, gemessen |
+| Dach-Logik | J768 meldet den Zustand «offen/geschlossen» an E153; Absenken nur mit gehaltener Taste und Abfrage (Bett unten, Rollo offen, Fenster offen). | VW SSP 329 (T5 California) | VW-Schulungsunterlage, T5 |
+| Heizung | E153 bietet **10 Temperaturstufen** (Luftzusatzheizung ohne Zeitlimit). Deutet auf 10 Sollwert-Widerstände, nicht 16. | VW SSP 329 | VW, T5; für T6 messen |
+| Kühlschrankfühler G817 | NTC, laut Nutzer «knapp über 500 Ω» am Stecker gemessen (Temperatur nicht angegeben). Ersatzteil Dometic 296.9711.01. | VW California Club, «Cool box does not stop cooling» | Forum, eher T5; für T6 messen |
+| Wassertanks | G120: 3 Schaltstufen, Anzeige 3/3, 2/3, 1/3, leer. G126: nur voll/leer. | VW SSP 329 | VW |
+| Diagnose am Original | Das versteckte Werkstattmenü von E153 (Escape > 1 s halten und Drehknopf drücken) zeigt Fehler und laut Forum Eingangswerte im Rohformat. | SSP 329, VW California Club | nutzen, bevor E153 ausgebaut wird |
+
+### Nicht gefunden (bleibt Messung)
+
+* Widerstand T2p (Sollwert Heizung): Die Espar/Eberspächer-Handbücher, die ihn wahrscheinlich enthalten, waren nicht abrufbar (Bergstrom «Airtronic D2/D4 Installation, Troubleshooting & Parts Manual», DKSI «Espar D2-D4 Manual»). Lokal herunterladen und in den T6-Ordner legen.
+* Pegel und Polarität an T32b/10, /11, /12, T6ap/3
+* Wahrheitstabelle T32b/14, /15
+* T32b/29 (D+-Hypothese)
+* Widerstände G120 je Stufe, G126 voll/leer
+* Kennlinie G249 (keine Teilenummer oder Tabelle gefunden)
+* Kennlinie G817 über Temperatur
+* GitHub: Nur ein Projekt zum T7 (ckeller42/open-california, BLE). Für T5/T6-E153 nichts Öffentliches.
+
+### Messvorschlag mit dem Original-E153
+
+1. Werkstattmenü öffnen, Rohwerte von Kühlschrank, Aussentemperatur und Tanks bei bekannten Zuständen notieren (Tank leer/voll, Kühlschrank kalt/warm). Gleichzeitig Widerstand am abgezogenen Geber messen. So entsteht die Kennlinie ohne Laborarbeit.
+2. Heizung: alle 10 Stufen am Panel durchschalten, Widerstand an T2p je Stufe messen (E153-Seite, T2p abgezogen).
+3. Dach: T32b/11, /12, /14, /15 mit Multimeter oder Logikanalysator (über Teiler) beim Öffnen, Schliessen und in den Endlagen aufzeichnen.
+
+### Zusätzliche Quellen
+
+- VW SSP 329 California 2004: https://www.poptop.nl/wp-content/uploads/2016/02/ssp_329-T5-english.pdf
+- VW California Club, «Cool box does not stop cooling»: https://mail.vwcaliforniaclub.com/goto/post?id=156757
+- VW California Club, «Electric Roof fault code»: https://vwcaliforniaclub.com/goto/post?id=427684
+- VW California Club, «roof end-switches»: https://mail.vwcaliforniaclub.com/threads/roof-end-switches.33358
+- GitHub open-california (T7): https://github.com/ckeller42/open-california
+- Bergstrom Airtronic D2/D4 Manual: https://bergstrominc.com/us/wp-content/uploads/2025/04/Airtronic_D2-D4_Manual-1.pdf
+- DKSI Espar D2/D4 Manual: https://dksi.com/wp-content/uploads/2020/03/Espar-D2-D4-Manual.pdf

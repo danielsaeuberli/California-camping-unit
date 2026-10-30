@@ -55,7 +55,7 @@ async def test_io_only_after_subscribe(rig, tmp_path):
         ws = await client.ws_connect("/ws")
         await ws.send_str(json.dumps({"v": 1, "type": "subscribe", "topics": ["io"]}))
         io = await recv_type(ws, "io")
-        assert len(io["data"]["di"]) == 16 and len(io["data"]["ai_v"]) == 8
+        assert len(io["data"]["di"]) == 16 and len(io["data"]["ai_v"]) == 8 and len(io["data"]["k"]) == 8
 
 
 async def test_settings_persist(rig, tmp_path):
