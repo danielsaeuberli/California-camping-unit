@@ -94,3 +94,22 @@ async def test_divider_overvoltage_alert(rig):
     rig.hal.read_ai = high
     await rig.run_for(0.2)
     assert any(a["id"] == "ai_overvoltage" for a in rig.ctrl.alerts())
+
+
+async def test_58d_pwm_counts_as_on(rig):
+    orig = rig.hal.read_di
+    t = {"n": 0}
+
+    async def pwm():
+        di = await orig()
+        t["n"] += 1
+        di[6] = t["n"] % 10 == 0  # 58d high only every 10th sample (200 ms period, 10 % duty)
+        return di
+
+    rig.hal.read_di = pwm
+    await rig.run_for(0.3)  # first high sample
+    states = set()
+    for _ in range(50):
+        await rig.run_for(0.02)
+        states.add(rig.ctrl.vehicle.dim58)
+    assert states == {True}

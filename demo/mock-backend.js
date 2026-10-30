@@ -124,6 +124,7 @@ function stateMsg() {
     outside_c: W.outside, outside_q: 'ok',
     vehicle: {moving: W.moving, d_plus: W.moving, t86s: true, dim58: W.dim58},
     alerts: alerts(),
+    release: {roof: true, fridge: true, heater: true},
     settings: M.settings,
     ui: {discard_first_touch: false},
   }};
@@ -147,13 +148,13 @@ function ioMsg() {
   const di = [pos >= 1, pos <= 0, fdiag, h.running, W.scenario === 'shore', W.moving && t % 0.2 < 0.1, W.dim58, true,
     W.moving, W.ignition || W.moving, false, false, false, false, false, false].map(Number);
   const bits = [0, 1, 2, 3].map(i => h.on ? (h.level >> i) & 1 : 0);
-  const ohm = 1 / (1 / 2200 + [160000, 80000, 40000, 20000].reduce((s, o, i) => s + (bits[i] ? 1 / o : 0), 0));  // sim values
+  const ohm = 1750 + [27.4, 54.9, 110, 237].reduce((s, o, i) => s + (bits[i] ? o : 0), 0);  // sim values, not measured
   return {v: 1, type: 'io', ts: Date.now(), data: {
     di, k: [M.roof.energized === 'open', M.roof.energized === 'close', M.fridge.request, h.on && ['start', 'heating'].includes(h.phase),
-      0, 0, 0, 0, ...bits, 0, 0, 0, 0].map(Number),
+      0, 0, 0, 0].map(Number),
     h: bits, ai_v: [2.42 - (M.fridge.temp - 5) * 0.03, [0.50, 0.95, 1.37, 1.69][W.fresh], W.wasteFull ? 0.50 : 1.69, 1.31, 0.0,
-      M.roof.energized === 'open' ? 2.18 : 0, M.roof.energized === 'close' ? 2.18 : 0, 2.25, 0, 0, 0, 0, 0, 0, 0, 0],
-    rails_v: [3.30, 3.30], ladder_ohm: ohm,
+      M.roof.energized === 'open' ? 2.18 : 0, M.roof.energized === 'close' ? 2.18 : 0, 2.25],
+    rail_v: 3.30, ladder_ohm: ohm,
   }};
 }
 

@@ -14,12 +14,13 @@ vehicle:
 
 buses:
   i2c: 1
-  # Two Sequent SM-H-001 Home Automation cards (I2C 0x28 + stack level, DIP ID0-ID2).
-  # Card A: K1-K8, DI1-DI8 (opto), AI1-AI8.  Card B: K9-K16, DI9-DI16, AI9-AI16.
+  # Sequent SM-H-001 Home Automation: K1-K8, AI1-AI8. I2C 0x28 + stack (DIP ID0-ID2).
   # Analog inputs: 0-3.3 V, 12 bit, no input protection; plan for max. 3.0 V.
   # Input impedance: 50 kOhm per V4 listing, not stated for V3 -> TODO_CHECK per revision.
-  sm_h001_a: { stack: 0, ai_max_v: 3.0, ai_input_ohm: TODO_CHECK }
-  sm_h001_b: { stack: 1, ai_max_v: 3.0, ai_input_ohm: TODO_CHECK }
+  sm_h001: { stack: 0, ai_max_v: 3.0, ai_input_ohm: TODO_CHECK }
+  # Sequent SM-I-009 Sixteen LV Digital Inputs: DI1-DI16 (3-24 V, 2.2 kOhm, ~5 mA).
+  # I2C (0x20 + stack) XOR 7 -> stack 0 = 0x27. Edge counters only on hardware V3.
+  sm_i009: { stack: 0 }
   alive_gpio: 26                 # high while camperd runs (HARDWARE.md 4.4)
   wake_uart: { device: /dev/ttyAMA2, baud: 115200 }
   cerbo: { host: 192.168.77.1, port: 1883, keepalive_s: 30, stale_s: 10 }
@@ -30,17 +31,19 @@ outputs:
   fridge_req:   { pin: T32b/10, channel: K3, active: high }                          # Pegel TODO_MEASURE
   heater_splus: { pin: T6ap/3,  channel: K4, active: high }                          # S+ bestätigt
   heater_ladder:
-    # Parallel ladder on card B (N.O. contacts, common COM per group of four):
-    # T2p/1 - base_ohm - T2p/2 always; each relay adds its branch in parallel
-    # (COM on T2p/1). Relays off = base_ohm = level 0 (S1).
-    # Values follow from the T2p measurement at the original panel (HARDWARE.md 6.1).
-    topology: parallel
+    # Series ladder on the Purecrea module (separate COM/NC/NO per relay):
+    # T2p/1 - base_ohm - H1 - H2 - H3 - H4 - T2p/2, each segment bridged by an NC contact.
+    # Relays off = all segments bridged = base_ohm (S1). Relay on = segment active.
+    # Values from the T2p measurement per level at the original panel (HARDWARE.md 6.1);
+    # the 1750 / 27.4 / 54.9 / 110 / 237 ohm of the workbook are unconfirmed.
+    topology: series
     base_ohm: TODO_MEASURE
-    branches:                    # binary-weighted conductance, bit 0 = H1
-      - { channel: K9,  ohm: TODO_MEASURE }
-      - { channel: K10, ohm: TODO_MEASURE }
-      - { channel: K11, ohm: TODO_MEASURE }
-      - { channel: K12, ohm: TODO_MEASURE }
+    gpio_active: TODO_CHECK        # low | high: input level that energises a Purecrea relay
+    segments:                      # bit 0 = H1
+      - { channel: H1, gpio: 17, ohm: TODO_MEASURE }
+      - { channel: H2, gpio: 27, ohm: TODO_MEASURE }
+      - { channel: H3, gpio: 22, ohm: TODO_MEASURE }
+      - { channel: H4, gpio: 23, ohm: TODO_MEASURE }
     switch_gap_ms: 50
 
 inputs:
@@ -49,10 +52,10 @@ inputs:
   fridge_diag: { pin: T32b/9,  channel: DI3,  mode: pulse, active: low, pulse_ms: 250, frame_ms: 4000 }
   heater_run:  { pin: T6ap/2,  channel: DI4,  debounce_ms: 200 }
   shore_a11:   { pin: T32b/22, channel: DI5,  log_only: true }      # O5
-  speed:       { pin: T32b/3,  channel: DI6,  mode: counter, window_ms: 1000, moving_min_edges: 3 }  # card A opto counter, max 500 Hz
-  dim_58d:     { pin: T32b/27, channel: DI7 }
-  term_86s:    { pin: T32b/28, channel: DI8,  log_only: true }
-  d_plus:      { pin: T32b/29, channel: DI9,  log_only: true }      # Hypothese, O8
+  speed:       { pin: T32b/3,  channel: DI6,  mode: counter, window_ms: 1000, moving_min_edges: 3 }  # SM-I-009 V3 edge counter; V2: polling
+  dim_58d:     { pin: T32b/27, channel: DI7,  window_ms: 500 }  # may be PWM: on if high within the window
+  term_86s:    { pin: T32b/28, channel: DI8,  log_only: true }      # B518 = 86s, confirmed by VW diagram
+  d_plus:      { pin: T32b/29, channel: DI9,  log_only: true }      # J519 T73a/3 + J713 charge-relay coil (engine running), not raw D+; O8
   ign_15a:     { pin: T32b/30, channel: DI10, debounce_ms: 100 }
   dim_58d_alt: { pin: T6ap/4,  channel: DI11, enabled: false }
   ign_15a_alt: { pin: T6ap/6,  channel: DI12, enabled: false }
@@ -116,6 +119,14 @@ power:
   undervoltage_v: 11.8
   undervoltage_hold_s: 60
   heartbeat_s: 5
+
+# Release per switching function (SPEC 11, M7). false = measurement pending: camperd never
+# energises the outputs of that function and rejects its commands. Set true only after the
+# function has been measured and approved at the vehicle.
+release:
+  roof: false          # K1/K2: direction and truth table unmeasured (O6)
+  fridge: false        # K3: level/current at T32b/10 unmeasured
+  heater: false        # K4 S+ and ladder H1-H4: T2p steps and S+ level unmeasured (O15)
 
 ui:
   idle_return_min: 2

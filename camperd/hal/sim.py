@@ -14,8 +14,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from camperd.clock import Clock
-from camperd.hal.base import N_AI, N_DI, N_RELAY, Hal, HalError
-from camperd.hal.layout import card_of
+from camperd.hal.base import N_AI, N_DI, N_GPIO, N_RELAY, Hal, HalError
 from camperd.modules.energy import VictronStore
 from camperd.profile import Profile, is_cal
 from camperd.signals import SteinhartHart, StepCurve, build_curve, resistance_to_voltage
@@ -57,6 +56,7 @@ class SimHal(Hal):
         self.clock = clock
         self.world = SimWorld()
         self.relays = [False] * N_RELAY
+        self.gpio = [False] * N_GPIO
         self._speed_edges = 0.0
         self._lock = threading.Lock()
         self._last = clock.now()
@@ -124,8 +124,8 @@ class SimHal(Hal):
         ai[7] = self._divided("battery_v", 12.8)
         return ai
 
-    async def read_rails(self) -> list[float | None]:
-        return [self._ref_v, self._ref_v]
+    async def read_rail(self) -> float | None:
+        return self._ref_v
 
     async def read_counters(self, channels: tuple[int, ...]) -> dict[int, int]:
         speed = self.p.channel_index("inputs.speed", "DI")
@@ -136,8 +136,7 @@ class SimHal(Hal):
         return volts / float(div) if is_cal(div) else None
 
     def _input_ohm(self, name: str) -> float | None:
-        card, _ = card_of(self.p.channel_index(f"analog.{name}", "AI"))
-        v = self.p.get(f"buses.{card}.ai_input_ohm", None)
+        v = self.p.get("buses.sm_h001.ai_input_ohm", None)
         return float(v) if is_cal(v) else None
 
     def _pullup(self, name: str) -> float | None:
@@ -162,9 +161,14 @@ class SimHal(Hal):
         with self._lock:
             self.relays[ch - 1] = on
 
+    async def write_gpio(self, ch: int, on: bool) -> None:
+        with self._lock:
+            self.gpio[ch - 1] = on
+
     def all_off_sync(self) -> None:
         with self._lock:
             self.relays = [False] * N_RELAY
+            self.gpio = [False] * N_GPIO
 
 
 def _fridge_pulse_low(code: int | None, t: float) -> bool:

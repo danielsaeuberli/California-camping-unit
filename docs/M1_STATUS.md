@@ -52,4 +52,4 @@ deploy/                      O1  cog/DRM, HDMI-Modus
 
 ## Nächster Schritt
 
-M2: siehe `docs/M2_STATUS.md` (zwei SM-H-001 statt SM-I-009 + Purecrea).
+M2: siehe `docs/M2_STATUS.md`.

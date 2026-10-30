@@ -47,8 +47,8 @@ SCHEMA: dict[str, Any] = {
     },
     "buses": {
         "i2c": LEAF,
-        "sm_h001_a": {"stack": LEAF, "ai_max_v": LEAF, "ai_input_ohm": LEAF},
-        "sm_h001_b": {"stack": LEAF, "ai_max_v": LEAF, "ai_input_ohm": LEAF},
+        "sm_h001": {"stack": LEAF, "ai_max_v": LEAF, "ai_input_ohm": LEAF},
+        "sm_i009": {"stack": LEAF},
         "alive_gpio": LEAF,
         "wake_uart": {"device": LEAF, "baud": LEAF},
         "cerbo": {"host": LEAF, "port": LEAF, "keepalive_s": LEAF, "stale_s": LEAF},
@@ -61,7 +61,8 @@ SCHEMA: dict[str, Any] = {
         "heater_ladder": {
             "topology": LEAF,
             "base_ohm": LEAF,
-            "branches": [{"channel": LEAF, "ohm": LEAF}],
+            "gpio_active": LEAF,
+            "segments": [{"channel": LEAF, "gpio": LEAF, "ohm": LEAF}],
             "switch_gap_ms": LEAF,
         },
     },
@@ -100,6 +101,7 @@ SCHEMA: dict[str, Any] = {
         "undervoltage_hold_s": LEAF,
         "heartbeat_s": LEAF,
     },
+    "release": {"roof": LEAF, "fridge": LEAF, "heater": LEAF},
     "ui": {"idle_return_min": LEAF, "theme": LEAF, "brightness_pct": LEAF, "backlight_control": LEAF},
     "measure": {"outputs_locked": LEAF, "di_resolution_ms": LEAF, "ai_rate_hz": LEAF},
 }

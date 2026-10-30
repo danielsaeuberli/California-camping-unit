@@ -1,4 +1,4 @@
-"""Parking heater (J604): S+ via K4, setpoint ladder on card B (S7), phases incl. afterrun."""
+"""Parking heater (J604): S+ via K4, setpoint ladder H1-H4 (S7), phases incl. afterrun."""
 
 from __future__ import annotations
 
@@ -12,9 +12,9 @@ from camperd.profile import Profile, ProfileError, is_cal
 @dataclass(frozen=True)
 class HeaterConfig:
     levels: int
-    ladder_channels: tuple[int, ...]  # relay channels, bit 0 first
+    n_segments: int
     base_ohm: float | None
-    branch_ohm: tuple[float, ...] | None
+    segment_ohm: tuple[float, ...] | None
     switch_gap_s: float
     start_timeout_s: float
     afterrun_expected_s: float
@@ -22,31 +22,28 @@ class HeaterConfig:
 
     @property
     def ladder_calibrated(self) -> bool:
-        return self.base_ohm is not None and self.branch_ohm is not None
+        return self.base_ohm is not None and self.segment_ohm is not None
 
     @classmethod
     def from_profile(cls, p: Profile) -> HeaterConfig:
         lad = "outputs.heater_ladder"
-        if p.require(f"{lad}.topology") != "parallel":
-            raise ProfileError(f"{lad}.topology: only 'parallel' is supported")
-        branches = p.require(f"{lad}.branches")
-        channels = []
-        for b in branches:
-            ch = str(b["channel"])
-            if not ch.startswith("K"):
-                raise ProfileError(f"{lad}.branches: expected K<n>, got {ch!r}")
-            channels.append(int(ch[1:]))
+        if p.require(f"{lad}.topology") != "series":
+            raise ProfileError(f"{lad}.topology: only 'series' is supported")
+        segs = p.require(f"{lad}.segments")
+        for i, seg in enumerate(segs, start=1):
+            if seg.get("channel") != f"H{i}":
+                raise ProfileError(f"{lad}.segments[{i - 1}]: expected channel H{i}")
         base = p.get(f"{lad}.base_ohm")
-        ohms = [b.get("ohm") for b in branches]
+        ohms = [s.get("ohm") for s in segs]
         l2c = p.get("heater.level_to_c")
         levels = int(p.require("heater.levels"))
-        if not 2 <= levels <= 2 ** len(channels):
-            raise ProfileError(f"heater.levels must be 2..{2 ** len(channels)} for {len(channels)} ladder relays")
+        if not 2 <= levels <= 2 ** len(segs):
+            raise ProfileError(f"heater.levels must be 2..{2 ** len(segs)} for {len(segs)} ladder relays")
         return cls(
             levels=levels,
-            ladder_channels=tuple(channels),
+            n_segments=len(segs),
             base_ohm=float(base) if is_cal(base) else None,
-            branch_ohm=tuple(float(o) for o in ohms) if all(is_cal(o) for o in ohms) else None,
+            segment_ohm=tuple(float(o) for o in ohms) if all(is_cal(o) for o in ohms) else None,
             switch_gap_s=float(p.require(f"{lad}.switch_gap_ms")) / 1000,
             start_timeout_s=float(p.require("heater.start_timeout_s")),
             afterrun_expected_s=float(p.require("heater.afterrun_expected_s")),
@@ -80,7 +77,7 @@ class Heater:
         self.level = cfg.levels // 2 if cfg.ladder_calibrated else 0
         self.phase = "off"
         self._phase_since = clock.now()
-        self.ladder = Ladder(len(cfg.ladder_channels), cfg.switch_gap_s)
+        self.ladder = Ladder(cfg.n_segments, cfg.switch_gap_s)
         self.running = False
 
     def set(self, on: bool | None = None, level: int | None = None) -> str | None:
@@ -124,11 +121,10 @@ class Heater:
         return k4, self.ladder.tick(target, now)
 
     def ladder_ohm(self) -> float | None:
-        """Resistance seen by J604 at T2p (parallel ladder), ``None`` if not calibrated."""
-        if self.cfg.base_ohm is None or self.cfg.branch_ohm is None:
+        """Resistance seen by J604 at T2p (series ladder), ``None`` if not calibrated."""
+        if self.cfg.base_ohm is None or self.cfg.segment_ohm is None:
             return None
-        g = 1 / self.cfg.base_ohm + sum(1 / o for o, b in zip(self.cfg.branch_ohm, self.ladder.bits, strict=True) if b)
-        return 1 / g
+        return self.cfg.base_ohm + sum(o for o, b in zip(self.cfg.segment_ohm, self.ladder.bits, strict=True) if b)
 
     def afterrun_left_s(self) -> int:
         if self.phase != "afterrun":

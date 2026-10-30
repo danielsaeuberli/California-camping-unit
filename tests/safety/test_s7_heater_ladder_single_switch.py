@@ -31,8 +31,7 @@ def test_level_to_bits_and_resistance(sim_profile, clock):
         h.tick(False)
         clock.advance(0.06)
     assert h.ladder.bits == [False, True, False, True]
-    g = 1 / cfg.base_ohm + 1 / cfg.branch_ohm[1] + 1 / cfg.branch_ohm[3]
-    assert abs(h.ladder_ohm() - 1 / g) < 1e-6
+    assert abs(h.ladder_ohm() - (cfg.base_ohm + cfg.segment_ohm[1] + cfg.segment_ohm[3])) < 1e-6
 
 
 async def test_controller_ladder_relays_single_switch(rig):

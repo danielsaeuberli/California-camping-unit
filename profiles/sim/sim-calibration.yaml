@@ -8,19 +8,20 @@ outputs:
   roof_a: { meaning: open }
   roof_b: { meaning: close }
   heater_ladder:
-    base_ohm: 2200.0
-    branches:
-      - { channel: K9,  ohm: 160000.0 }
-      - { channel: K10, ohm: 80000.0 }
-      - { channel: K11, ohm: 40000.0 }
-      - { channel: K12, ohm: 20000.0 }
+    base_ohm: 1750.0
+    gpio_active: low
+    segments:
+      - { channel: H1, gpio: 17, ohm: 27.4 }
+      - { channel: H2, gpio: 27, ohm: 54.9 }
+      - { channel: H3, gpio: 22, ohm: 110.0 }
+      - { channel: H4, gpio: 23, ohm: 237.0 }
 
 analog:
   fridge_temp:  { pullup_ohm: 15000 }   # on-board 15 kOhm
   fresh_water:  { pullup_ohm: 1000 }
   waste_water:  { pullup_ohm: 1000 }
   outside_temp: { pullup_ohm: 15000 }
-  roof_cmd_a_v: { divider: 5.7 }     # 16 V -> 2.8 V
+  roof_cmd_a_v: { divider: 5.7 }       # 47 k / 10 k: 16 V -> 2.8 V
   roof_cmd_b_v: { divider: 5.7 }
   battery_v:    { divider: 5.7 }
 
@@ -32,3 +33,5 @@ curves:
 
 roof:
   truth_table: { "10": open, "01": closed, "00": between, "11": fault }
+
+release: { roof: true, fridge: true, heater: true }   # simulator only

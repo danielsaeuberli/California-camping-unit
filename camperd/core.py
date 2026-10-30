@@ -8,8 +8,7 @@ from collections.abc import Callable
 from typing import Any
 
 from camperd.clock import Clock
-from camperd.hal.base import N_AI, N_DI, N_RELAY, Hal, HalError
-from camperd.hal.layout import CARDS, card_index
+from camperd.hal.base import N_AI, N_DI, N_GPIO, N_RELAY, Hal, HalError
 from camperd.modules.energy import VictronStore
 from camperd.modules.fridge import Fridge, FridgeConfig
 from camperd.modules.heater import Heater, HeaterConfig
@@ -56,8 +55,10 @@ class Controller:
             for n, spec in profile.require("analog").items()
             if "divider" in spec
         ]
-        self.ai_max_v = [float(profile.get(f"buses.{c}.ai_max_v", 3.0)) for c in CARDS]
-        self.rails: list[float | None] = [None] * len(CARDS)
+        self.ai_max_v = float(profile.get("buses.sm_h001.ai_max_v", 3.0))
+        # Functions not released in the profile never switch (measurement pending).
+        self.released = {f: profile.get(f"release.{f}", False) is True for f in ("roof", "fridge", "heater")}
+        self.rail: float | None = None
         self.ai_overvoltage: list[int] = []
         self.ch_speed = ch("inputs.speed", "DI")
         self.speed_counter = profile.get("inputs.speed.mode") == "counter"
@@ -79,8 +80,8 @@ class Controller:
         self.di_ok = False
         self._di_errors = 0
         self.k = [False] * N_RELAY
-        self.h = [False] * len(self.heater.cfg.ladder_channels)  # ladder bits (relays K9-K12)
-        self._written: dict[int, bool] = {}
+        self.h = [False] * N_GPIO
+        self._written: dict[tuple[str, int], bool] = {}
         self.counts: dict[int, int] = {}
         self._cycle = 0
         self.ready = False
@@ -92,13 +93,17 @@ class Controller:
         """All K and H outputs off before any message is accepted."""
         await self.hal.all_off()
         for i in range(1, N_RELAY + 1):
-            self._written[i] = False
+            self._written[("k", i)] = False
+        for i in range(1, N_GPIO + 1):
+            self._written[("h", i)] = False
         self.ready = True
 
     # ----- commands (from the API) -----
     def command(self, target: str, values: dict[str, Any]) -> str | None:
         """Returns a reject reason or None."""
         self.power.user_input()
+        if target in self.released and not self.released[target]:
+            return "not_released"
         if target == "fridge":
             return self.fridge.set(on=values.get("on"), target_c=values.get("target_c"))
         if target == "heater":
@@ -107,6 +112,8 @@ class Controller:
 
     def roof_hold(self, direction: str, seq: int) -> str | None:
         self.power.user_input()
+        if not self.released["roof"]:
+            return "not_released"
         return self.roof.hold(direction, seq)
 
     def roof_release(self) -> None:
@@ -135,21 +142,21 @@ class Controller:
         if self._cycle % AI_EVERY == 0:
             try:
                 self.ai = await self.hal.read_ai()
-                self.rails = await self.hal.read_rails()
+                self.rail = await self.hal.read_rail()
             except HalError as exc:
                 log.warning("AI read failed: %s", exc)
                 self.ai = [None] * N_AI
-                self.rails = [None] * len(CARDS)
+                self.rail = None
             self.ai_overvoltage = [
                 c for c in self.divided_ai
-                if (v := self.ai[c - 1]) is not None and v > self.ai_max_v[card_index(c)]
+                if (v := self.ai[c - 1]) is not None and v > self.ai_max_v
             ]
         self._cycle += 1
 
         self.vehicle.update(self.di, now, self.counts)
-        self.fridge_temp.update(self.ai, self.rails, now)
-        self.outside_temp.update(self.ai, self.rails, now)
-        self.tanks.update(self.ai, self.rails, self.vehicle.moving, now)
+        self.fridge_temp.update(self.ai, self.rail, now)
+        self.outside_temp.update(self.ai, self.rail, now)
+        self.tanks.update(self.ai, self.rail, self.vehicle.moving, now)
 
         def deb(ch: int) -> bool | None:
             raw = self.di[ch - 1]
@@ -170,10 +177,15 @@ class Controller:
         k3 = self.fridge.tick(self.fridge_temp.value, code)
         k4, h = self.heater.tick(deb(self.ch_heat_run))
 
-        relays = {self.k_roof_a: k1, self.k_roof_b: k2, self.k_fridge: k3, self.k_heater: k4}
-        relays.update(zip(self.heater.cfg.ladder_channels, h, strict=True))
+        rel = self.released
+        relays = {
+            self.k_roof_a: k1 and rel["roof"],
+            self.k_roof_b: k2 and rel["roof"],
+            self.k_fridge: k3 and rel["fridge"],
+            self.k_heater: k4 and rel["heater"],
+        }
         self.k = [relays.get(i, False) for i in range(1, N_RELAY + 1)]
-        self.h = h
+        self.h = [b and rel["heater"] for b in h]
         await self._write_outputs()
 
         mode = self.power.tick(
@@ -193,12 +205,16 @@ class Controller:
             cb()
 
     async def _write_outputs(self) -> None:
-        # Relays that switch off go first, so a reversal never overlaps (S2).
-        writes = sorted(enumerate(self.k, start=1), key=lambda w: w[1])
-        for ch, val in writes:
-            if self._written.get(ch) != val:
-                await self.hal.write_relay(ch, val)
-                self._written[ch] = val
+        # Outputs that switch off go first, so a reversal never overlaps (S2).
+        writes = [("k", i + 1, v) for i, v in enumerate(self.k)] + [("h", i + 1, v) for i, v in enumerate(self.h)]
+        writes.sort(key=lambda w: w[2])
+        for kind, ch, val in writes:
+            if self._written.get((kind, ch)) != val:
+                if kind == "k":
+                    await self.hal.write_relay(ch, val)
+                else:
+                    await self.hal.write_gpio(ch, val)
+                self._written[(kind, ch)] = val
 
     async def run(self, stop: asyncio.Event, kick: Callable[[], None] = lambda: None) -> None:
         if not self.ready:
@@ -243,6 +259,7 @@ class Controller:
             "outside_q": self.outside_temp.value.q.value,
             "vehicle": self.vehicle.state(),
             "alerts": self.alerts(),
+            "release": self.released,
         }
 
     def io_data(self) -> dict[str, Any]:
@@ -251,6 +268,6 @@ class Controller:
             "k": [int(v) for v in self.k],
             "h": [int(v) for v in self.h],
             "ai_v": [None if v is None else round(v, 3) for v in self.ai],
-            "rails_v": [None if v is None else round(v, 3) for v in self.rails],
+            "rail_v": None if self.rail is None else round(self.rail, 3),
             "ladder_ohm": None if (ohm := self.heater.ladder_ohm()) is None else round(ohm, 1),
         }

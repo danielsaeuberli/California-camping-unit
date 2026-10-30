@@ -23,4 +23,4 @@ profile, where unmeasured values show as «nicht kalibriert».
 
 ## Status
 
-Milestone M1 (software) done – `docs/M1_STATUS.md`. Milestone M2 (drivers for 2× SM-H-001, Cerbo) ready for the bench – `docs/M2_STATUS.md`.
+Milestone M1 (software) done – `docs/M1_STATUS.md`. Milestone M2 (drivers for SM-H-001, SM-I-009, Purecrea ladder, Cerbo) ready for the bench – `docs/M2_STATUS.md`. Roof, fridge and heater stay disabled (`release.*: false`) until measured at the vehicle.

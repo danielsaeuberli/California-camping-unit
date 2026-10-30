@@ -20,15 +20,22 @@ class FakeCard:
 
 
 class FakeBus:
-    def __init__(self, cards: dict[int, FakeCard]) -> None:
+    """Serves SM-H-001 fakes (FakeCard) and SM-I-009 fakes (FakeInputCard) by address."""
+
+    def __init__(self, cards: dict[int, object]) -> None:
         self.cards = cards
         self.fail = False
         self.writes: list[tuple[int, int, int]] = []
 
-    def _card(self, addr: int) -> FakeCard:
+    def _card(self, addr: int):  # type: ignore[no-untyped-def]
         if self.fail or addr not in self.cards:
             raise OSError(121, "Remote I/O error")
         return self.cards[addr]
+
+    def _is_input(self, addr: int) -> bool:
+        from tests.fake_sm_i009 import FakeInputCard
+
+        return isinstance(self._card(addr), FakeInputCard)
 
     def read_byte_data(self, addr: int, reg: int) -> int:
         c = self._card(addr)
@@ -61,12 +68,37 @@ class FakeBus:
 
     def read_word_data(self, addr: int, reg: int) -> int:
         c = self._card(addr)
+        if self._is_input(addr):
+            from camperd.hal import sm_i009 as ri
+
+            return {ri.REG_INPORT: c.port(), ri.REG_OPTO_IT_RISING: c.rising, ri.REG_OPTO_IT_FALLING: c.falling}[reg]
         i = (reg - r.REG_ADC_MV) // 2
         assert 0 <= i < 8 and (reg - r.REG_ADC_MV) % 2 == 0
         return c.adc_mv[i]
 
+    def write_word_data(self, addr: int, reg: int, value: int) -> None:
+        from camperd.hal import sm_i009 as ri
+
+        c = self._card(addr)
+        self.writes.append((addr, reg, value))
+        if reg == ri.REG_OPTO_IT_RISING:
+            c.rising = value
+        elif reg == ri.REG_OPTO_IT_FALLING:
+            c.falling = value
+        else:
+            raise AssertionError(f"unexpected word write reg 0x{reg:02x}")
+
     def read_i2c_block_data(self, addr: int, reg: int, length: int) -> list[int]:
         c = self._card(addr)
+        if self._is_input(addr):
+            from camperd.hal import sm_i009 as ri
+
+            if reg == ri.REG_REV_HW_MAJOR:
+                if not c.v3:
+                    raise OSError(121, "Remote I/O error")  # plain expander: no such register
+                return c.rev[:length]
+            v = c.counts[(reg - ri.REG_OPTO_EDGE_COUNT) // 4]
+            return [v & 0xFF, v >> 8 & 0xFF, v >> 16 & 0xFF, v >> 24 & 0xFF][:length]
         if reg == r.REG_REV_HW_MAJOR:
             return c.rev[:length]
         if reg == r.REG_DIAG_TEMP:

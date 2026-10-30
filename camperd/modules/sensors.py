@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from camperd.hal.layout import CARDS, card_of
 from camperd.profile import Profile, ProfileError, is_cal
 from camperd.signals import (
     CounterWindow,
@@ -24,29 +23,26 @@ from camperd.signals import (
 class ResistiveInput:
     """AI voltage -> sensor resistance, ratiometric against the pull-up rail (``analog.ref_5v``).
 
-    Reference is the measured 3.3 V rail of the same card; corrects for the AI input
+    Reference is the measured 3.3 V rail of the SM-H-001; corrects for the AI input
     impedance when known. A voltage above the rail means an external source -> implausible.
     """
 
     def __init__(self, p: Profile, name: str) -> None:
         self.name = name
         self.channel = p.channel_index(f"analog.{name}", "AI")
-        card, _ = card_of(self.channel)
         pullup = p.get(f"analog.{name}.pullup_ohm")
         self.pullup = float(pullup) if is_cal(pullup) else None
         source = p.get("analog.pullup_ref.source", None)
         if source != "card_rail":
             raise ProfileError("analog.pullup_ref.source: only 'card_rail' is supported")
-        self.card = CARDS.index(card)
-        input_ohm = p.get(f"buses.{card}.ai_input_ohm", None)
+        input_ohm = p.get("buses.sm_h001.ai_input_ohm", None)
         self.input_ohm = float(input_ohm) if is_cal(input_ohm) else None
         self.open_ohm = float(p.require("curves.open_ohm"))
         self.short_ohm = float(p.require("curves.short_ohm"))
         self.curve = build_curve(p.get(f"curves.{p.require(f'analog.{name}.curve')}", None))
 
-    def resistance(self, ai: list[float | None], rails: list[float | None], now: float) -> Value:
+    def resistance(self, ai: list[float | None], v_ref: float | None, now: float) -> Value:
         v = ai[self.channel - 1]
-        v_ref = rails[self.card]
         if self.pullup is None or self.curve is None:
             return Value(None, now, Quality.UNCALIBRATED)
         if v is None or v_ref is None:
@@ -63,8 +59,8 @@ class Thermometer:
         self.input = ResistiveInput(p, name)
         self.value = Value(None, 0.0, Quality.UNCALIBRATED)
 
-    def update(self, ai: list[float | None], rails: list[float | None], now: float) -> Value:
-        r = self.input.resistance(ai, rails, now)
+    def update(self, ai: list[float | None], rail: float | None, now: float) -> Value:
+        r = self.input.resistance(ai, rail, now)
         curve = self.input.curve
         if not r.ok or not isinstance(curve, SteinhartHart):
             self.value = r
@@ -89,8 +85,8 @@ class Tank:
         self._candidate: int | None = None
         self._since = 0.0
 
-    def update(self, ai: list[float | None], rails: list[float | None], moving: bool, now: float) -> None:
-        r = self.input.resistance(ai, rails, now)
+    def update(self, ai: list[float | None], rail: float | None, moving: bool, now: float) -> None:
+        r = self.input.resistance(ai, rail, now)
         curve = self.input.curve
         if not r.ok or not isinstance(curve, StepCurve):
             self.q = r.q
@@ -117,9 +113,9 @@ class Tanks:
         self.fresh = Tank(p, "fresh_water")
         self.waste = Tank(p, "waste_water")
 
-    def update(self, ai: list[float | None], rails: list[float | None], moving: bool, now: float) -> None:
-        self.fresh.update(ai, rails, moving, now)
-        self.waste.update(ai, rails, moving, now)
+    def update(self, ai: list[float | None], rail: float | None, moving: bool, now: float) -> None:
+        self.fresh.update(ai, rail, moving, now)
+        self.waste.update(ai, rail, moving, now)
 
     @property
     def waste_full(self) -> bool | None:
@@ -163,6 +159,8 @@ class Vehicle:
         self.t86s: bool | None = None
         self.d_plus: bool | None = None
         self.dim58 = False
+        self._dim_window_s = float(p.get(f"inputs.{dim_name}.window_ms", 0)) / 1000
+        self._dim_last_high = -1e9
         self.shore: bool | None = None
 
     def update(self, di: list[bool | None], now: float, counts: dict[int, int] | None = None) -> None:
@@ -180,7 +178,10 @@ class Vehicle:
             self.moving = self._speed.update(speed, now) >= self.min_edges
         self.t86s = get(self.ch_86s)
         self.d_plus = get(self.ch_dplus)  # OPEN: O8 - logged only
-        self.dim58 = bool(get(self.ch_dim))
+        if get(self.ch_dim):
+            self._dim_last_high = now
+        # 58d may be PWM (dimmed instrument lighting): on if high anywhere in the window
+        self.dim58 = now - self._dim_last_high <= self._dim_window_s
         self.shore = get(self.ch_shore)  # OPEN: O5 - logged only
 
     def state(self) -> dict[str, Any]:

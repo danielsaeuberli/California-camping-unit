@@ -52,8 +52,8 @@ class Rig:
 
     @property
     def h(self) -> list[bool]:
-        """Heater ladder relays K9-K12 on card B."""
-        return self.hal.relays[8:12]
+        """Heater ladder outputs H1-H4 (Purecrea module on GPIO)."""
+        return self.hal.gpio
 
 
 @pytest.fixture
