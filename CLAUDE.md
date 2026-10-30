@@ -16,7 +16,7 @@ Ersatz für das Camping-Bedienteil E153 im VW T6 California (MJ 2018, Ausstattun
 - **Simulator ist Standard.** `camperd` startet ohne Konfiguration mit dem `sim`-Treiber. Echte Hardware nur mit `--hal hw` oder `CAMPERD_HAL=hw`.
 - **Keine erfundenen Messwerte.** Alles, was im Profil mit `TODO_MEASURE` markiert ist, bleibt so. Code muss mit fehlenden Kennlinien umgehen («nicht kalibriert»), nicht mit Schätzwerten.
 - **Profil statt Code.** Pinbelegung, Polaritäten, Schwellen, Zeiten und Kennlinien stehen im YAML-Profil, nicht im Code.
-- **Cerbo nur lesen.** Keine `W/…`-Themen an den Victron Cerbo GX schicken (v1).
+- **Cerbo: lesen, schreiben nur eng begrenzt.** `W/…` nur für `vebus/<inst>/Mode` (1/3/4) und `vebus/<inst>/Ac/In/1/CurrentLimit`, nur auf Bedienung, nur mit `victron.control: true` im Profil (SPEC 5.1). Keine anderen `W/…`-Themen.
 - **Offene Punkte nicht still entscheiden.** SPEC Kapitel 12 listet sie. Wenn eine Umsetzung davon abhängt: Standardwert aus der SPEC nehmen, im Code als `# OPEN:` markieren und im PR erwähnen.
 - Bezeichner, Code-Kommentare und Commit-Messages auf Englisch. Texte der Oberfläche auf Deutsch (Schweizer Orthografie, kein «ß») über eine Sprachdatei.
 

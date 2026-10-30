@@ -211,6 +211,20 @@
           <div class="panel"><span class="label" data-t="x.ac_in"></span><div class="rows" id="x-ac-in"></div></div>
           <div class="panel"><span class="label" data-t="x.ac_out"></span><div class="rows" id="x-ac-out"></div></div>
           <div class="panel"><span class="label" data-t="x.ac_dev"></span><div class="rows" id="x-ac-dev"></div></div>
+          <div class="panel ctl">
+            <span class="label" data-t="x.ac_ctl"></span>
+            <div class="seg" id="x-mode">
+              <button type="button" data-v="1" data-act></button><button type="button" data-v="3" data-act></button><button type="button" data-v="4" data-act></button>
+            </div>
+            <span class="sub" data-t="x.lim"></span>
+            <div class="limit">
+              <button type="button" class="step sm" id="x-lim-minus" data-act>−</button>
+              <span class="big num" id="x-lim">–</span>
+              <button type="button" class="step sm" id="x-lim-plus" data-act>+</button>
+            </div>
+            <button type="button" class="btn sm" id="x-lim-set" data-act></button>
+            <span class="note" id="x-ctl-note"></span>
+          </div>
         </div>
         <div data-x="conn" class="conn" hidden>
           <div class="panel">

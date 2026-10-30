@@ -14,6 +14,7 @@ from camperd.modules.fridge import Fridge, FridgeConfig
 from camperd.modules.heater import Heater, HeaterConfig
 from camperd.modules.roof import Roof, RoofConfig, RoofInputs
 from camperd.modules.sensors import Tanks, Thermometer, Vehicle
+from camperd.modules.victron_control import VictronControl, VictronControlConfig
 from camperd.power import PowerConfig, PowerInputs, PowerManager
 from camperd.profile import Profile
 from camperd.signals import Debouncer, PulseDecoder
@@ -39,6 +40,7 @@ class Controller:
         self.outside_temp = Thermometer(profile, "outside_temp")
         self.vehicle = Vehicle(profile)
         self.power = PowerManager(PowerConfig.from_profile(profile), clock)
+        self.victron_ctl = VictronControl(VictronControlConfig.from_profile(profile), victron, clock)
 
         ch = profile.channel_index
         self.ch_roof_a = ch("inputs.roof_fb_a", "DI")
@@ -102,6 +104,8 @@ class Controller:
     def command(self, target: str, values: dict[str, Any]) -> str | None:
         """Returns a reject reason or None."""
         self.power.user_input()
+        if target == "victron":
+            return self.victron_ctl.request(values)
         if target in self.released and not self.released[target]:
             return "not_released"
         if target == "fridge":
@@ -175,6 +179,7 @@ class Controller:
             )
         )
         k3 = self.fridge.tick(self.fridge_temp.value, code)
+        self.victron_ctl.tick()
         k4, h = self.heater.tick(deb(self.ch_heat_run))
 
         rel = self.released
@@ -242,6 +247,7 @@ class Controller:
         out = self.roof.alerts() + self.fridge.alerts() + self.heater.alerts() + self.tanks.alerts()
         if not self.di_ok and self.ready:
             out.append({"id": "di_card", "level": "err"})
+        out += self.victron_ctl.alerts()
         if self.ai_overvoltage:
             out.append({"id": "ai_overvoltage", "level": "err"})
         if self.power.undervoltage:
@@ -260,6 +266,7 @@ class Controller:
             "vehicle": self.vehicle.state(),
             "alerts": self.alerts(),
             "release": self.released,
+            "victron_control": self.victron_ctl.state(),
         }
 
     def io_data(self) -> dict[str, Any]:

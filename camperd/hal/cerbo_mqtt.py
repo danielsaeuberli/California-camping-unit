@@ -1,9 +1,10 @@
-"""Read-only MQTT client for the Victron Cerbo GX (SPEC 5).
+"""MQTT client for the Victron Cerbo GX (SPEC 5).
 
 Venus OS publishes ``N/<portal>/<service>/<instance>/<path>`` with a JSON payload
 ``{"value": ...}`` while a keepalive is sent to ``R/<portal>/keepalive``
 (dbus-flashmq: https://github.com/victronenergy/dbus-flashmq#keepalive).
-This client never publishes on ``W/...`` (CLAUDE.md: Cerbo read only).
+Writes (``W/...``) are limited to the VE.Bus paths in
+:data:`camperd.modules.victron_control.WRITABLE`, queued by :class:`VictronControl`.
 """
 
 from __future__ import annotations
@@ -15,10 +16,18 @@ import logging
 from typing import Any
 
 from camperd.modules.energy import VictronStore
+from camperd.modules.victron_control import WRITABLE
 
 log = logging.getLogger(__name__)
 
 KEEPALIVE_PAYLOAD = json.dumps({"keepalive-options": ["suppress-republish"]})
+
+
+def write_topic(portal: str, instance: str, path: str) -> str:
+    """The only W/ topics this client may publish (SPEC 5.1)."""
+    if path not in WRITABLE:
+        raise ValueError(f"write to vebus path {path!r} is not allowed")
+    return f"W/{portal}/vebus/{instance}/{path}"
 
 
 def parse(topic: str, payload: bytes) -> tuple[str, str, str, str, Any] | None:
@@ -85,6 +94,7 @@ class CerboClient:
                     backoff = 1.0
                     await client.subscribe("N/+/system/0/Serial")
                     ka = asyncio.create_task(self._keepalive(client))
+                    wr = asyncio.create_task(self._writer(client))
                     try:
                         async for msg in client.messages:
                             raw = msg.payload if isinstance(msg.payload, (bytes, bytearray)) else b""
@@ -92,6 +102,7 @@ class CerboClient:
                                 await client.subscribe(topic)
                     finally:
                         ka.cancel()
+                        wr.cancel()
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
@@ -100,10 +111,19 @@ class CerboClient:
             await asyncio.sleep(backoff)
             backoff = min(30.0, backoff * 2)
 
+    async def _writer(self, client: Any) -> None:
+        while True:
+            portal, inst = self.store.portal_id, self.store.vebus_instance
+            while self.store.pending_writes and portal and inst:
+                path, value = self.store.pending_writes.popleft()
+                topic = write_topic(portal, inst, path)
+                log.info("Cerbo write %s = %s", topic, value)
+                await client.publish(topic, json.dumps({"value": value}))
+            await asyncio.sleep(0.1)
+
     async def _keepalive(self, client: Any) -> None:
         while True:
             if self.store.portal_id:
                 topic = f"R/{self.store.portal_id}/keepalive"
-                assert topic.startswith("R/")  # never W/ (read-only)
                 await client.publish(topic, KEEPALIVE_PAYLOAD)
             await asyncio.sleep(self.keepalive_s if self.store.portal_id else 1.0)

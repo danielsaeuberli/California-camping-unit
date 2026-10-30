@@ -41,6 +41,8 @@ class SimWorld:
     cerbo: bool = True
     scenario: str = "solar"
     overload: bool = False
+    vebus_mode: int = 3
+    current_limit: float = 10.0
     _heater_t: float = field(default=0.0, repr=False)
 
     def public(self) -> dict[str, Any]:
@@ -219,8 +221,21 @@ class SimCerbo:
         self.store.connected = w.cerbo
         if not w.cerbo:
             return
-        s = SCENARIOS[w.scenario]
+        self.store.portal_id = self.store.portal_id or "sim000000000"
+        self.store.vebus_instance = self.store.vebus_instance or "276"
         st = self.store
+        while st.pending_writes:  # what the Cerbo would forward to the MultiPlus
+            path, value = st.pending_writes.popleft()
+            if path == "Mode":
+                w.vebus_mode = int(value)
+            elif path == "Ac/In/1/CurrentLimit":
+                w.current_limit = float(value)
+        s = dict(SCENARIOS[w.scenario])
+        shore = s["active_in"] != 240
+        if w.vebus_mode == 4 or (w.vebus_mode == 1 and not shore):
+            s.update(state=0, out=(0, 0, 0, 0, 0), charger=0)  # off, or charger only without shore
+        elif w.vebus_mode == 1:
+            s.update(out=(0, 0, 0, 0, 0))
         st.ingest_system("system/0/Dc/Battery/Soc", s["soc"])
         st.ingest_system("system/0/Dc/Battery/Voltage", s["v"])
         st.ingest_system("system/0/Dc/Battery/Current", s["a"])
@@ -229,7 +244,9 @@ class SimCerbo:
         st.ingest_system("system/0/Dc/Charger/Power", s["charger"])
         st.ingest_system("system/0/Dc/System/Power", s["dc"])
         st.ingest_vebus("State", s["state"])
-        st.ingest_vebus("Mode", 3)
+        st.ingest_vebus("Mode", w.vebus_mode)
+        st.ingest_vebus("Ac/In/1/CurrentLimit", w.current_limit)
+        st.ingest_vebus("Ac/In/1/CurrentLimitIsAdjustable", 1)
         st.ingest_vebus("Ac/ActiveIn/ActiveInput", s["active_in"])
         for key, val in zip(("V", "I", "F", "P"), s["in"] or (None,) * 4, strict=True):
             st.ingest_vebus(f"Ac/ActiveIn/L1/{key}", val)

@@ -90,6 +90,12 @@ function heaterSet(on, level) {
   }
   return null;
 }
+const VB = {mode: 3, limit: 10};
+function victronSet(s) {
+  if (s.mode != null) { if (![1, 3, 4].includes(s.mode)) return 'bad_mode'; VB.mode = s.mode; }
+  if (s.current_limit_a != null) { if (s.current_limit_a < 3 || s.current_limit_a > 16) return 'out_of_range'; VB.limit = s.current_limit_a; }
+  return null;
+}
 function fridgeSet(on, target) {
   const f = M.fridge;
   if (target != null) { const v = Math.round(target); if (v < 1 || v > 10) return 'out_of_range'; f.target = v; }
@@ -125,6 +131,7 @@ function stateMsg() {
     vehicle: {moving: W.moving, d_plus: W.moving, t86s: true, dim58: W.dim58},
     alerts: alerts(),
     release: {roof: true, fridge: true, heater: true},
+    victron_control: {enabled: true, modes: [1, 3, 4], limit_min_a: 3, limit_max_a: 16, pending: [], unconfirmed: null},
     settings: M.settings,
     ui: {discard_first_touch: false},
   }};
@@ -135,7 +142,7 @@ function victronMsg() {
   return {v: 1, type: 'victron', ts: Date.now(), data: W.cerbo ? {
     soc: e(s.soc), battery_v: e(s.v), battery_a: e(s.a), battery_w: e(Math.round(s.v * s.a)), pv_w: e(s.pv),
     charger_w: e(s.charger), dc_system_w: e(s.dc),
-    vebus: {state: e(s.state), mode: e(3), active_input: e(s.active), in_v: e(inp[0]), in_i: e(inp[1]), in_f: e(inp[2]), in_p: e(inp[3]),
+    vebus: {state: e(VB.mode === 4 ? 0 : s.state), mode: e(VB.mode), current_limit: e(VB.limit), current_limit_adjustable: e(1), active_input: e(s.active), in_v: e(inp[0]), in_i: e(inp[1]), in_f: e(inp[2]), in_p: e(inp[3]),
       out_v: e(s.out[0]), out_i: e(s.out[1]), out_f: e(s.out[2]), out_p: e(s.out[3]), out_s: e(s.out[4]), measurement_type: null, dc_w: null,
       alarm_overload: e(W.overload ? 2 : 0), alarm_low_battery: e(0), alarm_temperature: e(0), alarm_ripple: e(0)},
     load_pct: Math.round(s.out[4] / 1600 * 100), connected: true, portal_id: 'demo00000000', stale_s: 10,
@@ -185,7 +192,9 @@ class DemoSocket {
     } else if (m.type === 'release') { roofRelease(); this.holding = false; }
     else if (m.type === 'cmd') {
       const s = m.set || {};
-      const reason = m.target === 'fridge' ? fridgeSet(s.on, s.target_c) : m.target === 'heater' ? heaterSet(s.on, s.level) : 'unknown_target';
+      const reason = m.target === 'fridge' ? fridgeSet(s.on, s.target_c) : m.target === 'heater' ? heaterSet(s.on, s.level)
+        : m.target === 'victron' ? victronSet(s) : 'unknown_target';
+      if (m.target === 'victron') broadcast(victronMsg());
       ack(reason === null, reason); broadcast(stateMsg());
     } else if (m.type === 'subscribe') this.topics = new Set((m.topics || []).filter(x => x === 'io'));
     else if (m.type === 'settings') { Object.assign(M.settings, m.set || {}); ack(true); broadcast(stateMsg()); }

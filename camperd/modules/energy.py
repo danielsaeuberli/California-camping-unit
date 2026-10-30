@@ -5,6 +5,7 @@ Every value keeps its receive time; a missing value stays ``None`` (never a subs
 
 from __future__ import annotations
 
+from collections import deque
 from typing import Any
 
 from camperd.clock import Clock
@@ -24,6 +25,8 @@ SYSTEM_PATHS = {
 VEBUS_PATHS = {
     "state": "State",
     "mode": "Mode",
+    "current_limit": "Ac/In/1/CurrentLimit",
+    "current_limit_adjustable": "Ac/In/1/CurrentLimitIsAdjustable",
     "active_input": "Ac/ActiveIn/ActiveInput",
     "in_v": "Ac/ActiveIn/L1/V",
     "in_i": "Ac/ActiveIn/L1/I",
@@ -54,6 +57,8 @@ class VictronStore:
         self.portal_id: str | None = None
         self.vebus_instance: str | None = None
         self._by_path = {p: k for k, p in SYSTEM_PATHS.items()}
+        # (vebus path, value) waiting to be written by the Cerbo client (see victron_control)
+        self.pending_writes: deque[tuple[str, Any]] = deque()
 
     def ingest_system(self, path: str, value: Any) -> None:
         key = self._by_path.get(path)

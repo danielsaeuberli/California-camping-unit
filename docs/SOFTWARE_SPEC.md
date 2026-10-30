@@ -1,6 +1,6 @@
 # Cali Camping Unit – Software-Spezifikation
 
-Version 1.1 | 30. Oktober 2026 | Fahrzeug: VW T6 California 2.0 TDI 4Motion, MJ 2018, Campingausrüstung A8L/A8R
+Version 1.2 | 30. Oktober 2026 | Fahrzeug: VW T6 California 2.0 TDI 4Motion, MJ 2018, Campingausrüstung A8L/A8R
 
 Version 1.1: Analogeingänge 0–3,3 V mit Referenz aus der Karte, Dachfreigabe nur mit Zündung, Freigabe je Schaltfunktion im Profil (Messung ausstehend), 58d evtl. PWM, T32b/29 = Laderelais-Befehl J713.
 
@@ -24,7 +24,9 @@ Die Unit ersetzt das Bedienteil E153. Die Original-Steuergeräte bleiben im Fahr
 | Victron | Cerbo GX, MultiPlus Compact 12/1600 | Batterie, Laden, 230 V anzeigen (nur lesen) |
 | Fahrzeug | 15a, 86s, D+, 58d, Geschwindigkeit | Power-Zustände, Fahrsperre, Nachtmodus |
 
-**Nicht im Umfang v1:** CAN/LIN zum Fahrzeug, Zugriff aus dem Internet, Schreiben auf den Cerbo, Licht-Dimmer, Batterie-Management.
+**Nicht im Umfang v1:** CAN/LIN zum Fahrzeug, Zugriff aus dem Internet, Schreiben auf den Cerbo ausser MultiPlus-Modus und Landstrom-Begrenzung (5.1), Licht-Dimmer, Batterie-Management.
+
+**Licht-Dimmer:** T32b hat in A8L/A8R (Nr. 133) keinen Lichtausgang; Pin 27 / T6ap/4 (58d) ist ein Eingang. Mit 9CE/9CI können Nr. 145/146 weitere Anschlüsse bringen. Dimmen ginge später nur mit eigener Verdrahtung, z. B. über die vier Open-Drain-PWM-Ausgänge des SM-H-001 (24 V, 3 A).
 
 ---
 
@@ -195,7 +197,9 @@ JSON-Nachrichten, ein Objekt pro Frame. Version im Feld `v`.
 
 ---
 
-## 5. Victron Cerbo GX (MQTT, nur lesen)
+## 5. Victron Cerbo GX (MQTT)
+
+Verkabelung: MultiPlus Compact → Cerbo über **VE.Bus** (RJ45-Patchkabel an die VE.Bus-Buchse des Cerbo, nicht an dessen Ethernet). Pi ↔ Cerbo über Ethernet.
 
 - Verbindung `192.168.77.1:1883`, Client-ID `camperd`. Reconnect mit Backoff 1–30 s.
 - Portal-ID beim Start aus `N/+/system/0/Serial` ermitteln. VE.Bus-Instanz aus `N/<id>/vebus/+/ProductId`.
@@ -204,8 +208,24 @@ JSON-Nachrichten, ein Objekt pro Frame. Version im Feld `v`.
   - `system/0/Dc/Battery/{Soc,Voltage,Current,Power}`, `system/0/Dc/Pv/Power`, `system/0/Dc/Charger/Power`
   - `vebus/<inst>/{State,Mode,Ac/ActiveIn/ActiveInput,Ac/ActiveIn/L1/{V,I,F,P},Ac/Out/L1/{V,I,F,P,S},Ac/PowerMeasurementType,Dc/0/Power}`
   - `vebus/<inst>/Alarms/{L1/Overload,LowBattery,HighTemperature,L1/Ripple}`
+  - `vebus/<inst>/Ac/In/1/{CurrentLimit,CurrentLimitIsAdjustable}`, `system/0/Dc/System/Power`
 - Jeder Wert mit Empfangszeit. Alter > 10 s → Oberfläche zeigt grau mit Alter. Fehlender Wert → `null`, nie ein Ersatzwert.
-- **Nie** auf `W/…` publizieren.
+- Auf `W/…` nur nach 5.1.
+
+### 5.1 MultiPlus steuern (Version 1.2)
+
+Nur mit `victron.control: true` im Profil (Standard `false`). Erlaubt sind genau zwei Schreibzugriffe, beide nur auf Bedienung, nie in einer Schleife:
+
+| Pfad | Werte | Bedeutung |
+| --- | --- | --- |
+| `W/<id>/vebus/<inst>/Mode` | 1, 3, 4 (Liste `victron.modes`) | 1 nur Laden (Schalter II), 3 ein (I), 4 aus (O); 2 «nur Wechselrichter» nur, wenn im Profil gelistet |
+| `W/<id>/vebus/<inst>/Ac/In/1/CurrentLimit` | `victron.current_limit_a.min`–`max` | Landstrom-Begrenzung in A; nur wenn `CurrentLimitIsAdjustable` = 1 |
+
+- Payload `{"value": <wert>}`. Der Client lehnt jeden anderen Pfad ab (Test).
+- Höchstens ein Schreibzugriff je `victron.min_interval_s` (2 s).
+- Rücklesen: Zeigt der Cerbo den neuen Wert nicht innert `victron.confirm_s` (5 s), Meldung «MultiPlus hat die Änderung nicht übernommen» (z. B. Frontschalter nicht auf I, VE.Bus-BMS, Panel).
+- Oberfläche: Expertenansicht → MultiPlus → Steuerung. Jede Änderung zweimal tippen; «Aus» trennt 230 V und das Laden.
+- Dach, Kühlbox und Heizung hängen weiterhin nicht am Cerbo (S9).
 
 ---
 

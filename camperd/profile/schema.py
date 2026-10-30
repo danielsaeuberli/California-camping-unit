@@ -102,6 +102,13 @@ SCHEMA: dict[str, Any] = {
         "heartbeat_s": LEAF,
     },
     "release": {"roof": LEAF, "fridge": LEAF, "heater": LEAF},
+    "victron": {
+        "control": LEAF,
+        "modes": LEAF,
+        "current_limit_a": {"min": LEAF, "max": LEAF},
+        "confirm_s": LEAF,
+        "min_interval_s": LEAF,
+    },
     "ui": {"idle_return_min": LEAF, "theme": LEAF, "brightness_pct": LEAF, "backlight_control": LEAF},
     "measure": {"outputs_locked": LEAF, "di_resolution_ms": LEAF, "ai_rate_hz": LEAF},
 }
