@@ -78,7 +78,8 @@ async def run(args: argparse.Namespace) -> None:
             victron,
             str(profile.require("buses.cerbo.host")),
             int(profile.get("buses.cerbo.port", 1883)),
-            float(profile.get("buses.cerbo.keepalive_s", 30)),
+            float(profile.get("buses.cerbo.keepalive_s", 5)),
+            portal_id=str(pid) if isinstance(pid := profile.get("buses.cerbo.portal_id", None), str) else None,
         )
         await cerbo_hw.start()
 

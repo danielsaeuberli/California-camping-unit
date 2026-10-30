@@ -1,7 +1,8 @@
 [Unit]
 Description=Cali camping unit control service
-After=network.target systemd-networkd.service
-Wants=systemd-networkd.service
+# No dependency on the network being up: control works without the Cerbo (S9) and without
+# the router; the Cerbo client reconnects on its own once wlan0 is up.
+After=network.target NetworkManager.service
 
 [Service]
 Type=simple

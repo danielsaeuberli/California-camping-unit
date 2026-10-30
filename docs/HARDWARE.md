@@ -62,7 +62,7 @@ Viewe-Display ── HDMI ── Pi 5;  Touch ── I²C/USB ── Pi 5, IRQ �
 | 30 | Strom | Verpolschutz 10 A | Ideal-Diode-Modul | 1 | Bestätigen | 35.00 | 35.00 | 12-V-Eingang |  |
 | 36 | Service | Panel-USB-C-Verlängerung | mit Kappe | 1 | Bestellen | 18.00 | 18.00 | Service |  |
 | 41 | I/O | Abgesetzte I²C-Leitung SM-I-009 | LiYCY 4×0,25 mm² + 2×20-Adapter | 1 | Bestätigen | 15.00 | 15.00 | SM-I-009 neben dem Stack | max. ca. 30 cm; I²C-Adressen prüfen |
-| 42 | Netz | Patchkabel Cat 6, 0,5 m, flach | – | 1 | Bestellen | 8.00 | 8.00 | Pi ↔ Cerbo GX | neu (ersetzt Pos. 15) |
+| 42 | Netz | Patchkabel Cat 6, flach, Länge nach Einbau | – | 1 | Bestellen | 8.00 | 8.00 | Pi ↔ LAN-Port Camper-Router | Cerbo über dessen WLAN-AP (Kapitel 5.3) |
 | 43 | Messung | Messnetzwerk: Pull-ups 0805, Teiler 47 k / 10 k, Serienwiderstände, Klemmdioden BAT54S | Metallfilm 0,1 % + BAT54S | 1 | Bestellen | 18.00 | 18.00 | AI1–AI8 (Kapitel 4.3) | SM-H-001 hat keinen Eingangsschutz |
 | 44 | Strom | ATO-Sicherungshalter + 2 A | Inline | 1 | Bestellen | 6.00 | 6.00 | +12 V an Relais-COM K1–K4 | neu |
 | | | **Zwischensumme** | | | | | **1'059.50** | | |
@@ -190,6 +190,21 @@ Mit `cog` statt Chromium dürfte der typische Wert für den Pi tiefer liegen. In
 - Eigene 12-V-Zuleitung mit 7,5 A (Pos. 28). T32b/32 (über SH21, 5 A, 0,5 mm²) nur als Messpunkt, nicht als Speisung.
 - Zündung und alle 12-V-Signale nie direkt an einen MCU- oder Pi-GPIO. Zündung zur Wake-MCU über Eingangsstufe (Teiler + Klemmdiode oder Optokoppler).
 - Masse der Unit an T32b/31 bzw. T6ap/5 und an die Zuleitungsmasse, sternförmig.
+
+### 5.3 Netzwerk Pi 5 ↔ Cerbo GX
+
+```
+Cerbo GX ── Ethernet ── Camper-Router (unverändert: VRM, Remote Console)
+Cerbo GX ── WLAN-AP «venus-…» (immer an) ── Pi 5 wlan0   (MQTT 1883, nur dieser Weg für Victron-Daten)
+Pi 5 eth0 ── LAN-Port Camper-Router (Router nur zeitweise an: SSH, Fernzugriff)
+```
+
+- Cerbo (Daniel, von Hand): Einstellungen → WLAN → «Access Point erstellen» = EIN; Einstellungen → Dienste → «MQTT im LAN» = EIN (unverschlüsselt 1883 genügt im abgeschlossenen AP-Netz).
+- Pi: `sudo deploy/network/setup-network.sh "<venus-SSID>" "<Passwort vom Etikett>"` (NetworkManager; WLAN nie Standardroute, Ethernet DHCP mit Metrik 100). Prüfen: `python3 tools/cerbo_check.py`.
+- Der Cerbo bridgt/routet nicht zwischen WLAN und Ethernet (Venus-OS-Kernel ohne Bridge). Kein Versuch.
+- Keine Steuerfunktion hängt am Router-Netz.
+- Firewall auf `wlan0`: keine neuen eingehenden Verbindungen (`deploy/network/nftables.conf`).
+- **Rückfall, falls MQTT über den AP nicht antwortet (O19):** kleiner unmanaged Switch, Cerbo + Router + Pi in einem Subnetz, feste Adressen Router .1, Cerbo .10, Pi .20. Etwa 0,5–1,5 W zusätzlich. Erst nach Rückmeldung umbauen.
 
 ## 6. Vor dem Einbau messen (Daniel)
 

@@ -30,7 +30,7 @@ Eine Zwischenversion mit zwei SM-H-001 ist verworfen: Deren Opto-Eingänge belas
 3. `python3 tools/bench_check.py --relay-test` **nur am Tisch**.
 4. Purecrea-Modul: welcher Eingangspegel zieht an (3,3-V-Logik)? Ins Profil `outputs.heater_ladder.gpio_active` und die passende Zeile in `deploy/config.txt` aktivieren.
 5. Prüfbrett an DI und AI: `camperd --hal hw`, Expertenansicht. Teilerkanäle bis 16 V, Anzeige ≤ 3,0 V.
-6. Cerbo per Ethernet (192.168.77.1, MQTT im LAN ein): Victron-Werte in der Oberfläche.
+6. Netzwerk (HARDWARE.md 5.3): am Cerbo Access Point und «MQTT im LAN» einschalten; `sudo deploy/network/setup-network.sh "<venus-SSID>" "<Passwort>"`; dann `python3 tools/cerbo_check.py`. **Antwortet MQTT nicht: stoppen und melden** (O19, Rückfall Switch). Danach Victron-Werte in der Oberfläche; Cerbo neu starten und prüfen, dass die Werte ohne Eingriff zurückkommen.
 
 ## Offen
 
