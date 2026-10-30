@@ -24,16 +24,18 @@ def test_one_relay_per_50ms(sim_profile, clock):
 
 
 def test_level_to_bits_and_resistance(sim_profile, clock):
-    h = Heater(HeaterConfig.from_profile(sim_profile), clock)
+    cfg = HeaterConfig.from_profile(sim_profile)
+    h = Heater(cfg, clock)
     h.set(on=True, level=0b1010)
     for _ in range(20):
         h.tick(False)
         clock.advance(0.06)
     assert h.ladder.bits == [False, True, False, True]
-    assert abs(h.ladder_ohm() - (1750 + 54.9 + 237)) < 1e-6
+    g = 1 / cfg.base_ohm + 1 / cfg.branch_ohm[1] + 1 / cfg.branch_ohm[3]
+    assert abs(h.ladder_ohm() - 1 / g) < 1e-6
 
 
-async def test_controller_gpio_single_switch(rig):
+async def test_controller_ladder_relays_single_switch(rig):
     rig.ctrl.command("heater", {"on": True, "level": 15})
     prev = list(rig.h)
     for _ in range(30):

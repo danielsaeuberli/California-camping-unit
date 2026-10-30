@@ -1,6 +1,8 @@
 # Cali Camping Unit – Software-Spezifikation
 
-Version 1.0 | 30. Oktober 2026 | Fahrzeug: VW T6 California 2.0 TDI 4Motion, MJ 2018, Campingausrüstung A8L/A8R
+Version 1.1 | 30. Oktober 2026 | Fahrzeug: VW T6 California 2.0 TDI 4Motion, MJ 2018, Campingausrüstung A8L/A8R
+
+Version 1.1: zwei SM-H-001 statt SM-H-001 + SM-I-009 + Purecrea (HARDWARE.md 1.1), Dachfreigabe nur mit Zündung, Analogeingänge 0–3,3 V.
 
 Ersetzt Software-Plan v0.3. Neu gegenüber v0.3: schlankes Betriebssystem ohne Chromium und ohne lokalen MQTT-Broker (Kapitel 2 und 3), Oberfläche nach Prototyp v2 (Kapitel 9), Abnahmekriterien pro Modul.
 
@@ -16,7 +18,7 @@ Die Unit ersetzt das Bedienteil E153. Die Original-Steuergeräte bleiben im Fahr
 | --- | --- | --- |
 | Dachhydraulik | J768 | Fahranforderung AUF/ZU (K1/K2), Rückmeldungen lesen |
 | Kühlbox | J698 / J1029, Secop BD35F | Kühlanforderung (K3), Thermostat auf G817, Fehlercodes lesen |
-| Standheizung | J604, Eberspächer Airtronic | Ein/Aus über S+ (K4), Sollwert über Widerstandsleiter (H1–H4), Betriebsanzeige lesen |
+| Standheizung | J604, Eberspächer Airtronic | Ein/Aus über S+ (K4), Sollwert über Parallelleiter (K9–K12, Karte B), Betriebsanzeige lesen |
 | Tanks | G120 Frisch, G126 Abwasser | Stufen anzeigen |
 | Temperaturfühler | G817 Kühlbox, G249 Aussen | anzeigen |
 | Victron | Cerbo GX, MultiPlus Compact 12/1600 | Batterie, Laden, 230 V anzeigen (nur lesen) |
@@ -124,7 +126,7 @@ Kein Git und kein Paketmanager im Betrieb. `make deploy` vom Mac:
 ### 3.1 Ein Prozess
 
 ```
-Fahrzeug ─ T32b/T6ap/T2p ─ Breakout X1–X4 ─ SM-H-001 / SM-I-009 / H1–H4
+Fahrzeug ─ T32b/T6ap/T2p ─ Breakout X1–X4 ─ SM-H-001 Karte A / Karte B
                                                │ I²C, GPIO
 Cerbo GX ─ Ethernet, MQTT ──────────┐          │
 Wake-MCU ─ UART ───────────────┐    │          │
@@ -141,7 +143,7 @@ Wake-MCU ─ UART ───────────────┐    │       
 
 | Paket | Aufgabe |
 | --- | --- |
-| `hal/` | Treiber pro Quelle: `sim`, `sm_h001`, `sm_i009`, `gpio_ladder`, `cerbo_mqtt`, `wake_uart`. Einheitliche Schnittstelle: `read_di()`, `read_ai()`, `write_relay(ch, on)`, `write_gpio(ch, on)`, Ereignisse als `asyncio.Queue`. |
+| `hal/` | Treiber pro Quelle: `sim`, `sm_h001` (je Karte), `hw` (zwei Karten + ALIVE-GPIO), `cerbo_mqtt`, `wake_uart`. Einheitliche Schnittstelle: `read_di()` (16), `read_ai()` (16), `read_rails()` (3,3-V-Schiene je Karte), `read_counters()`, `write_relay(ch, on)` (K1–K16), Ereignisse als `asyncio.Queue`. |
 | `profile/` | Lädt und validiert das YAML-Profil. Unbekannte Schlüssel → Fehler. `TODO_MEASURE` → Wert gilt als «nicht kalibriert». |
 | `signals/` | Rohwert → Wert mit Zeitstempel und Qualität: `ok`, `stale`, `open`, `short`, `implausible`, `uncalibrated`. Entprellen, Median, Pulszähler, Frequenz. |
 | `modules/` | Zustandsmaschinen: `roof`, `fridge`, `heater`, `tanks`, `climate`, `vehicle`, `energy`. Rein logisch, keine I/O, Uhr injiziert. |
@@ -211,16 +213,16 @@ JSON-Nachrichten, ein Objekt pro Frame. Version im Feld `v`.
 
 | Nr. | Regel |
 | --- | --- |
-| S1 | Beim Start sind K1–K4 aus und H1–H4 stromlos (NC geschlossen = 1750 Ω = tiefste Heizstufe), bevor `camperd` irgendeine Nachricht annimmt. |
+| S1 | Beim Start sind K1–K16 aus (Sollwertleiter stromlos = Basiswiderstand R0), bevor `camperd` irgendeine Nachricht annimmt. Der Einschaltzustand der Karten (Register «relay default») wird beim Start auf 0 gesetzt, damit die Relais auch vor dem Booten des Pi aus bleiben. |
 | S2 | K1 und K2 nie gleichzeitig. Richtungswechsel nur nach 300 ms mit beiden aus. |
 | S3 | Dachrelais fällt ab, wenn 300 ms kein `hold` kommt, der WebSocket abreisst oder 60 s Laufzeit pro Druck erreicht sind (Wert im Profil). |
-| S4 | Öffnen des Dachs gesperrt, solange Geschwindigkeitsimpulse anliegen (Profil: `speed.moving_hz`). Schliessen bleibt erlaubt. Läuft ein Öffnen-Befehl, wenn die Fahrt beginnt: sofort stoppen. |
-| S5 | Fällt der SM-I-009 aus (3 I²C-Fehler in Folge): DI-Werte `stale`, Dach gesperrt, Meldung. |
+| S4 | Öffnen des Dachs gesperrt, solange Geschwindigkeitsimpulse anliegen (Profil: `inputs.speed`). Schliessen bleibt erlaubt. Läuft ein Öffnen-Befehl, wenn die Fahrt beginnt: sofort stoppen. Wie beim Original-E153 fährt das Dach nur mit Zündung ein (`roof.require_ignition`); fällt die Zündung während der Fahrt des Dachs ab: sofort stoppen. |
+| S5 | Fällt eine SM-H-001-Karte beim Lesen aus (3 I²C-Fehler in Folge): DI-Werte `stale`, Dach gesperrt, Meldung. Schaltet ein Relais laut Rücklesen nicht: Fehler. |
 | S6 | Kühlbox: Mindestlaufzeit 2 min, Mindestpause 3 min (Profil). |
-| S7 | Heizungsstufe: H-Relais nur einzeln umschalten, 50 ms Abstand. Nie zwei gleichzeitig. |
+| S7 | Heizungsstufe: Leiter-Relais K9–K12 nur einzeln umschalten (SET/CLR-Register der Karte), 50 ms Abstand. Nie zwei gleichzeitig. Ohne kalibrierte Leiterwerte bleiben sie aus. |
 | S8 | Kein Shutdown, solange die Heizung im Nachlauf ist oder das Dach fährt. |
 | S9 | Ausfall des Cerbo ändert nichts an Dach, Kühlbox und Heizung. |
-| S10 | Ein Watchdog im `camperd` (asyncio-Task) prüft den Hauptzyklus. Hängt er > 2 s: alle Relais aus, Prozess beenden, systemd startet neu. |
+| S10 | Ein Watchdog im `camperd` (eigener Thread, weil ein asyncio-Task eine hängende Event-Loop nicht bemerkt) prüft den Hauptzyklus. Hängt er > 2 s: alle Relais aus, Prozess beenden, systemd startet neu. |
 
 Jede Regel hat mindestens einen Test in `tests/safety/`, benannt nach der Nummer (`test_s3_roof_hold_timeout.py`).
 
@@ -234,6 +236,7 @@ Jede Regel hat mindestens einen Test in `tests/safety/`, benannt nach der Nummer
 - Welche Richtung K1/K2 bedeutet und wie DI1/DI2 die Stellung kodieren, kommt aus der Wahrheitstabelle im Profil (`roof.truth_table`, `TODO_MEASURE`). Ohne Tabelle: Stellung `unknown`, Bedienung trotzdem möglich (Hold-to-run).
 - Zustände: `closed`, `open`, `moving`, `between`, `unknown`, `fault`.
 - Warnung `roof_open_ignition`, wenn Zündung an und Dach nicht `closed`.
+- Freigabe nur mit Zündung ein und Fahrzeug steht (Original-E153, Recherche Nachtrag 30.10.2026).
 
 **Abnahme:** S2, S3, S4 als Tests grün. Im Simulator: Taste halten → K1 an; Taste loslassen → K1 innert 300 ms aus; WebSocket trennen während des Haltens → K1 innert 300 ms aus.
 
@@ -249,7 +252,8 @@ Jede Regel hat mindestens einen Test in `tests/safety/`, benannt nach der Nummer
 ### 7.3 Standheizung (`heater`)
 
 - K4 = S+ (T6ap/3, bestätigt). DI4 = Betriebsanzeige (T6ap/2).
-- Stufe 0–15 → H1–H4 binär (H1 = Bit 0 … H4 = Bit 3). Relais an = NC offen = Segment wirksam. Widerstand = 1750 + Σ Segmente (27,4 / 54,9 / 110 / 237 Ω).
+- Stufe → K9–K12 binär (K9 = Bit 0 … K12 = Bit 3), Parallelleiter: R = 1 / (1/R0 + Σ bi/Ri). R0 und Ri `TODO_MEASURE`; bis dahin bleibt die Leiter stromlos und die Stufe ist nicht einstellbar.
+- Anzahl Stufen `heater.levels` (≤ 16). Laut SSP 329 hat das Original 10 Stufen (+10 bis +30 °C); am T6 zählen (O15).
 - Phasen: `off` → (ein) `start` → (DI4 an) `heating` → (aus) `afterrun` → (DI4 aus) `off`. `start` ohne DI4 nach 120 s → `fault`.
 - Anzeige in Stufen, bis `heater.level_to_c` im Profil kalibriert ist.
 
@@ -270,7 +274,7 @@ Jede Regel hat mindestens einen Test in `tests/safety/`, benannt nach der Nummer
 
 15a (DI10), 86s (DI8), D+ (DI9, Hypothese: nur loggen, bis bestätigt), 58d (DI7, Nachtmodus), Landstrom A11 (DI5, nur loggen, bis geklärt ist, ob A11 noch eingebaut ist).
 
-Geschwindigkeit (DI6): nur «fährt / steht», nicht km/h. Flanken in einem Fenster von 1 s zählen; ab `speed.moving_min_edges` gilt «fährt». Ob der SM-I-009 bei 20-ms-Abfrage genug Flanken sieht, ist offen (O14).
+Geschwindigkeit (DI6): nur «fährt / steht», nicht km/h. Der Flankenzähler der Karte A (bis 500 Hz, beide Flanken) liefert die Flanken im Fenster von 1 s; ab `inputs.speed.moving_min_edges` gilt «fährt». Ohne Zähler (`mode: edges`) zählt die Software Pegelwechsel bei 20-ms-Abfrage.
 
 ### 7.7 Energie (`energy`)
 
@@ -351,7 +355,7 @@ UART 115200 8N1, ASCII-Zeilen mit `\n`:
 | M | Inhalt | Fertig, wenn |
 | --- | --- | --- |
 | M1 | Repo-Gerüst, Profil-Loader, `sim`-HAL, Modulgerüste, WebSocket-API, Oberfläche aus Prototyp an den Socket gebunden. **Plattform-Prüfung auf dem Pi:** Image-Skript, `cog --platform=drm` mit Viewe + Touch, Kaltstartzeit messen | `make dev` läuft auf dem Mac; auf dem Pi zeigt `cog` die Oberfläche, Touch geht, Startzeit gemessen und notiert |
-| M2 | Treiber `sm_h001`, `sm_i009`, `gpio_ladder`, `cerbo_mqtt` auf dem Tisch | Rohwerte in der Expertenansicht, Victron-Werte vom echten Cerbo |
+| M2 | Treiber `sm_h001` (2 Karten), `cerbo_mqtt`, ALIVE-GPIO auf dem Tisch | Rohwerte in der Expertenansicht, Victron-Werte vom echten Cerbo |
 | M3 | Messmodus und Kalibrier-Assistent | Messfahrt mit Original-E153 möglich, CSV und Profil-Updates werden geschrieben |
 | M4 | (Daniel) Messungen am Fahrzeug, Profil füllen | keine `TODO_MEASURE` mehr in den Pflichtfeldern |
 | M5 | Lesende Module: Tanks, Temperaturen, Energie, Fahrzeug | Unit läuft im Auto parallel zum Original, ohne zu schalten |
@@ -368,7 +372,7 @@ UART 115200 8N1, ASCII-Zeilen mit `\n`:
 | O1 | Läuft `cog` (DRM) auf Pi 5 mit Viewe und Touch? | M1 prüfen; Rückfall `cage` + `cog -P wl` |
 | O2 | Regelt J1029 selbst? | Thermostat im Pi |
 | O3 | Was tut der Watchdog des SM-H-001, wenn der Pi über den DCDC-USB gespeist wird? | HAT-Watchdog aus; Software-Watchdog S10 |
-| O4 | Belegt der SM-H-001 UART oder weitere GPIO? | vor M2 im Datenblatt prüfen; GPIO-Belegung in HARDWARE.md anpassen |
+| O4 | Belegt der SM-H-001 UART oder weitere GPIO? | erledigt: nur I²C (GPIO2/3) laut Sequent |
 | O5 | Ist A11 noch eingebaut? | DI5 nur loggen |
 | O6 | Wahrheitstabelle Dach, Pegel aller Ein-/Ausgänge | aus Messmodus (M3/M4) |
 | O7 | Kennlinien G817, G249, G120, G126, Heizungs-Sollwert | `TODO_MEASURE`, Anzeige «nicht kalibriert» |
@@ -376,6 +380,9 @@ UART 115200 8N1, ASCII-Zeilen mit `\n`:
 | O9 | Touch-Controller mit IRQ für Wake? | ohne IRQ: Wake nur über Zündung |
 | O10 | Helligkeitssteuerung der Viewe-Treiberplatine | Regler ohne Wirkung, Hinweis in der Oberfläche |
 | O11 | Unterspannungsschwelle | 11,8 V für 60 s |
-| O12 | Belastung der Fahrzeugsignale durch Optokoppler im Messmodus | vor dem Anschliessen mit Multimeter prüfen (Daniel) |
+| O12 | Belastung der Fahrzeugsignale durch die Opto-Eingänge (1 kΩ, ca. 10–13 mA) | vor dem Anschliessen Leerlauf- und Lastspannung messen (HARDWARE.md 4.2); Messmodus am Original mit Multimeter/Logikanalysator |
 | O13 | Startzeit > 15 s mit Pi OS Lite | Buildroot-Image als eigener Meilenstein nach M8 prüfen |
-| O14 | Reicht der SM-I-009 für das Geschwindigkeitssignal (Pulsfrequenz)? | Flanken zählen; sonst T32b/3 über Optokoppler an einen Pi-GPIO mit Interrupt |
+| O14 | Reicht der Eingang für das Geschwindigkeitssignal (Pulsfrequenz)? | erledigt: Hardware-Zähler SM-H-001 bis 500 Hz; Frequenz am Fahrzeug bestätigen |
+| O15 | Sollwertleiter: Stufenzahl (10 laut SSP 329?), Widerstand je Stufe, Richtung (höhere Temperatur = grösserer oder kleinerer Widerstand?) | Leiter stromlos, Stufe nicht einstellbar, bis gemessen |
+| O16 | Pull-up 15 kΩ auf der Karte bestückt? Eingangsimpedanz je Revision | `ai_input_ohm: TODO_CHECK`; offenen AI-Eingang messen |
+| O17 | Mindestlast der Relaiskontakte bei Signalstrom (Leiter K9–K12, Befehle K1–K3) | im Relais-Datenblatt prüfen |

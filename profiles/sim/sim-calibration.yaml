@@ -4,22 +4,25 @@
 
 schema_version: 1
 
-buses:
-  sm_h001: { address: 0x28 }
-  sm_i009: { address: 0x20 }
-
 outputs:
   roof_a: { meaning: open }
   roof_b: { meaning: close }
+  heater_ladder:
+    base_ohm: 2200.0
+    branches:
+      - { channel: K9,  ohm: 160000.0 }
+      - { channel: K10, ohm: 80000.0 }
+      - { channel: K11, ohm: 40000.0 }
+      - { channel: K12, ohm: 20000.0 }
 
 analog:
-  fridge_temp:  { pullup_ohm: 10000 }
+  fridge_temp:  { pullup_ohm: 15000 }   # on-board 15 kOhm
   fresh_water:  { pullup_ohm: 1000 }
   waste_water:  { pullup_ohm: 1000 }
-  outside_temp: { pullup_ohm: 10000 }
-  roof_cmd_a_v: { divider: 2.0 }
-  roof_cmd_b_v: { divider: 2.0 }
-  battery_v:    { divider: 2.0 }
+  outside_temp: { pullup_ohm: 15000 }
+  roof_cmd_a_v: { divider: 5.7 }     # 16 V -> 2.8 V
+  roof_cmd_b_v: { divider: 5.7 }
+  battery_v:    { divider: 5.7 }
 
 curves:
   ntc_g817: { type: steinhart_hart, points: [[32650, 0], [10000, 25], [3602, 50]] }

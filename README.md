@@ -23,4 +23,4 @@ profile, where unmeasured values show as «nicht kalibriert».
 
 ## Status
 
-Milestone M1 (software part) – see `docs/M1_STATUS.md`.
+Milestone M1 (software) done – `docs/M1_STATUS.md`. Milestone M2 (drivers for 2× SM-H-001, Cerbo) ready for the bench – `docs/M2_STATUS.md`.

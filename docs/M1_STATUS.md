@@ -52,4 +52,4 @@ deploy/                      O1  cog/DRM, HDMI-Modus
 
 ## Nächster Schritt
 
-M2: Treiber `sm_h001`, `sm_i009`, `gpio_ladder`, `cerbo_mqtt` am Prüfstand. Vorher O4 klären (belegt der SM-H-001 UART oder weitere GPIO?) und die I²C-Adressen der Karten im Profil eintragen.
+M2: siehe `docs/M2_STATUS.md` (zwei SM-H-001 statt SM-I-009 + Purecrea).

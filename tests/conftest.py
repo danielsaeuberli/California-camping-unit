@@ -52,12 +52,14 @@ class Rig:
 
     @property
     def h(self) -> list[bool]:
-        return self.hal.gpio
+        """Heater ladder relays K9-K12 on card B."""
+        return self.hal.relays[8:12]
 
 
 @pytest.fixture
 async def rig(sim_profile: Profile, clock: FakeClock) -> Rig:
     r = Rig(sim_profile, clock)
+    r.hal.world.ignition = True  # the roof needs ignition on (roof.require_ignition)
     await r.ctrl.init_outputs()
     r.cerbo.feed()
     return r

@@ -1,7 +1,7 @@
 """Common driver interface (SPEC 3.2).
 
-Channels are 1-based like the documentation: DI1-DI16, AI1-AI8, relays K1-K8,
-ladder GPIOs H1-H4.
+Channels are 1-based like the documentation: DI1-DI16, AI1-AI16, relays K1-K16
+(layout in :mod:`camperd.hal.layout`).
 """
 
 from __future__ import annotations
@@ -10,10 +10,9 @@ import asyncio
 from abc import ABC, abstractmethod
 from typing import Any
 
-N_DI = 16
-N_AI = 8
-N_RELAY = 8
-N_GPIO = 4
+from camperd.hal.layout import N_AI, N_DI, N_RELAY
+
+__all__ = ["N_AI", "N_DI", "N_RELAY", "Hal", "HalError"]
 
 
 class HalError(IOError):
@@ -38,13 +37,18 @@ class Hal(ABC):
 
     @abstractmethod
     async def read_ai(self) -> list[float | None]:
-        """8 voltages at the AI terminals. Raises HalError on bus failure."""
+        """16 voltages at the AI terminals. Raises HalError on bus failure."""
+
+    async def read_rails(self) -> list[float | None]:
+        """Measured 3.3 V pull-up rail of each card (reference for resistive sensors)."""
+        return [None] * (N_AI // 8)
+
+    async def read_counters(self, channels: tuple[int, ...]) -> dict[int, int]:
+        """Free-running edge counters of the given DI channels (empty if unsupported)."""
+        return {}
 
     @abstractmethod
     async def write_relay(self, ch: int, on: bool) -> None: ...
-
-    @abstractmethod
-    async def write_gpio(self, ch: int, on: bool) -> None: ...
 
     @abstractmethod
     def all_off_sync(self) -> None:
@@ -53,5 +57,3 @@ class Hal(ABC):
     async def all_off(self) -> None:
         for ch in range(1, N_RELAY + 1):
             await self.write_relay(ch, False)
-        for ch in range(1, N_GPIO + 1):
-            await self.write_gpio(ch, False)

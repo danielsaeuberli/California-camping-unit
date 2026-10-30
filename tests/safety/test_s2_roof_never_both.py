@@ -2,7 +2,7 @@
 
 from camperd.modules.roof import Roof, RoofConfig, RoofInputs
 
-IDLE = RoofInputs(fb_a=False, fb_b=False, vehicle_moving=False, di_ok=True)
+IDLE = RoofInputs(fb_a=False, fb_b=False, vehicle_moving=False, di_ok=True, ignition=True)
 
 
 def make(sim_profile, clock):
@@ -11,6 +11,7 @@ def make(sim_profile, clock):
 
 def test_reversal_waits_for_gap(sim_profile, clock):
     roof = make(sim_profile, clock)
+    roof.tick(IDLE)  # ignition on
     seq = 0
     for _ in range(5):
         seq += 1
@@ -37,6 +38,7 @@ def test_reversal_waits_for_gap(sim_profile, clock):
 
 def test_release_then_other_direction_also_waits(sim_profile, clock):
     roof = make(sim_profile, clock)
+    roof.tick(IDLE)  # ignition on
     roof.hold("open", 1)
     roof.tick(IDLE)
     assert roof.k1

@@ -85,7 +85,7 @@ function onReject(m) {
   if (String(m.id).startsWith('hold-')) {
     stopRoof(T['roof.reject.' + reason] ? t('roof.reject.' + reason) : t('roof.stopped'));
   } else {
-    toast(t('ack.failed', {reason}), 'err');
+    toast(T['ack.' + reason] ? t('ack.' + reason) : t('ack.failed', {reason}), 'err');
   }
 }
 
@@ -186,7 +186,6 @@ $('st-idle').querySelectorAll('button').forEach(b => b.addEventListener('click',
 $('x-tabs').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { S.expertTab = b.dataset.v; render(); }));
 
 /* ---------- Expertenansicht ---------- */
-const LADDER = [27.4, 54.9, 110, 237];
 function buildExpert() {
   const row = (el, ch, name, key) => {
     const r = document.createElement('div'); r.className = 'io-row' + (name ? '' : ' free');
@@ -194,10 +193,13 @@ function buildExpert() {
     r.children[1].textContent = name || t('x.free'); $(el).appendChild(r);
   };
   T['io.di'].forEach((n, i) => row('x-di', 'DI' + (i + 1), n, 'di-' + i));
-  for (let i = 0; i < 8; i++) row('x-do', 'K' + (i + 1), i < 4 ? T['io.k'][i] : t('x.unused_k'), i < 4 ? 'k-' + i : 'kx-' + i);
+  // Card A: K1-K4 used, K5-K8 free (same COM group, +12 V)
+  for (let i = 0; i < 8; i++) row('x-do', 'K' + (i + 1), i < 4 ? T['io.k'][i] : t('x.unused_k'), 'k-' + i);
+  // Card B: K9-K12 heater setpoint ladder, K13-K16 free
   const g = document.createElement('div'); g.className = 'io-group'; g.textContent = t('x.ladder'); $('x-do').appendChild(g);
-  LADDER.forEach((ohm, i) => row('x-do', 'H' + (i + 1), t('x.ladder_seg', {ohm: String(ohm).replace('.', ',')}), 'h-' + i));
+  for (let i = 8; i < 12; i++) row('x-do', 'K' + (i + 1), t('x.ladder_seg', {n: i - 7}), 'k-' + i);
   row('x-do', 'T2p', t('x.ladder_sum'), 'ohm');
+  for (let i = 12; i < 16; i++) row('x-do', 'K' + (i + 1), t('x.unused_k2'), 'k-' + i);
   T['io.ai'].forEach((n, i) => row('x-ai', 'AI' + (i + 1), n, 'ai-' + i));
   for (let i = 1; i <= 32; i++) {
     const b = document.createElement('button'); b.type = 'button'; b.textContent = String(i).padStart(2, '0');
@@ -251,15 +253,17 @@ function render() {
     afterrun: ['warn', t('heat.chip.afterrun', {t: mmss(h.afterrun_s)})], fault: ['err', t('heat.chip.fault')]}[h.phase];
   const phase = t('heat.phase.' + h.phase);
   set('ov-heat', phase);
-  text('ov-heat-sub', h.phase === 'afterrun' ? t('heat.chip.afterrun', {t: mmss(h.afterrun_s)}) : t('heat.level_sub', {n: h.level, max: 15}));
+  text('ov-heat-sub', h.phase === 'afterrun' ? t('heat.chip.afterrun', {t: mmss(h.afterrun_s)}) : t('heat.level_sub', {n: h.level, max: (h.levels || 16) - 1}));
   chip('ov-heat-chip', h.phase === 'start' ? t('heat.chip.start') : PH[1], PH[0]);
   set('ht-phase', phase); chip('ht-chip', PH[1], PH[0]);
   text('ht-note', h.phase === 'afterrun' ? t('heat.note_afterrun') : h.phase === 'fault' ? t('heat.note_fault') : t('heat.note'));
+  const maxLevel = (h.levels || 16) - 1;
   set('ht-level', h.level_c != null ? fmt(h.level_c, '°C') : h.level);
-  text('ht-of', t('heat.of', {n: 15}));
+  text('ht-of', h.level_ok === false ? t('heat.level_uncal') : t('heat.of', {n: maxLevel}));
   text('ht-toggle', t(h.on ? 'heat.toggle_on' : 'heat.toggle_off'));
   $('ht-toggle').setAttribute('aria-pressed', String(h.on));
-  $('ht-minus').disabled = h.level <= 0; $('ht-plus').disabled = h.level >= 15;
+  $('ht-minus').disabled = h.level_ok === false || h.level <= 0;
+  $('ht-plus').disabled = h.level_ok === false || h.level >= maxLevel;
 
   // Wasser
   const tk = st.tanks;
@@ -281,16 +285,18 @@ function render() {
     ? t(r.cmd === 'open' ? 'roof.pos.opening' : r.cmd === 'close' ? 'roof.pos.closing' : 'roof.pos.moving')
     : t('roof.pos.' + r.pos);
   text('ov-roof', posText); text('rf-pos', posText);
+  const noIgn = r.require_ignition && !st.power.ignition;
   const roofChip = moving && !['closed', 'unknown'].includes(r.pos) ? [t('roof.chip.moving_open'), 'err']
     : r.block === 'unit_io' ? [t('roof.chip.io'), 'err']
+    : noIgn ? [t('roof.chip.no_ignition'), 'warn']
     : moving ? [t(r.direction_verified ? 'roof.chip.blocked_driving' : 'roof.chip.blocked_driving_all'), 'warn']
     : r.block === 'timeout' ? [t('roof.chip.timeout'), 'warn']
     : r.pos === 'moving' ? [t('roof.chip.running'), 'accent']
     : r.pos === 'open' || r.pos === 'closed' ? [t('roof.chip.endpos'), 'ok']
     : r.pos === 'unknown' ? [t('roof.chip.unknown'), 'warn'] : [t('roof.chip.stopped'), 'warn'];
   chip('ov-roof-chip', roofChip[0], roofChip[1]); chip('rf-chip', roofChip[0], roofChip[1]);
-  $('rf-open').disabled = moving && localDir !== 'open';
-  $('rf-close').disabled = moving && !r.direction_verified && localDir !== 'close';
+  $('rf-open').disabled = (moving || noIgn) && localDir !== 'open';
+  $('rf-close').disabled = ((moving && !r.direction_verified) || noIgn) && localDir !== 'close';
   for (const dir of ['open', 'close']) $('rf-' + dir).setAttribute('aria-pressed', String(localDir === dir));
 
   // Einstellungen
@@ -357,13 +363,13 @@ function renderExpert() {
     n.textContent = v == null ? '–' : String(v); n.className = 'v num ' + (v ? 'hi' : 'lo');
   };
   for (let i = 0; i < 16; i++) bit('di-' + i, io ? io.di[i] : null);
-  for (let i = 0; i < 4; i++) { bit('k-' + i, io ? io.k[i] : null); bit('h-' + i, io ? io.h[i] : null); }
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < 16; i++) bit('k-' + i, io ? io.k[i] : null);
+  for (let i = 0; i < 16; i++) {
     const n = document.querySelector(`[data-io="ai-${i}"]`);
     n.innerHTML = io && io.ai_v[i] != null ? fmt(io.ai_v[i], 'V', 2) : '–'; n.className = 'v num';
   }
   const ohm = document.querySelector('[data-io="ohm"]');
-  ohm.innerHTML = io ? fmt(io.ladder_ohm, 'Ω', 1) : '–'; ohm.className = 'v num';
+  ohm.innerHTML = io && io.ladder_ohm != null ? fmt(io.ladder_ohm, 'Ω', 1) : t('common.uncalibrated'); ohm.className = 'v num';
 
   $('x-pins').querySelectorAll('button').forEach((b, i) => b.setAttribute('aria-pressed', String(i + 1 === S.pin)));
   text('x-pin-name', 'T32b/' + String(S.pin).padStart(2, '0'));
@@ -388,6 +394,7 @@ function renderExpert() {
   $('x-conn-unit').innerHTML = rowsHtml([[t('x.conn.version'), h.version || '–'], [t('x.conn.hal'), h.hal || '–'],
     [t('x.conn.profile'), h.profile || '–'], [t('x.conn.ws'), t('x.conn.ws_val')],
     [t('x.conn.mode'), S.st ? t('power.' + S.st.power.mode) : '–'],
+    [t('x.conn.rails'), io && io.rails_v ? io.rails_v.map(v => fmt(v, 'V', 2)).join(' / ') : '–'],
     [t('x.conn.hold'), S.roof.dir ? `${S.roof.dir} #${S.roof.seq}` : t('x.conn.hold_none')]]);
 }
 

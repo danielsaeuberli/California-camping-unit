@@ -1,4 +1,5 @@
 from camperd.signals.core import (
+    CounterWindow,
     Debouncer,
     EdgeCounter,
     MedianFilter,
@@ -14,6 +15,7 @@ from camperd.signals.core import (
 from camperd.signals.pulse import PulseDecoder
 
 __all__ = [
+    "CounterWindow",
     "Debouncer",
     "EdgeCounter",
     "MedianFilter",

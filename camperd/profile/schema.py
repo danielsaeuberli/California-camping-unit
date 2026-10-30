@@ -32,6 +32,7 @@ _ANALOG = {
     "curve": LEAF,
     "measure_only": LEAF,
     "fallback_for": LEAF,
+    "source": LEAF,
 }
 _CURVE = {"type": LEAF, "points": LEAF, "labels": LEAF, "ohm": LEAF, "hysteresis_pct": LEAF}
 
@@ -46,8 +47,9 @@ SCHEMA: dict[str, Any] = {
     },
     "buses": {
         "i2c": LEAF,
-        "sm_h001": {"address": LEAF},
-        "sm_i009": {"address": LEAF},
+        "sm_h001_a": {"stack": LEAF, "ai_max_v": LEAF, "ai_input_ohm": LEAF},
+        "sm_h001_b": {"stack": LEAF, "ai_max_v": LEAF, "ai_input_ohm": LEAF},
+        "alive_gpio": LEAF,
         "wake_uart": {"device": LEAF, "baud": LEAF},
         "cerbo": {"host": LEAF, "port": LEAF, "keepalive_s": LEAF, "stale_s": LEAF},
     },
@@ -57,8 +59,9 @@ SCHEMA: dict[str, Any] = {
         "fridge_req": _OUTPUT,
         "heater_splus": _OUTPUT,
         "heater_ladder": {
+            "topology": LEAF,
             "base_ohm": LEAF,
-            "segments": [{"channel": LEAF, "gpio": LEAF, "ohm": LEAF}],
+            "branches": [{"channel": LEAF, "ohm": LEAF}],
             "switch_gap_ms": LEAF,
         },
     },
@@ -71,6 +74,7 @@ SCHEMA: dict[str, Any] = {
         "reverse_gap_ms": LEAF,
         "max_run_s": LEAF,
         "block_open_when_moving": LEAF,
+        "require_ignition": LEAF,
     },
     "fridge": {
         "target_c": {"min": LEAF, "max": LEAF, "default": LEAF},

@@ -12,11 +12,11 @@ const SCENARIOS = {
   shore: {soc: 88, v: 13.8, a: 22, pv: 0, charger: 420, dc: 110, state: 5, active: 0, inp: [230, 2.96, 50, 650], out: [230, 0.87, 50, 180, 200]},
 };
 const CFG = {holdTimeout: 0.3, reverseGap: 0.3, maxRun: 60, fridgeOn: 1.5, fridgeOff: 1.0, minRun: 120, minPause: 180,
-  heaterStartTimeout: 120, ignite: 6, afterrun: 240, roofTravel: 20, ladder: [27.4, 54.9, 110, 237]};
+  heaterStartTimeout: 120, ignite: 6, afterrun: 240, roofTravel: 20};
 
 /* ---------- simulated world + modules ---------- */
 const W = {
-  online: true, cerbo: true, scenario: 'solar', moving: false, ignition: false, dim58: false,
+  online: true, cerbo: true, scenario: 'solar', moving: false, ignition: true, dim58: false,
   wasteFull: false, fresh: 2, fridgeFault: null, overload: false, outside: 12.5,
 };
 const M = {
@@ -30,6 +30,7 @@ const M = {
 function roofHold(dir, seq) {
   const r = M.roof, t = now();
   if (dir !== 'open' && dir !== 'close') return 'bad_dir';
+  if (!W.ignition && !W.moving) { r.block = 'ignition'; return 'blocked_ignition'; }
   if (W.moving && dir === 'open') { r.block = 'moving'; return 'blocked_moving'; }
   const newPress = t - r.lastHold > CFG.holdTimeout || dir !== r.cmd;
   if (newPress) {
@@ -47,6 +48,7 @@ function tick(dt) {
   // roof (S3, S4, reversal gap S2)
   if (r.cmd) {
     if (t - r.lastHold > CFG.holdTimeout) roofRelease();
+    else if (!W.ignition && !W.moving) { roofOff(t); r.cmd = null; r.block = 'ignition'; }
     else if (W.moving && r.cmd === 'open') { roofOff(t); r.cmd = null; r.block = 'moving'; }
     else if (t - r.pressStart >= CFG.maxRun) { roofOff(t); r.latched = true; r.block = 'timeout'; }
   }
@@ -55,6 +57,7 @@ function tick(dt) {
     if (!reversing || t - r.offSince >= CFG.reverseGap) { r.energized = r.cmd; r.lastDir = r.cmd; }
   }
   if (!r.cmd && !W.moving && r.block === 'moving') r.block = 'none';
+  if (!r.cmd && W.ignition && r.block === 'ignition') r.block = 'none';
   if (r.energized) r.pos = Math.min(1, Math.max(0, r.pos + (r.energized === 'open' ? 1 : -1) * dt / CFG.roofTravel));
   // fridge thermostat with min run / pause (S6)
   let want = f.request;
@@ -114,9 +117,9 @@ function stateMsg() {
   const afterrun = h.phase === 'afterrun' ? Math.max(0, Math.round(CFG.afterrun - (now() - h.since))) : 0;
   return {v: 1, type: 'state', ts: Date.now(), data: {
     power: {mode: M.power, ignition: W.ignition || W.moving},
-    roof: {pos: roofPos(), cmd: r.cmd || 'none', block: r.block, direction_verified: true},
+    roof: {pos: roofPos(), cmd: r.cmd || 'none', block: r.block, direction_verified: true, require_ignition: true},
     fridge: {on: f.on, target_c: f.target, temp_c: Math.round(f.temp * 10) / 10, temp_q: 'ok', request: f.request, fault: W.fridgeFault},
-    heater: {on: h.on, level: h.level, phase: h.phase, afterrun_s: afterrun, level_c: null},
+    heater: {on: h.on, level: h.level, phase: h.phase, afterrun_s: afterrun, level_c: null, level_ok: true, levels: 16},
     tanks: {fresh_step: W.fresh, fresh_q: 'ok', waste_full: W.wasteFull, waste_q: 'ok'},
     outside_c: W.outside, outside_q: 'ok',
     vehicle: {moving: W.moving, d_plus: W.moving, t86s: true, dim58: W.dim58},
@@ -144,11 +147,13 @@ function ioMsg() {
   const di = [pos >= 1, pos <= 0, fdiag, h.running, W.scenario === 'shore', W.moving && t % 0.2 < 0.1, W.dim58, true,
     W.moving, W.ignition || W.moving, false, false, false, false, false, false].map(Number);
   const bits = [0, 1, 2, 3].map(i => h.on ? (h.level >> i) & 1 : 0);
-  const ohm = 1750 + CFG.ladder.reduce((s, o, i) => s + (bits[i] ? o : 0), 0);
+  const ohm = 1 / (1 / 2200 + [160000, 80000, 40000, 20000].reduce((s, o, i) => s + (bits[i] ? 1 / o : 0), 0));  // sim values
   return {v: 1, type: 'io', ts: Date.now(), data: {
-    di, k: [M.roof.energized === 'open', M.roof.energized === 'close', M.fridge.request, h.on && ['start', 'heating'].includes(h.phase)].map(Number),
-    h: bits, ai_v: [3.65 - (M.fridge.temp - 5) * 0.05, [0.52, 1.46, 2.01, 2.42][W.fresh], W.wasteFull ? 0.78 : 2.42, 3.26, 2.55,
-      M.roof.energized === 'open' ? 6.2 : 0, M.roof.energized === 'close' ? 6.2 : 0, 6.4], ladder_ohm: ohm,
+    di, k: [M.roof.energized === 'open', M.roof.energized === 'close', M.fridge.request, h.on && ['start', 'heating'].includes(h.phase),
+      0, 0, 0, 0, ...bits, 0, 0, 0, 0].map(Number),
+    h: bits, ai_v: [2.42 - (M.fridge.temp - 5) * 0.03, [0.50, 0.95, 1.37, 1.69][W.fresh], W.wasteFull ? 0.50 : 1.69, 1.31, 0.0,
+      M.roof.energized === 'open' ? 2.18 : 0, M.roof.energized === 'close' ? 2.18 : 0, 2.25, 0, 0, 0, 0, 0, 0, 0, 0],
+    rails_v: [3.30, 3.30], ladder_ohm: ohm,
   }};
 }
 
@@ -213,7 +218,7 @@ function controls() {
     <label>Szenario <select data-k="scenario"><option value="solar">Solar lädt</option><option value="night">Nacht, Entladen</option><option value="shore">Landstrom</option></select></label>
     <label><input type="checkbox" data-k="online" checked> Steuerung online</label>
     <label><input type="checkbox" data-k="cerbo" checked> Victron-Daten</label>
-    <label><input type="checkbox" data-k="ignition"> Zündung</label>
+    <label><input type="checkbox" data-k="ignition" checked> Zündung</label>
     <label><input type="checkbox" data-k="moving"> Fahrzeug fährt</label>
     <label><input type="checkbox" data-k="dim58"> Armaturenlicht (58d)</label>
     <label><input type="checkbox" data-k="wasteFull"> Abwasser voll</label>

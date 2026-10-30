@@ -14,8 +14,13 @@ vehicle:
 
 buses:
   i2c: 1
-  sm_h001: { address: TODO_CHECK }      # Jumper/Stack-Level, Datenblatt
-  sm_i009: { address: TODO_CHECK }
+  # Two Sequent SM-H-001 Home Automation cards (I2C 0x28 + stack level, DIP ID0-ID2).
+  # Card A: K1-K8, DI1-DI8 (opto), AI1-AI8.  Card B: K9-K16, DI9-DI16, AI9-AI16.
+  # Analog inputs: 0-3.3 V, 12 bit, no input protection; plan for max. 3.0 V.
+  # Input impedance: 50 kOhm per V4 listing, not stated for V3 -> TODO_CHECK per revision.
+  sm_h001_a: { stack: 0, ai_max_v: 3.0, ai_input_ohm: TODO_CHECK }
+  sm_h001_b: { stack: 1, ai_max_v: 3.0, ai_input_ohm: TODO_CHECK }
+  alive_gpio: 26                 # high while camperd runs (HARDWARE.md 4.4)
   wake_uart: { device: /dev/ttyAMA2, baud: 115200 }
   cerbo: { host: 192.168.77.1, port: 1883, keepalive_s: 30, stale_s: 10 }
 
@@ -25,12 +30,17 @@ outputs:
   fridge_req:   { pin: T32b/10, channel: K3, active: high }                          # Pegel TODO_MEASURE
   heater_splus: { pin: T6ap/3,  channel: K4, active: high }                          # S+ bestätigt
   heater_ladder:
-    base_ohm: 1750.0
-    segments:                    # Relais an = NC offen = Segment wirksam
-      - { channel: H1, gpio: 17, ohm: 27.4 }
-      - { channel: H2, gpio: 27, ohm: 54.9 }
-      - { channel: H3, gpio: 22, ohm: 110.0 }
-      - { channel: H4, gpio: 23, ohm: 237.0 }
+    # Parallel ladder on card B (N.O. contacts, common COM per group of four):
+    # T2p/1 - base_ohm - T2p/2 always; each relay adds its branch in parallel
+    # (COM on T2p/1). Relays off = base_ohm = level 0 (S1).
+    # Values follow from the T2p measurement at the original panel (HARDWARE.md 6.1).
+    topology: parallel
+    base_ohm: TODO_MEASURE
+    branches:                    # binary-weighted conductance, bit 0 = H1
+      - { channel: K9,  ohm: TODO_MEASURE }
+      - { channel: K10, ohm: TODO_MEASURE }
+      - { channel: K11, ohm: TODO_MEASURE }
+      - { channel: K12, ohm: TODO_MEASURE }
     switch_gap_ms: 50
 
 inputs:
@@ -39,7 +49,7 @@ inputs:
   fridge_diag: { pin: T32b/9,  channel: DI3,  mode: pulse, active: low, pulse_ms: 250, frame_ms: 4000 }
   heater_run:  { pin: T6ap/2,  channel: DI4,  debounce_ms: 200 }
   shore_a11:   { pin: T32b/22, channel: DI5,  log_only: true }      # O5
-  speed:       { pin: T32b/3,  channel: DI6,  mode: edges, window_ms: 1000, moving_min_edges: 3 }  # O14
+  speed:       { pin: T32b/3,  channel: DI6,  mode: counter, window_ms: 1000, moving_min_edges: 3 }  # card A opto counter, max 500 Hz
   dim_58d:     { pin: T32b/27, channel: DI7 }
   term_86s:    { pin: T32b/28, channel: DI8,  log_only: true }
   d_plus:      { pin: T32b/29, channel: DI9,  log_only: true }      # Hypothese, O8
@@ -48,11 +58,16 @@ inputs:
   ign_15a_alt: { pin: T6ap/6,  channel: DI12, enabled: false }
 
 analog:
-  ref_5v:       { channel: AI5, divider: 2.0 }
+  # Resistive sensors: sensor between AI and GND, pull-up to the card's 3.3 V rail
+  # (on-board 15 kOhm on V3 cards, optionally lowered by a parallel 0805 resistor).
+  # pullup_ohm = effective pull-up per channel. The reference is the card's own
+  # 3.3 V measurement (register 0x3F), so no AI channel is needed for it.
+  pullup_ref:   { source: card_rail }
   fridge_temp:  { pin: [T32b/7, T32b/8],   channel: AI1, pullup_ohm: TODO_MEASURE, curve: ntc_g817 }
   fresh_water:  { pin: [T32b/20, T32b/21], channel: AI2, pullup_ohm: TODO_MEASURE, curve: steps_g120 }
   waste_water:  { pin: [T32b/18, T32b/19], channel: AI3, pullup_ohm: TODO_MEASURE, curve: steps_g126 }
   outside_temp: { pin: [T32b/16, T32b/17], channel: AI4, pullup_ohm: TODO_MEASURE, curve: ntc_g249 }
+  # 12 V channels: divider to <= 3.0 V plus series resistor and clamp to 3.3 V (HARDWARE.md 4.3)
   roof_cmd_a_v: { pin: T32b/11, channel: AI6, divider: TODO_CHECK, measure_only: true }
   roof_cmd_b_v: { pin: T32b/12, channel: AI7, divider: TODO_CHECK, measure_only: true }
   battery_v:    { pin: T32b/32, channel: AI8, divider: TODO_CHECK, fallback_for: cerbo_battery_v }
@@ -71,6 +86,7 @@ roof:
   reverse_gap_ms: 300
   max_run_s: 60
   block_open_when_moving: true
+  require_ignition: true           # E153 releases the roof only with ignition on (Recherche, Nachtrag)
 
 fridge:
   target_c: { min: 1, max: 10, default: 5 }
@@ -82,7 +98,7 @@ fridge:
   self_regulating_j1029: TODO_MEASURE   # O2
 
 heater:
-  levels: 16
+  levels: 16                       # OPEN: T5 SSP 329 says 10 levels; count at the T6 panel. <= 16 (4 relays)
   level_to_c: TODO_MEASURE         # 16 Werte, aus Messung T2p am Original
   start_timeout_s: 120
   afterrun_expected_s: 240

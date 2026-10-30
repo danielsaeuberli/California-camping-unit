@@ -8,13 +8,11 @@
   "page.roof": "Dach",
   "page.settings": "Einstellungen",
   "page.expert": "Expertenansicht",
-
   "top.outside": "Aussen",
   "top.unit": "Steuerung",
   "top.victron": "Victron",
   "top.offline": "Steuerung offline · Bedienung gesperrt",
   "top.settings": "Einstellungen",
-
   "common.none": "–",
   "common.no_data": "Keine Daten",
   "common.no_victron": "Keine Victron-Daten",
@@ -25,14 +23,12 @@
   "common.sensor_implausible": "Messwert unplausibel",
   "common.age": "vor {s} s",
   "common.tap": "Zum Bedienen tippen",
-
   "tile.battery": "Batterie",
   "tile.fridge": "Kühlbox",
   "tile.heat": "Heizung",
   "tile.shore": "Landstrom",
   "tile.water": "Wasser",
   "tile.roof": "Dach",
-
   "bat.charging": "Lädt",
   "bat.discharging": "Entlädt",
   "bat.charging_lc": "lädt",
@@ -53,13 +49,11 @@
   "en.alarm_none": "keine",
   "en.alarm_overload": "Überlast",
   "en.no_shore": "kein Landstrom",
-
   "shore.disconnected": "Getrennt",
   "shore.inverter_sub": "230 V vom Wechselrichter · {w}",
   "shore.inverter": "Wechselrichter",
   "shore.charging_sub": "Laden {w}",
   "shore.overload": "Überlast",
-
   "vebus.0": "Aus",
   "vebus.1": "Sparbetrieb",
   "vebus.2": "Fehler",
@@ -72,7 +66,6 @@
   "vebus.9": "Wechselrichter",
   "vebus.10": "Power Assist",
   "vebus.11": "Netzteil",
-
   "fridge.inside": "Innen",
   "fridge.target": "Solltemperatur",
   "fridge.colder": "Kälter",
@@ -97,7 +90,6 @@
   "fridge.code.4": "Mindestdrehzahl",
   "fridge.code.5": "Übertemperatur Elektronik",
   "fridge.code.6": "Thermostatfehler",
-
   "heat.state": "Zustand",
   "heat.level": "Heizstufe",
   "heat.of": "von {n}",
@@ -122,7 +114,6 @@
   "heat.note": "Die Stufe wird in °C angezeigt, sobald der Sollwertgeber am Original gemessen ist.",
   "heat.note_afterrun": "Die Standheizung kühlt sich ab. Die Unit bleibt bis zum Ende des Nachlaufs eingeschaltet.",
   "heat.note_fault": "Die Standheizung hat nach dem Einschalten keine Betriebsanzeige gemeldet. Ausschalten und erneut versuchen.",
-
   "water.fresh": "Frischwasser",
   "water.fresh_short": "Frisch {level}",
   "water.waste": "Abwasser",
@@ -138,7 +129,6 @@
   "water.in_order": "In Ordnung",
   "water.note_fresh": "Der Tankgeber meldet vier Stufen: leer, 1/3, 2/3, voll.",
   "water.note_waste": "Der Tankgeber meldet nur «voll» oder «nicht voll».",
-
   "roof.position": "Stellung",
   "roof.open": "Öffnen",
   "roof.close": "Schliessen",
@@ -167,7 +157,6 @@
   "roof.reject.timeout": "Laufzeit überschritten · Taste loslassen",
   "roof.reject.busy": "Dach wird an einem anderen Bildschirm bedient",
   "roof.offline_stop": "Verbindung zur Steuerung verloren · Dach gestoppt",
-
   "set.screen": "Bildschirm",
   "set.brightness": "Helligkeit",
   "set.brightness_na": "Helligkeit noch ohne Wirkung (Treiberplatine offen)",
@@ -182,20 +171,19 @@
   "set.idle.2": "2 min",
   "set.idle.5": "5 min",
   "set.expert": "Expertenansicht",
-
   "x.tab.io": "Signale",
   "x.tab.pins": "Stecker T32b",
   "x.tab.ac": "MultiPlus",
   "x.tab.conn": "Verbindung",
   "x.tab.measure": "Messmodus",
-  "x.di": "Eingänge SM-I-009",
-  "x.do": "Ausgänge (Befehl)",
-  "x.ai": "Analog SM-H-001",
-  "x.ladder": "Heizungs-Sollwert H1–H4 (GPIO)",
-  "x.ladder_seg": "{ohm} Ω überbrückt (NC)",
+  "x.di": "Eingänge Opto (Karte A / B)",
+  "x.do": "Relais (Befehl)",
+  "x.ai": "Analog (Karte A / B)",
+  "x.ladder": "Heizungs-Sollwert K9–K12 (Karte B, parallel)",
+  "x.ladder_seg": "Zweig {n} parallel zu T2p",
   "x.ladder_sum": "Widerstand an J604",
   "x.free": "frei",
-  "x.unused_k": "nicht verwendet (gemeinsame COM)",
+  "x.unused_k": "frei (COM-Gruppe +12 V)",
   "x.reserve": "Reserve · verdrahtet, ohne Funktion",
   "x.ac_in": "Landstrom-Eingang L1",
   "x.ac_out": "Ausgang L1",
@@ -240,24 +228,20 @@
   "x.conn.mode": "Betriebszustand",
   "x.measure.title": "Messmodus",
   "x.measure.note": "Messmodus und Kalibrier-Assistent folgen mit Meilenstein M3. Im Messmodus bleiben alle Relais gesperrt.",
-
   "power.drive": "Fahrt",
   "power.afterrun": "Nachlauf",
   "power.standby": "Bereitschaft",
   "power.shutdown": "Abschalten",
-
   "alert.waste_full": "Abwassertank voll",
   "alert.roof_open_ignition": "Zündung an, Dach nicht geschlossen",
   "alert.heater_fault": "Standheizung: keine Betriebsanzeige",
   "alert.fridge_sensor": "Kühlbox-Fühler ohne gültigen Wert",
-  "alert.di_card": "Eingangskarte SM-I-009 gestört · Dach gesperrt",
+  "alert.di_card": "I/O-Karte SM-H-001 gestört · Dach gesperrt",
   "alert.undervoltage": "Unterspannung · Unit schaltet ab",
   "alert.fridge_fault": "Kühlbox meldet einen Fehler",
-
   "ack.failed": "Befehl abgelehnt: {reason}",
   "victron.back": "Victron-Daten wieder da",
   "victron.lost": "Victron-Daten fehlen · Bedienung bleibt",
-
   "io.di": [
     "Dach Rückmeldung A · T32b/15",
     "Dach Rückmeldung B · T32b/14",
@@ -271,7 +255,10 @@
     "Zündung 15a · T32b/30",
     "58d Variante · T6ap/4",
     "15a Variante · T6ap/6",
-    null, null, null, null
+    null,
+    null,
+    null,
+    null
   ],
   "io.k": [
     "Dach Befehl A · T32b/11",
@@ -284,10 +271,18 @@
     "Frischwasser G120 · /20,/21",
     "Abwasser G126 · /18,/19",
     "Aussen G249 · /16,/17",
-    "Referenz 5,1-V-Schiene",
+    null,
     "Dachbefehl A (Messmodus) · /11",
     "Dachbefehl B (Messmodus) · /12",
-    "Batteriespannung · /32"
+    "Batteriespannung · /32",
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
   ],
   "pins": {
     "3": "Geschwindigkeit J285 · Eingang DI6",
@@ -314,5 +309,12 @@
     "30": "Zündung 15a · DI10 und Wake",
     "31": "Masse",
     "32": "+12 V über SH21 · nur Durchführung, nicht Unit-Speisung"
-  }
+  },
+  "x.unused_k2": "frei (zweite COM-Gruppe Karte B)",
+  "x.conn.rails": "3,3-V-Schiene Karte A / B",
+  "roof.reject.blocked_ignition": "Gesperrt: Zündung einschalten",
+  "roof.chip.no_ignition": "Zündung einschalten",
+  "heat.level_uncal": "Sollwertgeber nicht kalibriert · Stufe fest",
+  "ack.ladder_uncalibrated": "Heizstufe nicht einstellbar: Sollwertgeber noch nicht gemessen",
+  "alert.ai_overvoltage": "Analogeingang über 3,0 V · Teiler prüfen"
 }

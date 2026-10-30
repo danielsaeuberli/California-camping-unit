@@ -9,11 +9,12 @@ from camperd.api.server import Api
 from camperd.api.store import EventLog, Settings
 from camperd.modules.roof import Roof, RoofConfig, RoofInputs
 
-IDLE = RoofInputs(fb_a=False, fb_b=False, vehicle_moving=False, di_ok=True)
+IDLE = RoofInputs(fb_a=False, fb_b=False, vehicle_moving=False, di_ok=True, ignition=True)
 
 
 def test_drops_without_hold(sim_profile, clock):
     roof = Roof(RoofConfig.from_profile(sim_profile), clock)
+    roof.tick(IDLE)  # ignition on
     roof.hold("open", 1)
     roof.tick(IDLE)
     assert roof.k1
@@ -27,6 +28,7 @@ def test_drops_without_hold(sim_profile, clock):
 
 def test_max_run_time_latches_until_release(sim_profile, clock):
     roof = Roof(RoofConfig.from_profile(sim_profile), clock)
+    roof.tick(IDLE)  # ignition on
     seq = 0
     t = 0.0
     while t < 59.9:
@@ -60,6 +62,7 @@ def test_max_run_time_latches_until_release(sim_profile, clock):
 
 def test_stale_seq_does_not_extend_hold(sim_profile, clock):
     roof = Roof(RoofConfig.from_profile(sim_profile), clock)
+    roof.tick(IDLE)  # ignition on
     roof.hold("open", 10)
     roof.tick(IDLE)
     clock.advance(0.2)
@@ -70,6 +73,7 @@ def test_stale_seq_does_not_extend_hold(sim_profile, clock):
 
 
 async def test_websocket_loss_stops_roof(rig, tmp_path):
+    await rig.run_for(0.2)  # ignition debounced on
     api = Api(rig.ctrl, rig.clock, Settings(tmp_path / "s.json", rig.ctrl.p), EventLog(tmp_path / "e.jsonl"), tmp_path)
     async with TestClient(TestServer(api.app())) as client:
         ws = await client.ws_connect("/ws")
