@@ -1,8 +1,0 @@
-# Pi <-> Victron Cerbo GX, static (SPEC 2.7). Set 192.168.77.1/24 fixed on the Cerbo.
-[Match]
-Name=eth0
-
-[Network]
-Address=192.168.77.2/24
-LinkLocalAddressing=no
-IPv6AcceptRA=no

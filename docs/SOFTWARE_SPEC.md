@@ -65,7 +65,6 @@ Python-Pakete im venv unter `/opt/camperd/venv`: `aiohttp`, `aiomqtt`, `smbus2`,
 ```
 bluetooth hciuart triggerhappy avahi-daemon ModemManager
 cups* rsyslog dphys-swapfile man-db apt-daily* apt-daily-upgrade*
-NetworkManager (durch systemd-networkd ersetzt) wpa_supplicant (nur im Servicemodus starten)
 keyboard-setup console-setup (nach Ersteinrichtung)
 ```
 
@@ -96,9 +95,15 @@ hdmi_force_hotplug=1
 
 ### 2.7 Netzwerk
 
-- `eth0` → Cerbo GX, statisch (`systemd-networkd`), z. B. Pi `192.168.77.2/24`, Cerbo `192.168.77.1` (Adresse am Cerbo fest einstellen).
-- WLAN aus. Servicemodus (Einstellungen → Expertenansicht) startet `wpa_supplicant` für Updates und SSH; schaltet nach 30 min wieder ab.
-- `sshd` nur mit Schlüssel, nur im Servicemodus oder über Ethernet.
+Entscheid (HARDWARE.md 5.3), NetworkManager (`deploy/network/setup-network.sh`):
+
+- **Cerbo-Ethernet** bleibt am Camper-Router (unverändert; VRM, Remote Console).
+- **Pi `wlan0` → Access Point des Cerbo** (immer an, SSID «venus-…», Passwort auf dem Cerbo-Etikett). Nie Standardroute (`ipv4.never-default`), IPv6 aus, Autoconnect ohne Limit, WLAN-Stromsparen aus. Cerbo-Adresse im AP-Netz erwartet `172.24.24.1` (O19).
+- **Pi `eth0` → LAN-Port des Routers** (Router nur zeitweise an): DHCP, Routenmetrik 100; Standardroute nur, solange der Router da ist. Für SSH und Fernzugriff (optional Tailscale).
+- Der Cerbo kann zwischen WLAN und Ethernet weder bridgen noch routen (Venus-OS-Kernel ohne Bridge). Nicht versuchen.
+- **Keine Steuerfunktion hängt am Router-Netz.** `camperd` braucht für Dach, Kühlbox und Heizung gar kein Netz; Victron-Daten kommen nur über den AP.
+- Firewall (`deploy/network/nftables.conf`): auf `wlan0` keine neuen eingehenden Verbindungen (der AP ist mit dem Etikett-Passwort für jeden offen). `sshd` nur mit Schlüssel, erreichbar über `eth0`.
+- `config.txt`: `dtoverlay=disable-bt`, WLAN bleibt an.
 
 ### 2.8 Oberfläche anzeigen
 
@@ -201,15 +206,15 @@ JSON-Nachrichten, ein Objekt pro Frame. Version im Feld `v`.
 
 Verkabelung: MultiPlus Compact → Cerbo über **VE.Bus** (RJ45-Patchkabel an die VE.Bus-Buchse des Cerbo, nicht an dessen Ethernet). Pi ↔ Cerbo über Ethernet.
 
-- Verbindung `192.168.77.1:1883`, Client-ID `camperd`. Reconnect mit Backoff 1–30 s.
+- Verbindung `172.24.24.1:1883` (AP des Cerbo, `buses.cerbo.host`), Client-ID `camperd`, MQTT-Ping 10 s. Reconnect ohne manuellen Schritt nach Neustart oder Firmware-Update des Cerbo: Backoff 1–10 s; nach jedem Verbinden Portal-ID und VE.Bus-Instanz neu ermitteln und alle Datenthemen neu abonnieren. Offene Schreibbefehle verfallen beim Verbindungsabbruch.
 - Portal-ID beim Start aus `N/+/system/0/Serial` ermitteln. VE.Bus-Instanz aus `N/<id>/vebus/+/ProductId`.
-- Keepalive: alle 30 s `R/<id>/keepalive` (Payload nach dbus-flashmq-README der installierten Venus-OS-Version; beim Aufsetzen nachlesen und im Code verlinken).
+- Keepalive: `R/<id>/keepalive` mit **leerem** Payload alle `buses.cerbo.keepalive_s` = 5 s. Venus publiziert nur, solange Keepalives kommen, und sendet bei leerem Keepalive alle Werte neu. Weil Werte sonst nur bei Änderung kommen, muss das Intervall ≤ `stale_s` / 2 sein (Code prüft das), damit ein gleichbleibender Wert nicht als veraltet gilt. Optional feste Portal-ID `buses.cerbo.portal_id`, falls `N/+/system/0/Serial` nicht ankommt.
 - Gelesen:
   - `system/0/Dc/Battery/{Soc,Voltage,Current,Power}`, `system/0/Dc/Pv/Power`, `system/0/Dc/Charger/Power`
   - `vebus/<inst>/{State,Mode,Ac/ActiveIn/ActiveInput,Ac/ActiveIn/L1/{V,I,F,P},Ac/Out/L1/{V,I,F,P,S},Ac/PowerMeasurementType,Dc/0/Power}`
   - `vebus/<inst>/Alarms/{L1/Overload,LowBattery,HighTemperature,L1/Ripple}`
   - `vebus/<inst>/Ac/In/1/{CurrentLimit,CurrentLimitIsAdjustable}`, `system/0/Dc/System/Power`
-- Jeder Wert mit Empfangszeit. Alter > 10 s → Oberfläche zeigt grau mit Alter. Fehlender Wert → `null`, nie ein Ersatzwert.
+- Jeder Wert mit Empfangszeit. Alter > 10 s (`stale_s`) oder Verbindung weg → Oberfläche zeigt «–», **nie den letzten Wert**. Fehlender Wert → `null`, nie ein Ersatzwert.
 - Auf `W/…` nur nach 5.1.
 
 ### 5.1 MultiPlus steuern (Version 1.2)
@@ -409,3 +414,4 @@ UART 115200 8N1, ASCII-Zeilen mit `\n`:
 | O16 | 15-kΩ-Pull-up auf dem SM-H-001 bestückt? Eingangsimpedanz je Revision | `ai_input_ohm: TODO_CHECK`; offene AI-Spannung messen |
 | O17 | Mindestlast der Relaiskontakte bei Signalstrom (K1–K3, H1–H4); Polarität Purecrea-Eingänge | Datenblatt; `gpio_active: TODO_CHECK`, H1–H4 nicht angesteuert |
 | O18 | Akzeptieren J768, J604, J1029 einen Relaiskontakt statt des überwachten E153-Halbleiterausgangs? | erst nach Freigabe am Fahrzeug testen |
+| O19 | **Blockierend:** Antwortet MQTT des Cerbo über dessen WLAN-AP? Adresse im AP-Netz (erwartet 172.24.24.1)? | `tools/cerbo_check.py`. Antwortet MQTT nicht: STOPP und melden; Rückfall unmanaged Switch (HARDWARE.md 5.3) |

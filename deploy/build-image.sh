@@ -16,12 +16,12 @@ USER_NAME=camper
 
 echo "== packages"
 apt-get update
-apt-get install -y --no-install-recommends cog python3-venv libgpiod2 curl rsync
+apt-get install -y --no-install-recommends cog python3-venv libgpiod2 curl rsync nftables
 
 echo "== remove / disable services (SPEC 2.4)"
 for svc in bluetooth hciuart triggerhappy avahi-daemon ModemManager cups cups-browsed rsyslog \
-           dphys-swapfile man-db.timer apt-daily.timer apt-daily-upgrade.timer NetworkManager \
-           wpa_supplicant keyboard-setup console-setup; do
+           dphys-swapfile man-db.timer apt-daily.timer apt-daily-upgrade.timer \
+           keyboard-setup console-setup; do
   systemctl disable --now "$svc" 2>/dev/null || true
 done
 apt-get purge -y dphys-swapfile 2>/dev/null || true
@@ -50,15 +50,23 @@ for opt in quiet loglevel=3 logo.nologo consoleblank=0 fsck.repair=yes; do
   grep -qw -- "$opt" "$CMDLINE" || sed -i "1 s/\$/ $opt/" "$CMDLINE"
 done
 
-echo "== journald, network"
+echo "== journald"
 install -D -m 644 "$HERE/journald.conf" /etc/systemd/journald.conf.d/camper.conf
-install -D -m 644 "$HERE/network/10-eth0-cerbo.network" /etc/systemd/network/10-eth0-cerbo.network
-systemctl enable systemd-networkd
+
+echo "== network: NetworkManager (Wi-Fi to the Cerbo AP, Ethernet to the router), SPEC 2.7"
+raspi-config nonint do_wifi_country "${WIFI_COUNTRY:-CH}"
+systemctl enable NetworkManager
+install -m 644 "$HERE/network/nftables.conf" /etc/nftables.conf
+systemctl enable nftables
+if [[ -n "${CERBO_SSID:-}" && -n "${CERBO_PSK:-}" ]]; then
+  "$HERE/network/setup-network.sh" "$CERBO_SSID" "$CERBO_PSK"
+else
+  echo "   later: sudo $HERE/network/setup-network.sh <venus-SSID> <password>"
+fi
 
 echo "== services"
 install -m 644 "$HERE/systemd/camperd.service" /etc/systemd/system/
 install -m 644 "$HERE/systemd/camper-ui.service" /etc/systemd/system/
-install -m 644 "$HERE/systemd/camper-service-wifi.service" /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable camperd camper-ui
 

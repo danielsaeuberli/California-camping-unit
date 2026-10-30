@@ -51,7 +51,7 @@ SCHEMA: dict[str, Any] = {
         "sm_i009": {"stack": LEAF},
         "alive_gpio": LEAF,
         "wake_uart": {"device": LEAF, "baud": LEAF},
-        "cerbo": {"host": LEAF, "port": LEAF, "keepalive_s": LEAF, "stale_s": LEAF},
+        "cerbo": {"host": LEAF, "port": LEAF, "keepalive_s": LEAF, "stale_s": LEAF, "portal_id": LEAF},
     },
     "outputs": {
         "roof_a": _OUTPUT,

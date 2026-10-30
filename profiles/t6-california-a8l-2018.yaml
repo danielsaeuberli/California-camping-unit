@@ -23,7 +23,11 @@ buses:
   sm_i009: { stack: 0 }
   alive_gpio: 26                 # high while camperd runs (HARDWARE.md 4.4)
   wake_uart: { device: /dev/ttyAMA2, baud: 115200 }
-  cerbo: { host: 192.168.77.1, port: 1883, keepalive_s: 30, stale_s: 10 }
+  # Pi -> Cerbo over the Cerbo's own Wi-Fi access point (SPEC 2.7), never via the camper router.
+  # host: expected AP address; OPEN: O19 - confirm with `ip route` on wlan0.
+  # keepalive_s: empty keepalive -> Venus republishes all values; must be <= stale_s / 2.
+  # portal_id: optional fixed portal id if discovery via N/+/system/0/Serial does not work.
+  cerbo: { host: 172.24.24.1, port: 1883, keepalive_s: 5, stale_s: 10 }
 
 outputs:
   roof_a:       { pin: T32b/11, channel: K1, active: high, meaning: TODO_MEASURE }   # open|close
