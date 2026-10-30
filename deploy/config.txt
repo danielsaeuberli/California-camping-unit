@@ -1,0 +1,13 @@
+# Cali camping unit
+# /boot/firmware/config.txt additions for the Cali camping unit (SPEC 2.5)
+dtparam=i2c_arm=on
+dtparam=audio=off
+camera_auto_detect=0
+display_auto_detect=0
+disable_splash=1
+boot_delay=0
+dtoverlay=disable-bt
+dtoverlay=uart2-pi5        # wake MCU on GPIO4/5 (HARDWARE.md, O4)
+hdmi_force_hotplug=1
+# HDMI mode for the Viewe 480x1280 driver board: take from its datasheet, then rotate
+# to 1280x480 landscape. OPEN: O1 - set and verify in M1 on the Pi.

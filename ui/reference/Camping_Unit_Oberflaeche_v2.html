@@ -1,0 +1,730 @@
+<!doctype html>
+<html lang="de-CH">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cali Camping Unit</title>
+<style>
+:root{
+  --page:#0b0f13;
+  --font:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans","DejaVu Sans",sans-serif;
+}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){--page:#dfe5ea;}}
+:root[data-theme="light"]{--page:#dfe5ea;}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--page);font-family:var(--font)}
+body{padding:24px}
+@media (max-width:600px){body{padding:16px}}
+
+/* ---------- Bildschirm: feste Leinwand 1280 x 480, nur skaliert ---------- */
+#frame{position:relative;width:100%;max-width:1280px;margin:0 auto;aspect-ratio:8/3;overflow:hidden;border-radius:14px}
+#screen{
+  --bg:#0f1419;--surface:#182029;--surface-2:#212b36;--line:#2c3845;
+  --ink:#eef3f7;--muted:#9aa9b7;--accent:#4fb3d9;--accent-ink:#06202b;--accent-soft:#16303d;
+  --ok:#4cc38a;--warn:#f0b429;--err:#ef6262;
+  position:absolute;left:0;top:0;width:1280px;height:480px;transform-origin:0 0;transform:scale(var(--k,1));
+  background:var(--bg);color:var(--ink);display:grid;grid-template-rows:64px 416px;overflow:hidden;
+  user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;
+}
+#screen[data-theme="light"]{
+  --bg:#eef2f5;--surface:#ffffff;--surface-2:#e3e9ee;--line:#cfd8df;
+  --ink:#13212c;--muted:#51606d;--accent:#0b6e99;--accent-ink:#ffffff;--accent-soft:#d6eaf3;
+  --ok:#1f8a5a;--warn:#a86b00;--err:#c23b3b;
+}
+:where(#screen) button{font-family:inherit;font-size:18px;color:inherit;background:none;border:0;cursor:pointer;touch-action:manipulation;padding:0}
+#screen button:disabled{opacity:.38;cursor:not-allowed}
+#screen [hidden]{display:none!important}
+.num{font-variant-numeric:tabular-nums}
+
+/* ---------- Kopfzeile ---------- */
+.top{display:flex;align-items:center;gap:16px;padding:0 16px;border-bottom:1px solid var(--line)}
+.back{height:52px;padding:0 22px 0 16px;border-radius:12px;background:var(--surface-2);font-size:20px;font-weight:600;display:flex;align-items:center;gap:8px}
+.back svg{width:22px;height:22px}
+.brand{font-size:20px;font-weight:700;letter-spacing:4px;padding-left:6px}
+.top h1{font-size:22px;font-weight:600;margin:0}
+.top-right{margin-left:auto;display:flex;align-items:center;gap:22px;font-size:18px;color:var(--muted)}
+.top-right .outside{color:var(--ink);font-weight:600}
+.link{display:flex;align-items:center;gap:8px;font-size:15px}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--ok);display:inline-block}
+.dot.off{background:var(--err)}
+.icon-btn{width:52px;height:52px;border-radius:12px;background:var(--surface-2);display:grid;place-items:center}
+.icon-btn svg{width:26px;height:26px}
+
+main{position:relative;padding:16px;min-height:0}
+main>section{height:384px}
+
+/* ---------- Gemeinsame Bausteine ---------- */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:20px;min-width:0;display:flex;flex-direction:column}
+.label{font-size:15px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:var(--muted)}
+.big{font-size:46px;font-weight:600;line-height:1.05;letter-spacing:-.5px}
+.huge{font-size:84px;font-weight:600;line-height:1;letter-spacing:-1.5px}
+.unit{font-size:.45em;font-weight:500;color:var(--muted);margin-left:4px;letter-spacing:0}
+.sub{font-size:18px;color:var(--muted)}
+.sub .unit,.row .unit,.headline .unit{font-size:.8em}
+.note{font-size:15px;color:var(--muted);line-height:1.45}
+.chip{display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 14px;border-radius:17px;font-size:16px;font-weight:600;background:var(--surface-2);color:var(--ink);align-self:flex-start}
+.chip::before{content:"";width:9px;height:9px;border-radius:50%;background:var(--muted)}
+.chip.ok::before{background:var(--ok)}.chip.warn::before{background:var(--warn)}.chip.err::before{background:var(--err)}.chip.accent::before{background:var(--accent)}
+.chip.err{color:var(--err)}
+.rows{display:flex;flex-direction:column;margin-top:auto}
+.row{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:10px 0;border-top:1px solid var(--line);font-size:18px}
+.row>span:first-child{color:var(--muted)}
+.row>strong{font-weight:600}
+
+/* Grosse Tasten */
+.btn{min-height:88px;border-radius:16px;background:var(--surface-2);font-size:24px;font-weight:600;padding:0 24px}
+.btn.primary,.btn[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.step{width:112px;height:112px;border-radius:20px;background:var(--surface-2);font-size:52px;font-weight:500;line-height:1;display:grid;place-items:center}
+.step:active:not(:disabled),.btn:active:not(:disabled){filter:brightness(1.25)}
+.stepper{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:8px 0 18px}
+.stepper .val{text-align:center}
+.seg{display:flex;gap:8px;background:var(--surface-2);padding:6px;border-radius:16px}
+.seg button{flex:1;min-height:64px;border-radius:12px;background:transparent;font-size:20px;font-weight:600}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+
+/* ---------- Übersicht ---------- */
+.ov{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,1fr);gap:12px}
+.tile{background:var(--surface);border:1px solid var(--line)!important;border-radius:18px;padding:18px 22px;text-align:left;display:flex;flex-direction:column;gap:6px;position:relative}
+.tile:active{background:var(--surface-2)}
+.tile .go{position:absolute;right:18px;top:16px;width:26px;height:26px;color:var(--muted)}
+.tile .big{margin-top:4px}
+.tile .chip{margin-top:auto}
+.tile .tile-foot{margin-top:auto;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.tile .tile-foot .chip{margin-top:0}
+
+/* Tankstufen */
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.steps span{height:14px;border-radius:5px;background:var(--surface-2)}
+.steps span.on{background:var(--accent)}
+.steps.lg{gap:10px}.steps.lg span{height:72px;border-radius:12px}
+
+/* ---------- Energie ---------- */
+.three{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;height:100%}
+.ring{position:relative;width:176px;height:176px;margin:4px auto 6px}
+.ring svg{width:100%;height:100%;transform:rotate(135deg)}
+.ring .center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ring .center .big{font-size:50px}
+.bar{height:14px;border-radius:7px;background:var(--surface-2);overflow:hidden;margin:6px 0 2px}
+.bar span{display:block;height:100%;background:var(--accent);width:0}
+.bar.warn span{background:var(--warn)}.bar.err span{background:var(--err)}
+.headline{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin:6px 0 4px}
+
+/* ---------- Kühlbox / Heizung ---------- */
+.two{display:grid;grid-template-columns:1fr 1.25fr;gap:12px;height:100%}
+.two .panel{gap:10px}
+.toggle{width:100%}
+
+/* ---------- Dach ---------- */
+.roof{display:grid;grid-template-columns:1fr 1.5fr;gap:12px;height:100%}
+.hold-pair{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.hold{border-radius:18px!important;background:var(--surface)!important;border:2px solid var(--line)!important;font-size:28px!important;font-weight:600;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;touch-action:none!important}
+.hold svg{width:64px;height:64px}
+.hold small{font-size:17px;font-weight:500;color:var(--muted)}
+.hold[aria-pressed="true"]{background:var(--accent)!important;color:var(--accent-ink);border-color:var(--accent)!important}
+.hold[aria-pressed="true"] small{color:var(--accent-ink)}
+
+/* ---------- Einstellungen ---------- */
+.slider{-webkit-appearance:none;appearance:none;width:100%;height:60px;background:transparent;margin:0 0 6px}
+.slider::-webkit-slider-runnable-track{height:14px;border-radius:7px;background:var(--surface-2)}
+.slider::-webkit-slider-thumb{-webkit-appearance:none;width:52px;height:52px;border-radius:50%;background:var(--accent);margin-top:-19px;border:0}
+.slider::-moz-range-track{height:14px;border-radius:7px;background:var(--surface-2)}
+.slider::-moz-range-thumb{width:52px;height:52px;border-radius:50%;background:var(--accent);border:0}
+.expert-btn{display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:auto}
+.expert-btn svg{width:28px;height:28px}
+
+/* ---------- Expertenansicht ---------- */
+.expert{display:grid;grid-template-rows:76px 1fr;gap:12px;height:100%}
+.expert .seg button{min-height:52px;font-size:18px}
+.xbody{min-height:0}
+.xbody>div{height:100%}
+.io{display:grid;grid-template-columns:1fr 1.2fr 1fr;gap:12px;height:100%}
+.io .panel{padding:14px 16px;min-height:0}
+.io .list{overflow-y:auto;min-height:0;margin-top:8px;padding-right:4px}
+.io-row{display:grid;grid-template-columns:44px 1fr auto;gap:10px;align-items:center;min-height:30px;border-top:1px solid var(--line);font-size:14px}
+.io-row .ch{color:var(--muted);font-weight:600}
+.io-row .v{font-weight:600}
+.io-row .v.hi{color:var(--ok)}.io-row .v.lo{color:var(--muted)}
+.io-row.free{opacity:.5}
+.io-group{font-size:12px;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);padding:12px 0 4px}
+.pins{display:grid;grid-template-columns:repeat(8,1fr);gap:8px}
+.pins button{height:52px;border-radius:10px;background:var(--surface);border:1px solid var(--line)!important;font-size:18px;font-weight:600}
+.pins button.reserve{color:var(--muted)}
+.pins button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)!important}
+.pin-info{margin-top:12px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 16px;display:flex;gap:18px;align-items:baseline;font-size:16px}
+.pin-info strong{font-size:18px;white-space:nowrap}
+.ac{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;height:100%}
+.ac .panel{padding:16px 18px}
+.ac .row{font-size:16px;padding:8px 0}
+.conn{display:grid;grid-template-columns:1fr 1.3fr;gap:12px;height:100%}
+.field{display:flex;flex-direction:column;gap:6px;font-size:14px;color:var(--muted);margin-bottom:10px}
+.field input{height:48px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;font-size:18px;padding:0 12px}
+.topics .row{font-size:14px;padding:7px 0}
+.topics code{font-size:13px;color:var(--ink)}
+
+/* ---------- Meldungen ---------- */
+.toast{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);background:var(--surface-2);border:1px solid var(--line);color:var(--ink);font-size:18px;padding:12px 22px;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.35);opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap}
+.toast.show{opacity:1}
+.offline{height:40px;padding:0 16px;border-radius:20px;background:var(--err);color:#fff;font-size:16px;font-weight:600;display:flex;align-items:center}
+
+/* ---------- Demo-Steuerung unter dem Bildschirm (nicht Teil der Unit) ---------- */
+.demo{max-width:1280px;margin:16px auto 0;display:flex;flex-wrap:wrap;gap:8px 20px;align-items:center;font-size:13px;color:#8a99a6}
+.demo label{display:inline-flex;align-items:center;gap:8px;min-height:40px}
+.demo select{min-height:36px;border-radius:8px;padding:0 8px}
+.demo input{width:18px;height:18px}
+.demo b{font-weight:600;color:#b8c5cf}
+</style>
+</head>
+<body>
+<div id="frame">
+<div id="screen" data-theme="dark">
+  <header class="top">
+    <button type="button" class="back" id="back" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg><span id="back-label">Übersicht</span></button>
+    <div class="brand" id="brand">CALI</div>
+    <h1 id="title">Übersicht</h1>
+    <div class="top-right">
+      <span>Aussen <span class="outside num" id="outside">–</span></span>
+      <span class="link" id="link-unit"><i class="dot" id="dot-unit"></i>Steuerung</span><span class="offline" id="banner" hidden>Steuerung offline · Bedienung gesperrt</span>
+      <span class="link"><i class="dot" id="dot-cerbo"></i>Victron</span>
+      <span class="num" id="clock">--:--</span>
+      <button type="button" class="icon-btn" id="open-settings" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+    </div>
+  </header>
+
+  <main>
+    <!-- Übersicht -->
+    <section data-page="overview" class="ov">
+      <button type="button" class="tile" data-go="energy">
+        <span class="label">Batterie</span><svg class="go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg>
+        <span class="big num" id="ov-soc">–</span>
+        <span class="sub num" id="ov-bat-sub">–</span>
+        <span class="chip" id="ov-bat-chip">–</span>
+      </button>
+      <button type="button" class="tile" data-go="climate-fridge">
+        <span class="label">Kühlbox</span><svg class="go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg>
+        <span class="big num" id="ov-fridge">–</span>
+        <span class="sub num" id="ov-fridge-sub">–</span>
+        <span class="chip" id="ov-fridge-chip">–</span>
+      </button>
+      <button type="button" class="tile" data-go="climate-heat">
+        <span class="label">Heizung</span><svg class="go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg>
+        <span class="big" id="ov-heat">–</span>
+        <span class="sub num" id="ov-heat-sub">–</span>
+        <span class="chip" id="ov-heat-chip">–</span>
+      </button>
+      <button type="button" class="tile" data-go="power">
+        <span class="label">Landstrom</span><svg class="go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg>
+        <span class="big" id="ov-shore">–</span>
+        <span class="sub num" id="ov-shore-sub">–</span>
+        <span class="chip" id="ov-shore-chip">–</span>
+      </button>
+      <button type="button" class="tile" data-go="water">
+        <span class="label">Wasser</span><svg class="go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg>
+        <span class="big" id="ov-fresh">–</span>
+        <div class="steps" id="ov-fresh-steps"><span></span><span></span><span></span></div>
+        <span class="chip" id="ov-waste-chip">–</span>
+      </button>
+      <button type="button" class="tile" data-go="roof">
+        <span class="label">Dach</span><svg class="go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg>
+        <span class="big" id="ov-roof">–</span>
+        <span class="sub" id="ov-roof-sub">Zum Bedienen tippen</span>
+        <span class="chip" id="ov-roof-chip">–</span>
+      </button>
+    </section>
+
+    <!-- Energie: Batterie, Laden, Verbrauch -->
+    <section data-page="energy" class="three" hidden>
+      <div class="panel">
+        <span class="label">Batterie</span>
+        <div class="ring"><svg viewBox="0 0 200 200"><circle cx="100" cy="100" r="84" fill="none" stroke="var(--surface-2)" stroke-width="16" stroke-linecap="round" pathLength="360" stroke-dasharray="270 360"/><circle id="ring-val" cx="100" cy="100" r="84" fill="none" stroke="var(--accent)" stroke-width="16" stroke-linecap="round" pathLength="360" stroke-dasharray="0 360"/></svg>
+          <div class="center"><span class="big num" id="en-soc">–</span><span class="sub" id="en-soc-sub">Ladezustand</span></div></div>
+        <div class="rows">
+          <div class="row"><span>Spannung</span><strong class="num" id="en-v">–</strong></div>
+          <div class="row"><span>Strom</span><strong class="num" id="en-a">–</strong></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="headline"><span class="label">Laden</span><span class="big num" id="en-in">–</span></div>
+        <div class="rows">
+          <div class="row"><span>Solar</span><strong class="num" id="en-solar">–</strong></div>
+          <div class="row"><span>Landstrom (MultiPlus)</span><strong class="num" id="en-charger">–</strong></div>
+          <div class="row"><span>Ladephase</span><strong id="en-phase">–</strong></div>
+          <div class="row"><span>Lichtmaschine / DC-DC</span><strong class="num" id="en-alt">–</strong></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="headline"><span class="label">Verbrauch</span><span class="big num" id="en-out">–</span></div>
+        <div class="rows">
+          <div class="row"><span>12-V-Verbraucher</span><strong class="num" id="en-dc">–</strong></div>
+          <div class="row"><span>Wechselrichter 230 V</span><strong class="num" id="en-inv">–</strong></div>
+          <div class="row" style="border-bottom:0"><span>Auslastung MultiPlus</span><strong class="num" id="en-load">–</strong></div>
+          <div class="bar" id="en-load-bar"><span></span></div>
+          <div class="row"><span>Alarme MultiPlus</span><strong id="en-alarm">–</strong></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Kühlbox -->
+    <section data-page="fridge" class="two" hidden>
+      <div class="panel">
+        <span class="label">Innen</span>
+        <span class="huge num" id="fr-temp">–</span>
+        <span class="chip" id="fr-chip">–</span>
+        <span class="note" id="fr-note" style="margin-top:auto">–</span>
+      </div>
+      <div class="panel">
+        <span class="label">Solltemperatur</span>
+        <div class="stepper">
+          <button type="button" class="step" id="fr-minus" aria-label="Kälter" data-act>−</button>
+          <div class="val"><span class="huge num" id="fr-target">–</span></div>
+          <button type="button" class="step" id="fr-plus" aria-label="Wärmer" data-act>+</button>
+        </div>
+        <button type="button" class="btn toggle" id="fr-toggle" data-act>–</button>
+      </div>
+    </section>
+
+    <!-- Heizung -->
+    <section data-page="heat" class="two" hidden>
+      <div class="panel">
+        <span class="label">Zustand</span>
+        <span class="big" id="ht-phase" style="font-size:64px">–</span>
+        <span class="chip" id="ht-chip">–</span>
+        <span class="note" id="ht-note" style="margin-top:auto">–</span>
+      </div>
+      <div class="panel">
+        <span class="label">Heizstufe</span>
+        <div class="stepper">
+          <button type="button" class="step" id="ht-minus" aria-label="Weniger warm" data-act>−</button>
+          <div class="val"><span class="huge num" id="ht-level">–</span><div class="sub">von 15</div></div>
+          <button type="button" class="step" id="ht-plus" aria-label="Wärmer" data-act>+</button>
+        </div>
+        <button type="button" class="btn toggle" id="ht-toggle" data-act>–</button>
+      </div>
+    </section>
+
+    <!-- Wasser -->
+    <section data-page="water" class="two" style="grid-template-columns:1.4fr 1fr" hidden>
+      <div class="panel" style="gap:14px">
+        <span class="label">Frischwasser</span>
+        <span class="huge" id="wa-fresh">–</span>
+        <div class="steps lg" id="wa-fresh-steps"><span></span><span></span><span></span></div>
+        <span class="note" style="margin-top:auto">Der Tankgeber meldet vier Stufen: leer, 1/3, 2/3, voll.</span>
+      </div>
+      <div class="panel" style="gap:14px">
+        <span class="label">Abwasser</span>
+        <span class="big" id="wa-waste" style="font-size:56px">–</span>
+        <span class="chip" id="wa-waste-chip">–</span>
+        <span class="note" style="margin-top:auto">Der Tankgeber meldet nur «voll» oder «nicht voll».</span>
+      </div>
+    </section>
+
+    <!-- Dach -->
+    <section data-page="roof" class="roof" hidden>
+      <div class="panel" style="gap:12px">
+        <span class="label">Stellung</span>
+        <span class="big" id="rf-pos" style="font-size:56px">–</span>
+        <div class="bar" id="rf-bar"><span></span></div>
+        <span class="chip" id="rf-chip">–</span>
+        <span class="note" style="margin-top:auto">Das Dach fährt nur, solange eine Taste gedrückt bleibt.</span>
+      </div>
+      <div class="hold-pair">
+        <button type="button" class="hold" id="rf-open" aria-pressed="false" data-act>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 15l7-7 7 7"/></svg>Öffnen<small>gedrückt halten</small></button>
+        <button type="button" class="hold" id="rf-close" aria-pressed="false" data-act>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9l7 7 7-7"/></svg>Schliessen<small>gedrückt halten</small></button>
+      </div>
+    </section>
+
+    <!-- Einstellungen -->
+    <section data-page="settings" class="two" style="grid-template-columns:1fr 1fr" hidden>
+      <div class="panel">
+        <span class="label">Bildschirm</span>
+        <div class="headline"><span class="sub">Helligkeit</span><span class="big num" id="st-bright-val">–</span></div>
+        <input type="range" class="slider" id="st-bright" min="10" max="100" step="5" aria-label="Helligkeit">
+        <span class="sub" style="margin-bottom:8px">Darstellung</span>
+        <div class="seg" id="st-theme">
+          <button type="button" data-v="auto">Automatisch</button><button type="button" data-v="light">Tag</button><button type="button" data-v="dark">Nacht</button>
+        </div>
+        <span class="note" style="margin-top:auto">Automatisch: Nachtdarstellung, sobald die Armaturenbeleuchtung (58d) eingeschaltet ist.</span>
+      </div>
+      <div class="panel">
+        <span class="label">Bedienung</span>
+        <span class="sub" style="margin:10px 0 8px">Zurück zur Übersicht nach</span>
+        <div class="seg" id="st-idle">
+          <button type="button" data-v="1">1 min</button><button type="button" data-v="2">2 min</button><button type="button" data-v="5">5 min</button>
+        </div>
+        <button type="button" class="btn expert-btn" id="open-expert">Expertenansicht<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg></button>
+      </div>
+    </section>
+
+    <!-- Expertenansicht -->
+    <section data-page="expert" class="expert" hidden>
+      <div class="seg" id="x-tabs">
+        <button type="button" data-v="io" aria-pressed="true">Signale</button>
+        <button type="button" data-v="pins">Stecker T32b</button>
+        <button type="button" data-v="ac">MultiPlus</button>
+        <button type="button" data-v="conn">Verbindung</button>
+      </div>
+      <div class="xbody">
+        <div data-x="io" class="io">
+          <div class="panel"><span class="label">Eingänge SM-I-009</span><div class="list" id="x-di"></div></div>
+          <div class="panel"><span class="label">Ausgänge (Befehl)</span><div class="list" id="x-do"></div></div>
+          <div class="panel"><span class="label">Analog SM-H-001</span><div class="list" id="x-ai"></div></div>
+        </div>
+        <div data-x="pins" hidden>
+          <div class="pins" id="x-pins"></div>
+          <div class="pin-info"><strong id="x-pin-name">T32b/01</strong><span id="x-pin-desc">–</span></div>
+        </div>
+        <div data-x="ac" class="ac" hidden>
+          <div class="panel"><span class="label">Landstrom-Eingang L1</span><div class="rows" id="x-ac-in"></div></div>
+          <div class="panel"><span class="label">Ausgang L1</span><div class="rows" id="x-ac-out"></div></div>
+          <div class="panel"><span class="label">Gerät</span><div class="rows" id="x-ac-dev"></div></div>
+        </div>
+        <div data-x="conn" class="conn" hidden>
+          <div class="panel">
+            <span class="label" style="margin-bottom:10px">Cerbo GX</span>
+            <label class="field">Adresse<input id="x-host" value="192.168.10.2" spellcheck="false"></label>
+            <label class="field">Portal-ID<input id="x-portal" value="automatisch erkannt" spellcheck="false"></label>
+            <span class="note">Nur lesend. Keepalive alle 30 s. Dach, Kühlbox und Heizung hängen nicht an dieser Verbindung.</span>
+          </div>
+          <div class="panel topics">
+            <span class="label">Themen</span>
+            <div class="rows" style="margin-top:8px">
+              <div class="row"><span>Cerbo → Unit</span><code>N/&lt;id&gt;/system/0/Dc/…, N/&lt;id&gt;/vebus/&lt;inst&gt;/…</code></div>
+              <div class="row"><span>Zustand Unit</span><code>cali/v1/unit/state</code></div>
+              <div class="row"><span>Rohsignale</span><code>cali/v1/unit/io</code></div>
+              <div class="row"><span>Victron aufbereitet</span><code>cali/v1/unit/victron</code></div>
+              <div class="row"><span>Befehle</span><code>cali/v1/cmd/&lt;modul&gt;</code></div>
+              <div class="row"><span>Dach-Haltepuls</span><code id="x-seq">cali/v1/cmd/roof · –</code></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="toast" id="toast"></div>
+  </main>
+</div>
+</div>
+
+<div class="demo" aria-label="Demo-Steuerung">
+  <b>Demo</b>
+  <label>Szenario <select id="d-scn"><option value="solar">Solar lädt</option><option value="night">Nacht, Entladen</option><option value="shore">Landstrom</option></select></label>
+  <label><input type="checkbox" id="d-unit" checked> Steuerung online</label>
+  <label><input type="checkbox" id="d-cerbo" checked> Victron-Daten</label>
+  <label><input type="checkbox" id="d-moving"> Fahrzeug fährt</label>
+  <label><input type="checkbox" id="d-58d"> Armaturenlicht (58d)</label>
+  <label><input type="checkbox" id="d-waste"> Abwasser voll</label>
+  <label><input type="checkbox" id="d-ffault"> Kühlbox-Fehler 3</label>
+  <label><input type="checkbox" id="d-overload"> Überlast MultiPlus</label>
+</div>
+
+<script>
+(() => {
+const $ = id => document.getElementById(id);
+const screen = $('screen');
+
+/* ---------- Zustand (Demo; im Betrieb kommt er über cali/v1/unit/state) ---------- */
+const S = {
+  page:'overview', expertTab:'io', pin:1,
+  unitOnline:true, cerbo:true, scenario:'solar', moving:false, dim58:false, wasteFull:false, fridgeFault:false, overload:false,
+  fridge:{on:true, target:5, temp:4.8, req:false},
+  heat:{on:false, level:8, phase:'off', since:0},
+  roof:{pos:0, dir:null, seq:0, btn:null, pointer:null, timer:null},
+  fresh:2,
+  bright:80, theme:'auto', idleMin:2, lastInput:Date.now()
+};
+
+const SCN = {
+  solar:{soc:76,v:13.4,solar:240,charger:0,alt:0,dc:85,inv:110,outside:12.5, ac:{active:240,vin:null,iin:null,fin:null,pin:null,vout:230,iout:.43,fout:50,pout:90,sout:100,state:9}},
+  night:{soc:54,v:12.9,solar:0,charger:0,alt:0,dc:120,inv:340,outside:7.2, ac:{active:240,vin:null,iin:null,fin:null,pin:null,vout:230,iout:1.3,fout:50,pout:280,sout:300,state:9}},
+  shore:{soc:88,v:13.8,solar:0,charger:420,alt:0,dc:110,inv:0,outside:10.8, ac:{active:0,vin:230,iin:2.96,fin:50,pin:650,vout:230,iout:.87,fout:50,pout:180,sout:200,state:5}}
+};
+const VB_STATE = {0:'Aus',1:'Sparbetrieb',2:'Fehler',3:'Bulk',4:'Absorption',5:'Float',6:'Storage',7:'Ausgleichsladung',8:'Durchleitung',9:'Wechselrichter',10:'Power Assist',11:'Netzteil'};
+const FRIDGE_CODES = {1:'Batterieschutz',2:'Zu viele Startversuche',3:'Kompressor blockiert',4:'Mindestdrehzahl',5:'Übertemperatur Elektronik',6:'Thermostatfehler'};
+
+/* ---------- Hilfen ---------- */
+const fmt = (v, unit='', d=0, signed=false) => v==null ? '–' : (signed && v>0 ? '+' : '') + Number(v).toFixed(d).replace('-', '−') + (unit ? `<span class="unit">${unit}</span>` : '');
+const set = (id, html) => { const n=$(id); if(n) n.innerHTML = html; };
+const chip = (id, text, cls='') => { const n=$(id); n.className = 'chip ' + cls; n.textContent = text; };
+let toastT;
+const toast = msg => { const t=$('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),2600); };
+const victron = () => S.cerbo ? SCN[S.scenario] : null;
+
+/* ---------- Navigation: Übersicht → Detail → Übersicht ---------- */
+const PAGES = {
+  overview:{title:'Übersicht'}, energy:{title:'Batterie und Strom', back:'overview'}, power:{alias:'energy'},
+  fridge:{title:'Kühlbox', back:'overview'}, heat:{title:'Heizung', back:'overview'}, 'climate-fridge':{alias:'fridge'}, 'climate-heat':{alias:'heat'},
+  water:{title:'Wasser', back:'overview'}, roof:{title:'Dach', back:'overview'},
+  settings:{title:'Einstellungen', back:'overview'}, expert:{title:'Expertenansicht', back:'settings'}
+};
+function go(page){
+  if (PAGES[page]?.alias) page = PAGES[page].alias;
+  stopRoof(null);
+  S.page = page;
+  document.querySelectorAll('main>section').forEach(s => s.hidden = s.dataset.page !== page);
+  const p = PAGES[page];
+  $('title').textContent = p.title;
+  $('back').hidden = !p.back;
+  $('brand').hidden = !!p.back;
+  $('back-label').textContent = p.back === 'settings' ? 'Einstellungen' : 'Übersicht';
+  $('open-settings').hidden = page === 'settings' || page === 'expert';
+  render();
+}
+$('back').addEventListener('click', () => go(PAGES[S.page].back || 'overview'));
+$('open-settings').addEventListener('click', () => go('settings'));
+$('open-expert').addEventListener('click', () => go('expert'));
+document.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => go(b.dataset.go)));
+
+/* Zurück zur Übersicht nach Inaktivität (nie während das Dach fährt) */
+screen.addEventListener('pointerdown', () => S.lastInput = Date.now(), true);
+setInterval(() => {
+  if (S.page !== 'overview' && !S.roof.dir && Date.now() - S.lastInput > S.idleMin*60000) go('overview');
+}, 1000);
+
+/* ---------- Kühlbox: Hysterese auf G817 ---------- */
+function fridgeTick(dt){
+  const f = S.fridge;
+  if (!f.on || S.fridgeFault) f.req = false;
+  else if (f.temp >= f.target + 1.5) f.req = true;
+  else if (f.temp <= f.target - 1.0) f.req = false;
+  f.temp += (f.req ? -0.06 : 0.025) * dt;   // Demo-Verlauf
+}
+const act = fn => () => { if (!S.unitOnline) return; S.lastInput = Date.now(); fn(); render(); };
+$('fr-minus').addEventListener('click', act(() => S.fridge.target = Math.max(1, S.fridge.target-1)));
+$('fr-plus').addEventListener('click',  act(() => S.fridge.target = Math.min(10, S.fridge.target+1)));
+$('fr-toggle').addEventListener('click', act(() => { S.fridge.on = !S.fridge.on; toast(S.fridge.on ? 'Kühlbox eingeschaltet' : 'Kühlbox ausgeschaltet'); }));
+
+/* ---------- Heizung: Start → Heizt → Nachlauf → Aus ---------- */
+const AFTERRUN = 240, START_DEMO = 6;
+function heatTick(){
+  const h = S.heat, t = (Date.now() - h.since)/1000;
+  if (h.phase === 'start' && t > START_DEMO) h.phase = 'heating';
+  if (h.phase === 'afterrun' && t > AFTERRUN) h.phase = 'off';
+}
+$('ht-minus').addEventListener('click', act(() => S.heat.level = Math.max(0, S.heat.level-1)));
+$('ht-plus').addEventListener('click',  act(() => S.heat.level = Math.min(15, S.heat.level+1)));
+$('ht-toggle').addEventListener('click', act(() => {
+  const h = S.heat; h.on = !h.on; h.since = Date.now();
+  h.phase = h.on ? 'start' : (h.phase === 'off' ? 'off' : 'afterrun');
+  toast(h.on ? 'Heizung startet' : 'Heizung aus · Gebläse läuft nach');
+}));
+
+/* ---------- Dach: Halten, Haltepuls 100 ms, Fahrsperre ---------- */
+function startRoof(dir, btn, pointer){
+  if (!S.unitOnline || S.roof.dir) return false;
+  if (dir === 'open' && S.moving){ toast('Öffnen gesperrt: Fahrzeug fährt'); return false; }
+  const r = S.roof; r.dir = dir; r.btn = btn; r.pointer = pointer;
+  r.timer = setInterval(() => {            // im Betrieb: publish cali/v1/cmd/roof {dir, seq}
+    r.seq++; S.lastInput = Date.now();
+    r.pos = Math.max(0, Math.min(1, r.pos + (dir === 'open' ? 1 : -1) / 40));
+    render();
+  }, 100);
+  render(); return true;
+}
+function stopRoof(reason){
+  const r = S.roof; if (!r.dir) return;
+  clearInterval(r.timer);
+  if (r.btn && r.pointer != null && r.btn.hasPointerCapture?.(r.pointer)) r.btn.releasePointerCapture(r.pointer);
+  r.dir = null; r.btn = null; r.pointer = null;
+  if (reason) toast(reason);
+  render();
+}
+for (const dir of ['open','close']){
+  const b = $('rf-' + dir);
+  b.addEventListener('pointerdown', e => { if (e.button > 0 || !e.isPrimary) return; e.preventDefault(); if (startRoof(dir, b, e.pointerId)) b.setPointerCapture(e.pointerId); });
+  b.addEventListener('pointerup', () => stopRoof(null));
+  b.addEventListener('pointercancel', () => stopRoof('Dach gestoppt'));
+  b.addEventListener('lostpointercapture', () => stopRoof(null));
+  b.addEventListener('contextmenu', e => e.preventDefault());
+}
+window.addEventListener('blur', () => stopRoof('Dach gestoppt'));
+document.addEventListener('visibilitychange', () => { if (document.hidden) stopRoof('Dach gestoppt'); });
+
+/* ---------- Einstellungen ---------- */
+$('st-bright').addEventListener('input', e => { S.bright = +e.target.value; render(); });
+for (const [id,key] of [['st-theme','theme'],['st-idle','idleMin']])
+  $(id).querySelectorAll('button').forEach(b => b.addEventListener('click', () => { S[key] = key==='idleMin' ? +b.dataset.v : b.dataset.v; render(); }));
+$('x-tabs').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { S.expertTab = b.dataset.v; render(); }));
+
+/* ---------- Expertenansicht: Belegung nach Stückliste rev b ---------- */
+const DI = [
+  ['DI1','Dach Rückmeldung A · T32b/15', () => S.roof.pos >= 1],
+  ['DI2','Dach Rückmeldung B · T32b/14', () => S.roof.pos <= 0],
+  ['DI3','Kühlbox Diagnose D · T32b/9', () => S.fridgeFault && (Date.now()%4000) < 1500 && (Date.now()%500) < 250],
+  ['DI4','Heizung Betrieb · T6ap/2', () => S.heat.phase === 'heating' || S.heat.phase === 'afterrun'],
+  ['DI5','Ladegerät A11 · T32b/22', () => S.scenario === 'shore'],
+  ['DI6','Geschwindigkeit · T32b/3', () => S.moving && (Date.now()%200) < 100],
+  ['DI7','Beleuchtung 58d · T32b/27', () => S.dim58],
+  ['DI8','Klemme 86s · T32b/28', () => true],
+  ['DI9','D+ (Hypothese) · T32b/29', () => S.moving],
+  ['DI10','Zündung 15a · T32b/30', () => S.moving],
+  ['DI11','58d Variante · T6ap/4', null],
+  ...[12,13,14,15,16].map(n => ['DI'+n,'frei', null])
+];
+const LADDER = [27.4, 54.9, 110, 237];
+const DO = [
+  ['K1','Dach Befehl A · T32b/11', () => S.roof.dir === 'open'],
+  ['K2','Dach Befehl B · T32b/12', () => S.roof.dir === 'close'],
+  ['K3','Kühlbox Anforderung · T32b/10', () => S.fridge.req],
+  ['K4','Heizung S+ · T6ap/3', () => S.heat.on],
+  ...[5,6,7,8].map(n => ['K'+n,'nicht verwendet (gemeinsame COM)', null])
+];
+const AI = [
+  ['AI1','Kühlbox G817 · /7,/8', () => (2.6 - S.fridge.temp*0.08).toFixed(2)+' V'],
+  ['AI2','Frischwasser G120 · /20,/21', () => [0.4,1.1,1.8,2.5][S.fresh].toFixed(2)+' V'],
+  ['AI3','Abwasser G126 · /18,/19', () => (S.wasteFull ? 2.9 : 0.6).toFixed(2)+' V'],
+  ['AI4','Aussen G249 · /16,/17', () => '1.43 V'],
+  ...[5,6,7,8].map(n => ['AI'+n,'frei', null])
+];
+const PINS = {3:'Geschwindigkeit J285 · Eingang DI6',7:'G817 Kühlbox-Fühler A · mit /8',8:'G817 Kühlbox-Fühler B · mit /7',9:'Kühlbox Diagnose D · DI3',10:'Kühlbox Anforderung · K3',11:'Dach Befehl A → J768 · Richtung messen',12:'Dach Befehl B → J768 · Richtung messen',14:'Dach Rückmeldung B · DI2',15:'Dach Rückmeldung A · DI1',16:'G249 Aussenfühler A · mit /17',17:'G249 Aussenfühler B · mit /16',18:'G126 Abwasser A · mit /19',19:'G126 Abwasser B · mit /18',20:'G120 Frischwasser A · mit /21',21:'G120 Frischwasser B · mit /20',22:'Ladegerät A11 Status · DI5 · evtl. ohne Funktion, wenn MultiPlus ersetzt',25:'Shunt N162 C1 · nur Breakout, Batteriedaten vom Cerbo',26:'Shunt N162 D1 · nur Breakout, Batteriedaten vom Cerbo',27:'Beleuchtung 58d · DI7',28:'Klemme 86s (B518) · DI8 · Pegel messen',29:'J519 T73a/3 · DI9 · Hypothese D+, messen',30:'Zündung 15a · DI10 und Wake',31:'Masse',32:'+12 V über SH21 · nur Durchführung, nicht Unit-Speisung'};
+function buildExpert(){
+  const rows = (list, el) => list.forEach(([ch,name,fn],i) => {
+    const r = document.createElement('div'); r.className = 'io-row' + (fn ? '' : ' free');
+    r.innerHTML = `<span class="ch">${ch}</span><span>${name}</span><span class="v num" data-io="${el}-${i}">–</span>`; $(el).appendChild(r);
+  });
+  rows(DI,'x-di'); rows(DO,'x-do');
+  const g = document.createElement('div'); g.className = 'io-group'; g.textContent = 'Heizungs-Sollwert H1–H4 (GPIO)'; $('x-do').appendChild(g);
+  LADDER.forEach((ohm,i) => { const r = document.createElement('div'); r.className='io-row'; r.innerHTML = `<span class="ch">H${i+1}</span><span>${String(ohm).replace('.',',')} Ω überbrückt (NC)</span><span class="v num" data-io="h-${i}">–</span>`; $('x-do').appendChild(r); });
+  const sum = document.createElement('div'); sum.className='io-row'; sum.innerHTML = `<span class="ch">T2p</span><span>Widerstand an J604</span><span class="v num" id="x-ohm">–</span>`; $('x-do').appendChild(sum);
+  rows(AI,'x-ai');
+  for (let i=1;i<=32;i++){
+    const b = document.createElement('button'); b.type='button'; b.textContent = String(i).padStart(2,'0');
+    if (!PINS[i]) b.className = 'reserve';
+    b.addEventListener('click', () => { S.pin = i; render(); }); $('x-pins').appendChild(b);
+  }
+}
+
+/* ---------- Darstellung ---------- */
+function render(){
+  const V = victron(), now = Date.now();
+  // Kopf
+  const theme = S.theme === 'auto' ? (S.dim58 ? 'dark' : 'light') : S.theme;
+  screen.dataset.theme = theme;
+  // Helligkeit: im Betrieb an die Hintergrundbeleuchtung des Displays (cali/v1/cmd/display), nicht per CSS
+  set('outside', V ? fmt(V.outside,'°C',1) : '–');
+  $('dot-unit').classList.toggle('off', !S.unitOnline);
+  $('dot-cerbo').classList.toggle('off', !S.cerbo);
+  const d = new Date(); $('clock').textContent = d.toLocaleTimeString('de-CH',{hour:'2-digit',minute:'2-digit'});
+  $('banner').hidden = S.unitOnline; $('link-unit').hidden = !S.unitOnline;
+  document.querySelectorAll('[data-act]').forEach(b => b.disabled = !S.unitOnline);
+
+  // Energie
+  const net = V ? V.solar + V.charger + V.alt - V.dc - V.inv : null;
+  const amps = V ? net / V.v : null;
+  const socCls = !V ? '' : V.soc < 15 ? 'err' : V.soc < 30 ? 'warn' : 'ok';
+  set('ov-soc', V ? fmt(V.soc,'%') : '–');
+  set('ov-bat-sub', V ? `${fmt(V.v,'V',1)} · ${fmt(net,'W',0,true)}` : 'Keine Victron-Daten');
+  chip('ov-bat-chip', !V ? 'Keine Daten' : net >= 0 ? 'Lädt' : 'Entlädt', !V ? 'warn' : socCls);
+  set('en-soc', V ? fmt(V.soc,'%') : '–');
+  $('en-soc-sub').textContent = V ? (net >= 0 ? 'lädt' : 'entlädt') : 'keine Daten';
+  $('ring-val').setAttribute('stroke-dasharray', `${V ? V.soc/100*270 : 0} 360`);
+  $('ring-val').setAttribute('stroke', socCls === 'err' ? 'var(--err)' : socCls === 'warn' ? 'var(--warn)' : 'var(--accent)');
+  set('en-v', V ? fmt(V.v,'V',1) : '–'); set('en-a', V ? fmt(amps,'A',1,true) : '–');
+  set('en-in', V ? fmt(V.solar+V.charger+V.alt,'W') : '–');
+  set('en-solar', V ? fmt(V.solar,'W') : '–'); set('en-charger', V ? fmt(V.charger,'W') : '–'); set('en-alt', V ? fmt(V.alt,'W') : '–');
+  set('en-phase', V ? (V.ac.active === 240 ? 'kein Landstrom' : VB_STATE[V.ac.state]) : '–');
+  set('en-out', V ? fmt(V.dc+V.inv,'W') : '–'); set('en-dc', V ? fmt(V.dc,'W') : '–'); set('en-inv', V ? fmt(V.inv,'W') : '–');
+  const load = V ? V.ac.sout/1600*100 : null;
+  set('en-load', V ? `${fmt(load,'%')} · ${fmt(V.ac.sout,'VA')}` : '–');
+  $('en-load-bar').className = 'bar' + (S.overload ? ' err' : load > 80 ? ' warn' : '');
+  $('en-load-bar').firstElementChild.style.width = (S.overload ? 100 : load || 0) + '%';
+  set('en-alarm', !V ? '–' : S.overload ? '<span style="color:var(--err)">Überlast</span>' : 'keine');
+
+  // Landstrom-Kachel
+  if (!V){ set('ov-shore','–'); set('ov-shore-sub','Keine Victron-Daten'); chip('ov-shore-chip','Keine Daten','warn'); }
+  else if (V.ac.active === 240){ set('ov-shore','Getrennt'); set('ov-shore-sub',`230 V vom Wechselrichter · ${fmt(V.ac.pout,'W')}`); chip('ov-shore-chip', S.overload ? 'Überlast' : 'Wechselrichter', S.overload ? 'err' : 'accent'); }
+  else { set('ov-shore', fmt(V.ac.vin,'V')); set('ov-shore-sub',`Laden ${fmt(V.charger,'W')}`); chip('ov-shore-chip', VB_STATE[V.ac.state], S.overload ? 'err' : 'ok'); }
+
+  // Kühlbox
+  const f = S.fridge;
+  const frState = S.fridgeFault ? ['Fehler 3 · ' + FRIDGE_CODES[3], 'err'] : !f.on ? ['Aus',''] : f.req ? ['Kühlung angefordert','accent'] : ['Temperatur erreicht','ok'];
+  set('ov-fridge', fmt(f.temp,'°C',1)); set('ov-fridge-sub', f.on ? `Soll ${f.target} °C` : 'Ausgeschaltet');
+  chip('ov-fridge-chip', S.fridgeFault ? 'Fehler 3' : frState[0], frState[1]);
+  set('fr-temp', fmt(f.temp,'°C',1)); chip('fr-chip', frState[0], frState[1]);
+  set('fr-target', fmt(f.target,'°C'));
+  $('fr-toggle').textContent = f.on ? 'Kühlbox ist ein · ausschalten' : 'Kühlbox einschalten';
+  $('fr-toggle').setAttribute('aria-pressed', String(f.on));
+  $('fr-minus').disabled = $('fr-plus').disabled = !S.unitOnline || !f.on;
+  $('fr-note').textContent = S.fridgeFault ? 'Die Kühlbox meldet über Klemme D einen blockierten Kompressor. Kühlbox aus- und wieder einschalten; bleibt der Fehler, Kompressor prüfen.' : 'Schaltet ein bei Soll + 1,5 °C, aus bei Soll − 1 °C.';
+
+  // Heizung
+  const h = S.heat, left = Math.max(0, AFTERRUN - (now - h.since)/1000);
+  const PH = {off:['Aus','','Aus'], start:['Start','accent','Startet'], heating:['Heizt','ok','Heizt'], afterrun:['Nachlauf','warn','Nachlauf']}[h.phase];
+  const mmss = s => `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
+  set('ov-heat', PH[0]);
+  set('ov-heat-sub', h.phase === 'afterrun' ? `Gebläse noch ${mmss(left)}` : `Stufe ${h.level} von 15`);
+  chip('ov-heat-chip', h.phase === 'off' ? 'Bereit' : PH[2], PH[1]);
+  set('ht-phase', PH[0]); chip('ht-chip', h.phase === 'afterrun' ? `Gebläse noch ${mmss(left)}` : h.phase === 'off' ? 'Bereit' : h.phase === 'start' ? 'Warte auf Betriebsanzeige' : 'Betriebsanzeige an', PH[1]);
+  $('ht-note').textContent = h.phase === 'afterrun' ? 'Die Standheizung kühlt sich ab. Die Unit bleibt bis zum Ende des Nachlaufs eingeschaltet.' : 'Die Stufe wird in °C angezeigt, sobald der Sollwertgeber am Original gemessen ist.';
+  set('ht-level', h.level);
+  $('ht-toggle').textContent = h.on ? 'Heizung ist ein · ausschalten' : 'Heizung einschalten';
+  $('ht-toggle').setAttribute('aria-pressed', String(h.on));
+
+  // Wasser
+  const FR = ['Leer','1/3','2/3','Voll'][S.fresh];
+  set('ov-fresh', 'Frisch ' + FR); set('wa-fresh', FR);
+  for (const id of ['ov-fresh-steps','wa-fresh-steps']) [...$(id).children].forEach((s,i) => s.classList.toggle('on', i < S.fresh));
+  chip('ov-waste-chip', S.wasteFull ? 'Abwasser voll' : 'Abwasser nicht voll', S.wasteFull ? 'warn' : 'ok');
+  set('wa-waste', S.wasteFull ? 'Voll' : 'Nicht voll'); chip('wa-waste-chip', S.wasteFull ? 'Bitte leeren' : 'In Ordnung', S.wasteFull ? 'warn' : 'ok');
+
+  // Dach
+  const r = S.roof;
+  const pos = r.dir ? (r.dir === 'open' ? (r.pos >= 1 ? 'Offen' : 'Öffnet …') : (r.pos <= 0 ? 'Geschlossen' : 'Schliesst …')) : r.pos >= 1 ? 'Offen' : r.pos <= 0 ? 'Geschlossen' : 'Zwischenstellung';
+  set('ov-roof', pos); set('rf-pos', pos);
+  $('rf-bar').firstElementChild.style.width = (r.pos*100) + '%';
+  const roofWarn = S.moving && r.pos > 0;
+  const roofChip = roofWarn ? ['Fahrt mit offenem Dach','err'] : S.moving ? ['Öffnen gesperrt: Fahrt','warn'] : r.dir ? ['Fährt','accent'] : r.pos >= 1 || r.pos <= 0 ? ['Endlage','ok'] : ['Steht','warn'];
+  chip('ov-roof-chip', roofChip[0], roofChip[1]); chip('rf-chip', roofChip[0], roofChip[1]);
+  $('rf-open').disabled = !S.unitOnline || (S.moving && r.dir !== 'open');
+  for (const dir of ['open','close']) $('rf-'+dir).setAttribute('aria-pressed', String(r.dir === dir));
+
+  // Einstellungen
+  $('st-bright').value = S.bright; set('st-bright-val', fmt(S.bright,'%'));
+  $('st-theme').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === S.theme)));
+  $('st-idle').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.v === S.idleMin)));
+
+  // Experte
+  $('x-tabs').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === S.expertTab)));
+  document.querySelectorAll('[data-x]').forEach(x => x.hidden = x.dataset.x !== S.expertTab);
+  const io = (key, on) => { const n = document.querySelector(`[data-io="${key}"]`); if (!n) return; n.textContent = !S.unitOnline || on == null ? '–' : on ? '1' : '0'; n.className = 'v num ' + (on ? 'hi' : 'lo'); };
+  DI.forEach(([,,fn],i) => io('x-di-'+i, fn ? fn() : null));
+  DO.forEach(([,,fn],i) => io('x-do-'+i, fn ? fn() : null));
+  let ohm = 1750; LADDER.forEach((o,i) => { const bit = (h.level >> i) & 1; if (bit) ohm += o; io('h-'+i, bit); });
+  set('x-ohm', S.unitOnline ? fmt(ohm,'Ω',1).replace('.',',') : '–');
+  AI.forEach(([,,fn],i) => { const n = document.querySelector(`[data-io="x-ai-${i}"]`); n.textContent = S.unitOnline && fn ? fn() : '–'; n.className = 'v num'; });
+  $('x-pins').querySelectorAll('button').forEach((b,i) => b.setAttribute('aria-pressed', String(i+1 === S.pin)));
+  $('x-pin-name').textContent = 'T32b/' + String(S.pin).padStart(2,'0');
+  $('x-pin-desc').textContent = PINS[S.pin] || 'Reserve · verdrahtet, ohne Funktion';
+  const acRows = (el, list) => $(el).innerHTML = list.map(([k,v]) => `<div class="row"><span>${k}</span><strong class="num">${v}</strong></div>`).join('');
+  const A = V ? V.ac : {};
+  acRows('x-ac-in', [['Spannung', V ? fmt(A.vin,'V',1) : '–'],['Strom', V ? fmt(A.iin,'A',2) : '–'],['Frequenz', V ? fmt(A.fin,'Hz',1) : '–'],['Leistung', V ? fmt(A.pin,'W') : '–'],['Aktiver Eingang', V ? (A.active === 240 ? 'getrennt' : 'AC-Eingang 1') : '–']]);
+  acRows('x-ac-out', [['Spannung', V ? fmt(A.vout,'V',1) : '–'],['Strom', V ? fmt(A.iout,'A',2) : '–'],['Frequenz', V ? fmt(A.fout,'Hz',1) : '–'],['Leistung', V ? fmt(A.pout,'W') : '–'],['Scheinleistung', V ? fmt(A.sout,'VA') : '–']]);
+  const al = v => v === 0 ? 'OK' : v === 1 ? 'Warnung' : v === 2 ? '<span style="color:var(--err)">Alarm</span>' : '–';
+  acRows('x-ac-dev', [['Modell','MultiPlus Compact 12/1600'],['Zustand', V ? VB_STATE[A.state] : '–'],['Modus', V ? 'Ein' : '–'],['Überlast', V ? al(S.overload ? 2 : 0) : '–'],['Batterie tief', V ? al(0) : '–'],['Temperatur', V ? al(0) : '–'],['Restwelligkeit', V ? al(0) : '–']]);
+  $('x-seq').textContent = 'cali/v1/cmd/roof · ' + (r.dir ? `${r.dir} #${r.seq}` : 'kein Befehl');
+}
+
+/* ---------- Demo-Steuerung ---------- */
+const bind = (id, fn) => $(id).addEventListener('change', e => { fn(e.target); render(); });
+bind('d-scn', t => S.scenario = t.value);
+bind('d-unit', t => { S.unitOnline = t.checked; if (!t.checked) stopRoof('Verbindung zur Steuerung verloren · Dach gestoppt'); });
+bind('d-cerbo', t => { S.cerbo = t.checked; toast(t.checked ? 'Victron-Daten wieder da' : 'Victron-Daten fehlen · Bedienung bleibt'); });
+bind('d-moving', t => { S.moving = t.checked; if (t.checked && S.roof.dir === 'open') stopRoof('Öffnen gestoppt: Fahrzeug fährt'); });
+bind('d-58d', t => S.dim58 = t.checked);
+bind('d-waste', t => S.wasteFull = t.checked);
+bind('d-ffault', t => S.fridgeFault = t.checked);
+bind('d-overload', t => S.overload = t.checked);
+
+/* ---------- Skalierung der festen Leinwand ---------- */
+const frame = $('frame');
+const fit = () => screen.style.setProperty('--k', String(frame.getBoundingClientRect().width / 1280));
+new ResizeObserver(fit).observe(frame); fit();
+
+buildExpert();
+let last = Date.now();
+setInterval(() => { const n = Date.now(), dt = (n-last)/1000; last = n; fridgeTick(dt); heatTick(); if (!S.roof.dir) render(); }, 500);
+go('overview');
+})();
+</script>
+</body>
+</html>

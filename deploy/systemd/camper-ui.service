@@ -1,0 +1,21 @@
+[Unit]
+Description=Cali camping unit display (cog / WPE WebKit on DRM)
+After=camperd.service
+Requires=camperd.service
+
+[Service]
+Type=simple
+User=camper
+Group=camper
+SupplementaryGroups=video render input
+Environment=COG_PLATFORM_DRM_VIDEO_MODE=1280x480
+Environment=WPE_BCMRPI_TOUCH=1
+# OPEN: O1 - if cog on DRM does not work with the Viewe panel + touch, switch to:
+# ExecStart=/usr/bin/cage -- /usr/bin/cog -P wl http://127.0.0.1:8080/
+ExecStartPre=/bin/sh -c 'for i in $(seq 1 50); do curl -sf http://127.0.0.1:8080/ >/dev/null && exit 0; sleep 0.2; done; exit 1'
+ExecStart=/usr/bin/cog --platform=drm http://127.0.0.1:8080/
+Restart=always
+RestartSec=1
+
+[Install]
+WantedBy=multi-user.target

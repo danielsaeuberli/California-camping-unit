@@ -1,0 +1,113 @@
+# Hardware-Profil: VW T6 California, MJ 2018, Campingausrüstung A8L/A8R
+# Quelle der Wahrheit für Pinbelegung, Pegel, Zeiten und Kalibrierung.
+# TODO_MEASURE = noch nicht am Fahrzeug gemessen. Software behandelt den Wert als fehlend.
+# Nach Kalibrierung schreibt camperd eine Kopie nach /data/profile.yaml (diese Datei bleibt Vorlage).
+
+profile: t6-california-a8l-2018
+schema_version: 1
+
+vehicle:
+  vin_model_year: 2018
+  wiring_diagram: "K0058981600 Nr. 133 (A8L/A8R ab 06.2017)"
+  ignition_source: DI10          # T32b/30; Alternative DI12 (T6ap/6)
+  illumination_source: DI7       # T32b/27; Alternative DI11 (T6ap/4)
+
+buses:
+  i2c: 1
+  sm_h001: { address: TODO_CHECK }      # Jumper/Stack-Level, Datenblatt
+  sm_i009: { address: TODO_CHECK }
+  wake_uart: { device: /dev/ttyAMA2, baud: 115200 }
+  cerbo: { host: 192.168.77.1, port: 1883, keepalive_s: 30, stale_s: 10 }
+
+outputs:
+  roof_a:       { pin: T32b/11, channel: K1, active: high, meaning: TODO_MEASURE }   # open|close
+  roof_b:       { pin: T32b/12, channel: K2, active: high, meaning: TODO_MEASURE }
+  fridge_req:   { pin: T32b/10, channel: K3, active: high }                          # Pegel TODO_MEASURE
+  heater_splus: { pin: T6ap/3,  channel: K4, active: high }                          # S+ bestätigt
+  heater_ladder:
+    base_ohm: 1750.0
+    segments:                    # Relais an = NC offen = Segment wirksam
+      - { channel: H1, gpio: 17, ohm: 27.4 }
+      - { channel: H2, gpio: 27, ohm: 54.9 }
+      - { channel: H3, gpio: 22, ohm: 110.0 }
+      - { channel: H4, gpio: 23, ohm: 237.0 }
+    switch_gap_ms: 50
+
+inputs:
+  roof_fb_a:   { pin: T32b/15, channel: DI1,  debounce_ms: 50 }
+  roof_fb_b:   { pin: T32b/14, channel: DI2,  debounce_ms: 50 }
+  fridge_diag: { pin: T32b/9,  channel: DI3,  mode: pulse, active: low, pulse_ms: 250, frame_ms: 4000 }
+  heater_run:  { pin: T6ap/2,  channel: DI4,  debounce_ms: 200 }
+  shore_a11:   { pin: T32b/22, channel: DI5,  log_only: true }      # O5
+  speed:       { pin: T32b/3,  channel: DI6,  mode: edges, window_ms: 1000, moving_min_edges: 3 }  # O14
+  dim_58d:     { pin: T32b/27, channel: DI7 }
+  term_86s:    { pin: T32b/28, channel: DI8,  log_only: true }
+  d_plus:      { pin: T32b/29, channel: DI9,  log_only: true }      # Hypothese, O8
+  ign_15a:     { pin: T32b/30, channel: DI10, debounce_ms: 100 }
+  dim_58d_alt: { pin: T6ap/4,  channel: DI11, enabled: false }
+  ign_15a_alt: { pin: T6ap/6,  channel: DI12, enabled: false }
+
+analog:
+  ref_5v:       { channel: AI5, divider: 2.0 }
+  fridge_temp:  { pin: [T32b/7, T32b/8],   channel: AI1, pullup_ohm: TODO_MEASURE, curve: ntc_g817 }
+  fresh_water:  { pin: [T32b/20, T32b/21], channel: AI2, pullup_ohm: TODO_MEASURE, curve: steps_g120 }
+  waste_water:  { pin: [T32b/18, T32b/19], channel: AI3, pullup_ohm: TODO_MEASURE, curve: steps_g126 }
+  outside_temp: { pin: [T32b/16, T32b/17], channel: AI4, pullup_ohm: TODO_MEASURE, curve: ntc_g249 }
+  roof_cmd_a_v: { pin: T32b/11, channel: AI6, divider: TODO_CHECK, measure_only: true }
+  roof_cmd_b_v: { pin: T32b/12, channel: AI7, divider: TODO_CHECK, measure_only: true }
+  battery_v:    { pin: T32b/32, channel: AI8, divider: TODO_CHECK, fallback_for: cerbo_battery_v }
+
+curves:
+  ntc_g817: { type: steinhart_hart, points: TODO_MEASURE }    # [[ohm, °C], [ohm, °C], [ohm, °C]]
+  ntc_g249: { type: steinhart_hart, points: TODO_MEASURE }
+  steps_g120: { type: steps, labels: [empty, third, two_thirds, full], ohm: TODO_MEASURE, hysteresis_pct: 10 }
+  steps_g126: { type: steps, labels: [not_full, full], ohm: TODO_MEASURE, hysteresis_pct: 10 }
+  open_ohm: 50000
+  short_ohm: 5
+
+roof:
+  truth_table: TODO_MEASURE        # {"10": closed, "01": open, "00": moving, ...} aus Messmodus
+  hold_timeout_ms: 300
+  reverse_gap_ms: 300
+  max_run_s: 60
+  block_open_when_moving: true
+
+fridge:
+  target_c: { min: 1, max: 10, default: 5 }
+  on_above_target_k: 1.5
+  off_below_target_k: 1.0
+  min_run_s: 120
+  min_pause_s: 180
+  fallback_duty: off               # off | "50%"
+  self_regulating_j1029: TODO_MEASURE   # O2
+
+heater:
+  levels: 16
+  level_to_c: TODO_MEASURE         # 16 Werte, aus Messung T2p am Original
+  start_timeout_s: 120
+  afterrun_expected_s: 240
+
+tanks:
+  median_s: 5
+  median_moving_s: 30
+  stable_s: 10
+
+outside_temp_source: g249          # g249 | cerbo
+
+power:
+  afterrun_to_standby_s: 60
+  standby_to_shutdown_s: 1800
+  undervoltage_v: 11.8
+  undervoltage_hold_s: 60
+  heartbeat_s: 5
+
+ui:
+  idle_return_min: 2
+  theme: auto                      # auto | light | dark
+  brightness_pct: 80
+  backlight_control: none          # O10
+
+measure:
+  outputs_locked: true             # im Messmodus nie schalten
+  di_resolution_ms: 1
+  ai_rate_hz: 10

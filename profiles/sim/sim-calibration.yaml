@@ -1,0 +1,31 @@
+# SIMULATOR ONLY. Invented values so that `make dev` shows every page with data.
+# Never copy anything from this file into the vehicle profile: it is not measured.
+# camperd applies this overlay only with --hal sim (and not with --sim-uncalibrated).
+
+schema_version: 1
+
+buses:
+  sm_h001: { address: 0x28 }
+  sm_i009: { address: 0x20 }
+
+outputs:
+  roof_a: { meaning: open }
+  roof_b: { meaning: close }
+
+analog:
+  fridge_temp:  { pullup_ohm: 10000 }
+  fresh_water:  { pullup_ohm: 1000 }
+  waste_water:  { pullup_ohm: 1000 }
+  outside_temp: { pullup_ohm: 10000 }
+  roof_cmd_a_v: { divider: 2.0 }
+  roof_cmd_b_v: { divider: 2.0 }
+  battery_v:    { divider: 2.0 }
+
+curves:
+  ntc_g817: { type: steinhart_hart, points: [[32650, 0], [10000, 25], [3602, 50]] }
+  ntc_g249: { type: steinhart_hart, points: [[32650, 0], [10000, 25], [3602, 50]] }
+  steps_g120: { type: steps, labels: [empty, third, two_thirds, full], ohm: [180, 400, 650, 900], hysteresis_pct: 10 }
+  steps_g126: { type: steps, labels: [not_full, full], ohm: [900, 180], hysteresis_pct: 10 }
+
+roof:
+  truth_table: { "10": open, "01": closed, "00": between, "11": fault }

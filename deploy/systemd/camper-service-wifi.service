@@ -1,0 +1,7 @@
+[Unit]
+Description=Service mode: WLAN for updates/SSH, switches off after 30 min (SPEC 2.7)
+
+[Service]
+Type=simple
+ExecStart=/bin/sh -c 'systemctl start wpa_supplicant@wlan0 && sleep 1800'
+ExecStopPost=/bin/systemctl stop wpa_supplicant@wlan0
