@@ -60,10 +60,16 @@ TEMPERATURE_PATHS = {
 }
 
 
-# Starter battery: input voltage of the Orion XS (venus wiki dbus.md, com.victronenergy.dcdc;
-# the Orion XS in charger mode shows up as com.victronenergy.alternator with the same paths).
+# Charging devices besides the MultiPlus (venus wiki dbus.md). The Orion XS in charger mode
+# shows up as com.victronenergy.alternator, otherwise as com.victronenergy.dcdc (same paths).
+# Its input voltage is the starter battery. /State: 0 off, 2 fault, 3 bulk, 4 absorption,
+# 5 float, 6 storage, 7 equalize, 245 starting up, 252 external control.
 DCDC_SERVICES = ("alternator", "dcdc")
-STARTER_V_PATH = "Dc/In/V"
+DEVICE_PATHS = {
+    "starter_v": (DCDC_SERVICES, "Dc/In/V"),
+    "alt_state": (DCDC_SERVICES, "State"),
+    "solar_state": (("solarcharger",), "State"),
+}
 
 
 class VictronStore:
@@ -81,8 +87,8 @@ class VictronStore:
         self.pending_writes: deque[tuple[str, Any]] = deque()
         # temperature services by instance: key -> (value, receive time)
         self.temperatures: dict[str, dict[str, tuple[Any, float]]] = {}
-        # DC-DC input voltage by "<service>/<instance>": (value, receive time)
-        self.dcdc_in_v: dict[str, tuple[Any, float]] = {}
+        # values of the devices in DEVICE_PATHS by "<service>/<instance>/<path>"
+        self.devices: dict[str, tuple[Any, float]] = {}
 
     def ingest_system(self, path: str, value: Any) -> None:
         key = self._by_path.get(path)
@@ -101,18 +107,26 @@ class VictronStore:
                 self.temperatures.setdefault(instance, {})[key] = (value, self.clock.now())
                 return
 
-    def ingest_dcdc(self, service: str, instance: str, path: str, value: Any) -> None:
-        if path == STARTER_V_PATH:
-            self.dcdc_in_v[f"{service}/{instance}"] = (value, self.clock.now())
+    def ingest_device(self, service: str, instance: str, path: str, value: Any) -> None:
+        if any(service in services and path == p for services, p in DEVICE_PATHS.values()):
+            self.devices[f"{service}/{instance}/{path}"] = (value, self.clock.now())
+
+    def device(self, key: str) -> dict[str, Any] | None:
+        """Value of the only device of that kind; None if absent, stale, not a number or ambiguous.
+
+        Two DC-DC chargers: which one feeds from the starter battery? Two MPPTs: whose phase?
+        """
+        services, path = DEVICE_PATHS[key]
+        fresh = [(v, t) for k, (v, t) in self.devices.items()
+                 if k.split("/", 2)[0] in services and k.split("/", 2)[2] == path
+                 and self.clock.now() - t <= self.stale_s and isinstance(v, (int, float)) and not isinstance(v, bool)]
+        if len(fresh) != 1:
+            return None
+        v, t = fresh[0]
+        return {"val": round(float(v), 2) if isinstance(v, float) else v, "age_s": round(self.clock.now() - t, 1)}
 
     def starter_v(self) -> dict[str, Any] | None:
-        """Starter battery voltage from the only DC-DC charger; None if absent, stale or ambiguous."""
-        fresh = [(v, t) for v, t in self.dcdc_in_v.values()
-                 if self.clock.now() - t <= self.stale_s and isinstance(v, (int, float)) and not isinstance(v, bool)]
-        if len(fresh) != 1:
-            return None  # none, or several DC-DC chargers: which one feeds from the starter battery?
-        v, t = fresh[0]
-        return {"val": round(float(v), 2), "age_s": round(self.clock.now() - t, 1)}
+        return self.device("starter_v")
 
     def _temp_get(self, instance: str, key: str) -> Any:
         item = self.temperatures.get(instance, {}).get(key)
@@ -176,7 +190,8 @@ class VictronStore:
         vb = {k: self._entry("vebus." + k) for k in VEBUS_PATHS}
         out_s = self.get("vebus.out_s")
         data["vebus"] = vb
-        data["starter_v"] = self.starter_v()
+        for key in DEVICE_PATHS:
+            data[key] = self.device(key)
         data["load_pct"] = round(out_s / MULTIPLUS_VA * 100) if isinstance(out_s, (int, float)) else None
         data["connected"] = self.connected
         data["portal_id"] = self.portal_id

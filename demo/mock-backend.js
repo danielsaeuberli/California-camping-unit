@@ -149,9 +149,10 @@ function victronMsg() {
   const inp = s.inp || [null, null, null, null];
   return {v: 1, type: 'victron', ts: Date.now(), data: W.cerbo ? {
     soc: e(s.soc), time_to_go_s: e(s.ttg), battery_v: e(s.v), battery_a: e(s.a), battery_w: e(Math.round(s.v * s.a)), pv_w: e(s.pv),
-    charger_w: e(s.charger), alternator_w: e(s.alt || 0), dc_system_w: e(s.dc), starter_v: e(s.alt ? 14.3 : 12.45),
+    charger_w: e(0), alternator_w: e(s.alt || 0), dc_system_w: e(s.dc), starter_v: e(s.alt ? 14.3 : 12.45),
+    alt_state: e(s.alt ? 3 : 0), solar_state: e(s.pv > 0 ? 3 : 0),
     vebus: {state: e(invOff ? 0 : s.state), mode: e(VB.mode), current_limit: e(VB.limit), current_limit_adjustable: e(1), active_input: e(s.active), in_v: e(inp[0]), in_i: e(inp[1]), in_f: e(inp[2]), in_p: e(inp[3]),
-      out_v: e(invOff ? 0 : s.out[0]), out_i: e(invOff ? 0 : s.out[1]), out_f: e(invOff ? 0 : s.out[2]), out_p: e(invOff ? 0 : s.out[3]), out_s: e(invOff ? 0 : s.out[4]), measurement_type: null, dc_w: null,
+      out_v: e(invOff ? 0 : s.out[0]), out_i: e(invOff ? 0 : s.out[1]), out_f: e(invOff ? 0 : s.out[2]), out_p: e(invOff ? 0 : s.out[3]), out_s: e(invOff ? 0 : s.out[4]), measurement_type: null, dc_w: e(s.active !== 240 ? s.charger : invOff ? 0 : -Math.round(s.out[3] * 1.1)),
       alarm_overload: e(W.overload ? 2 : 0), alarm_low_battery: e(0), alarm_temperature: e(0), alarm_ripple: e(0)},
     load_pct: Math.round(s.out[4] / 1600 * 100), connected: true, portal_id: 'demo00000000', stale_s: 10,
   } : {connected: false, portal_id: null, stale_s: 10, vebus: {}, load_pct: null}};
