@@ -371,5 +371,7 @@
   "shore.status.idle": "Bereit",
   "shore.in_sub": "{v} · lädt {w}",
   "shore.solar_sub": "Solar {w} · kein 230 V",
-  "shore.no_230": "kein 230 V"
+  "shore.no_230": "kein 230 V",
+  "mp.charger_only": "Nur Laden: Wechselrichter aus, lädt nur mit Landstrom",
+  "mp.charger_only_shore": "Nur Laden: Wechselrichter aus · {desc}"
 }

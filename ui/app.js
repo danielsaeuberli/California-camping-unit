@@ -363,6 +363,14 @@ function renderOfflineValues() {
     chip(id, t('common.no_data'), 'warn');
 }
 
+/* Inverter really on: not on shore, inverting state, and the mode allows it.
+   In "Nur Laden" (1) and "Aus" (4) the inverter is off whatever State reports. */
+function inverterOn() {
+  const state = vic('vebus.state'), mode = vic('vebus.mode'), active = vic('vebus.active_input');
+  const shore = active != null && active !== 240;
+  return !shore && mode !== 1 && mode !== 4 && [1, 9, 10].includes(state);
+}
+
 /* What the battery is actually doing, from the Victron values (null = no data). */
 function batteryStatus() {
   if (!(S.vic && S.vic.connected)) return null;
@@ -375,7 +383,7 @@ function batteryStatus() {
   else if (shore && [8, 11].includes(state) && Math.abs(bw) < 10) key = 'passthru';
   else if (bw > 5 && pv > 0) key = 'charging_solar';
   else if (bw > 5) key = 'charging';
-  else if (bw < -5 && !shore && [9, 1].includes(state)) key = 'inverter';
+  else if (bw < -5 && inverterOn()) key = 'inverter';
   else if (bw < -5) key = 'discharging';
   else key = 'idle';
   const status = t('bat.status.' + key);
@@ -388,7 +396,7 @@ function renderEnergy() {
   const pv = vic('pv_w'), charger = vic('charger_w'), dc = vic('dc_system_w');
   const outP = vic('vebus.out_p'), state = vic('vebus.state'), active = vic('vebus.active_input');
   const shore = active != null && active !== 240;
-  const inv = active === 240 ? outP : 0;
+  const inv = inverterOn() ? outP : 0;
   const socCls = soc == null ? '' : soc < 15 ? 'err' : soc < 30 ? 'warn' : 'ok';
   const st = batteryStatus();
   const stCls = !st ? 'warn' : st.charging ? 'ok' : socCls || 'accent';
@@ -410,9 +418,12 @@ function renderEnergy() {
 
   // MultiPlus: what it does now, switch, 230 V side
   const overload = vic('vebus.alarm_overload');
-  chip('en-mp-chip', state == null ? t('common.no_data') : overload === 2 ? t('en.alarm_overload') : t('mp.chip.' + state),
+  const mode = vic('vebus.mode'), chargerOnly = mode === 1 && !shore;
+  chip('en-mp-chip', state == null ? t('common.no_data') : overload === 2 ? t('en.alarm_overload') : chargerOnly ? t('mp.chip.0') : t('mp.chip.' + state),
     state == null ? 'warn' : overload === 2 || state === 2 ? 'err' : state === 0 ? '' : 'ok');
-  text('en-mp-state', state == null ? (has ? '–' : t('common.no_victron')) : t('vebus.desc.' + state));
+  text('en-mp-state', state == null ? (has ? '–' : t('common.no_victron'))
+    : mode === 1 ? (shore ? t('mp.charger_only_shore', {desc: t('vebus.desc.' + state)}) : t('mp.charger_only'))
+    : t('vebus.desc.' + state));
   renderModeSwitch();
   set('en-inv', fmt(inv, 'W'));
   const outS = vic('vebus.out_s'), load = S.vic?.load_pct ?? null;
@@ -425,7 +436,7 @@ function renderEnergy() {
   if (!has || active == null) { set('ov-shore', '–'); text('ov-shore-sub', t('common.no_victron')); chip('ov-shore-chip', t('common.no_data'), 'warn'); }
   else {
     const mode = vic('vebus.mode'), mpOff = state === 0 || mode === 4;
-    const inverting = !shore && [1, 9, 10].includes(state);
+    const inverting = inverterOn();
     const key = shore ? (mpOff ? 'off' : [3, 4, 5, 6, 7].includes(state) ? 'shore_charging' : 'shore')
       : pv > 0 && bw > 5 ? 'solar_charging' : inverting ? 'inverter' : mpOff ? 'off' : 'idle';
     text('ov-shore', t('shore.status.' + key));

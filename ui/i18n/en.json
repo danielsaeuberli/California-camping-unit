@@ -371,5 +371,7 @@
   "shore.status.idle": "Ready",
   "shore.in_sub": "{v} · charging {w}",
   "shore.solar_sub": "Solar {w} · no 230 V",
-  "shore.no_230": "no 230 V"
+  "shore.no_230": "no 230 V",
+  "mp.charger_only": "Charger only: inverter off, charges only on shore power",
+  "mp.charger_only_shore": "Charger only: inverter off · {desc}"
 }
