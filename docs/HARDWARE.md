@@ -22,6 +22,8 @@ Preise sind Budgetwerte in CHF, keine Offerten. Status «Bestätigen/Anfragen/Pr
 
 **Pi-Start:** Berührung (Touch-IRQ → XIAO), Schlüssel 86s (T32b/28) oder Zündung (T32b/30). **Nachlauf:** 20 min nach der letzten Berührung, dauernd bei Zündung an. Danach Herunterfahren mit Handshake; erst dann trennt die XIAO den 5-V-Wandler des Pi (Enable). Die Regelung läuft mit ausgeschaltetem Pi unverändert weiter.
 
+**Plan A / Plan B (Entscheid nach der Prüfstandsmessung `docs/PRUEFSTAND_STROM.md`, O29):** Plan A wie oben, beide Sequent-Karten an der Standby-Schiene. Ziehen sie zusammen mehr als etwa 60 mA an 5 V, ist das Ziel damit nicht erreichbar: Plan B legt die Sequent-Karten auf die geschaltete Schiene (nur an, wenn der Pi läuft oder die Zündung an ist), und die XIAO bekommt für die Dauerfunktionen eigene sparsame Ein- und Ausgänge: G817 an ihren ADC (Pull-up 3,3 V), Kühlbox-Diagnose, Betriebsanzeige T6ap/2, Zündung und Geschwindigkeit über Optokoppler, K3/K4 als Halbleiterschalter, H1–H4 am MCP23017. Plan B erst nach der Messung ausarbeiten.
+
 **Abnahme am Prüfstand:** Regelung läuft mit ausgeschaltetem Pi weiter. 12-V-Verbrauch messen in drei Zuständen: geparkt mit Regelung, Bedienung (Pi an), alles aus. Zeit von Berührung bis bedienbar, 5 Durchläufe (Ziel < 12 s).
 
 ## 1. Übersicht
@@ -102,6 +104,35 @@ Entfallen gegenüber rev b: Pos. 12 USB-RS485 (I²C reicht), Pos. 15 VE.Direct-U
 
 Noch nicht budgetiert (Menge erst nach Bauraumaufnahme): Pos. 31 Aluträger, 32 Gehäuse, 33 Frontblende für den E153-Ausschnitt, 34 Abstandshalter, 35 EPDM-Dichtung, 37 Testbuchsen, 38 Kabelschutz, 39 Lötstützpunkte, 40 MQS-Crimpwerkzeug. Richtwert zusammen rund CHF 400.
 
+### Links zu den Komponenten
+
+Hersteller- bzw. Händlerseiten, geprüft am 31.10.2026. Seiten von Raspberry Pi, Microchip, Nexperia und Phoenix Contact sperren automatische Abrufe; diese Adressen sind die üblichen Produktseiten, bitte beim Bestellen kurz prüfen.
+
+| Pos | Bauteil | Link | Hinweis |
+| --- | --- | --- | --- |
+| 1 | Raspberry Pi 5 | [raspberrypi.com](https://www.raspberrypi.com/products/raspberry-pi-5/) | |
+| 2 | Active Cooler | [raspberrypi.com](https://www.raspberrypi.com/products/active-cooler/) | |
+| 3 | microSD | [raspberrypi.com SD-Karten](https://www.raspberrypi.com/products/sd-cards/) | oder eine High-Endurance-Karte eines Markenherstellers |
+| 4 | RTC-Batterie | [raspberrypi.com](https://www.raspberrypi.com/products/rtc-battery/) | |
+| 5 | Viewe 6,86" 480×1280 HDMI | [viewedisplay.com](https://viewedisplay.com/); naher Verwandter [UEDX48128068L-HMD-H bei Hubtronics](https://hubtronics.in/hdmi-lcds/viewe-6.8-inch-touch-round-display) | genaue Bezeichnung «UEDX48128068-HMD-H» ohne «L» nicht gefunden: Modell und Touchpaket bei Viewe bestätigen lassen (O9). Vergleichbar: [DLC-T6.86CDH#1-AT bei DigiKey](https://www.digikey.at/en/products/detail/dlc-display-co-ltd/DLC-T6-86CDH-1-AT/26822639) |
+| 8 | Mini-Box DCDC-USB | [mini-box.com](https://www.mini-box.com/DCDC-USB) | |
+| 9 | Pololu D24V22F5 | [pololu.com](https://www.pololu.com/product/2858) | Alternative [D36V28F5](https://www.pololu.com/product/3782) |
+| 10 | Seeed XIAO ESP32-S3 | [seeedstudio.com](https://www.seeedstudio.com/XIAO-ESP32S3-p-5627.html), [Wiki](https://wiki.seeedstudio.com/xiao_esp32s3_getting_started/) | |
+| 11 | Sequent Home Automation HAT (SM-H-001) | [sequentmicrosystems.com](https://sequentmicrosystems.com/products/home-automation-raspberry-pi-hat) | aktuelle Version V4 |
+| 13 | Sequent 16 LV Digital Inputs (SM-I-009) | [sequentmicrosystems.com](https://sequentmicrosystems.com/products/sixteen-lv-digital-inputs-card-for-raspberry-pi) | Weglassen in Prüfung (Optokoppler-Modul + MCP23017) |
+| 14 | Purecrea 4-Kanal-Relaismodul 420053 | [bastelgarage.ch](https://www.bastelgarage.ch/4-channel-relay-module) | kein Datenblatt: Einschaltpegel selbst prüfen |
+| 22 | Phoenix DFK-MSTB 2,5/ 8-GF-5,08 (Art. 0710235) | [Teiledaten](https://www.mymectronic.com/part-detail/Phoenix-Contact/DFKMSTB258GF508) | auf phoenixcontact.com mit der Artikelnummer suchen |
+| 23 | Phoenix MSTB 2,5/ 8-STF-5,08 (Art. 1778043) | [element14](https://cn.element14.com/phoenix-contact/mstb-2-5-8-stf-5-08/-8-12awg/dp/2671289) | Artikelnummer bei Phoenix bestätigen |
+| 29 | Littelfuse SLD15U-017 (unidirektional) | [Octopart](https://octopart.com/part/littelfuse/SLD15U-017) | Klemmspannung max. 24,4 V (< 36 V für Pos. 9). Die Stückliste nennt SLD15-018 (bidirektional); für die 12-V-Plusleitung ist die unidirektionale Variante üblich: abstimmen |
+| 43 | BAT54S | [nexperia.com](https://www.nexperia.com/product/BAT54S) | |
+| 45 | MCP23017 | [microchip.com](https://www.microchip.com/en-us/product/mcp23017) | |
+| 46 | TPS22918 | [ti.com](https://www.ti.com/product/TPS22918) | |
+| 47 | SN74LVC1G125 | [ti.com](https://www.ti.com/product/SN74LVC1G125) | |
+| 48 | TCA9517 | [ti.com](https://www.ti.com/product/TCA9517) | |
+| – | ADS1115 (Option, falls der SM-H-001 entfällt) | [ti.com](https://www.ti.com/product/ADS1115) | |
+
+Ohne Link: Pos. 6 (Touch, Anfrage bei Viewe), 7 (Kabel), 16–21 (Widerstände, VW-Stecker nach Gehäusefoto), 24–28, 30, 36, 41, 42, 44, 49 (Standardteile, beliebiger Händler).
+
 ### Prüfstand (für Entwicklung, nicht im Fahrzeug)
 
 | Teil | Zweck | CHF |
@@ -129,7 +160,7 @@ Quelle der Wahrheit für die Software ist `profiles/t6-california-a8l-2018.yaml`
 
 **COM K1–K4:** Die vier Relais teilen sich eine COM. Annahme: alle schalten +12 V über die 2-A-Sicherung (Pos. 44). Zeigt die Messung, dass ein Eingang nach Masse geschaltet werden muss, braucht dieser Kanal ein Relais aus der zweiten Gruppe (K5–K8) mit COM auf Masse. E153 überwacht seine Ausgänge auf Kurzschluss und Unterbrechung (Fehlercodes 1100–3101); ob J768/J604/J1029 einen Relaiskontakt ohne Fehlermeldung akzeptieren, zeigt erst der Test.
 
-**K3/K4 erst nach der Pegelmessung festlegen:** Schalten die VW-Eingänge T32b/10 bzw. T6ap/3 nach Masse, nehmen K3/K4 einen der vier Open-Drain-Ausgänge des SM-H-001 statt eines Relais. Ein angezogenes Relais braucht dauernd etwa 0,4 W; die Kühlanforderung ist geparkt oft an. Bis dahin bleibt die Tabelle oben die Annahme.
+**K3/K4 erst nach der Pegelmessung festlegen, möglichst ohne Relais:** Ein angezogenes Relais braucht dauernd etwa 0,4 W; die Kühlanforderung ist geparkt oft an. Schalten die VW-Eingänge T32b/10 bzw. T6ap/3 nach Masse: einer der vier Open-Drain-Ausgänge des SM-H-001. Brauchen sie +12 V: ein kleiner High-Side-Schalter mit Diagnose (z. B. Infineon BTS-Familie oder P-MOSFET mit Treiber), angesteuert vom MCP23017. Bis dahin bleibt die Tabelle oben die Annahme.
 
 **Sollwertleiter:** T2p/1 → R0 → Segment H1 → H2 → H3 → H4 → T2p/2. Jedes Segment hat einen NC-Kontakt parallel. Stromlos sind alle Segmente überbrückt: R0. Das Original hat **10 Stufen** (bestätigt; SSP 329: +10 bis +30 °C); die vier Relais bilden Stufe 0–9 binär ab. Nicht veröffentlicht: der Widerstand je Stufe und ob mehr Widerstand wärmer oder kälter bedeutet. **R0 und die Segmentwerte erst nach der Messung bestellen.** Ist die Stufe mit grösserem Widerstand die wärmere, ist R0 die kälteste Stufe; sonst R0 und die Abbildung Stufe → Bits umkehren.
 
