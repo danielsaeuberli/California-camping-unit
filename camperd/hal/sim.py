@@ -186,7 +186,7 @@ SCENARIOS: dict[str, dict[str, Any]] = {
     "solar": {"soc": 76, "v": 13.4, "a": 3.2, "pv": 240, "charger": 0, "dc": 85, "state": 9, "active_in": 240,
               "in": None, "out": (230, 0.43, 50, 90, 100)},
     "night": {"soc": 54, "v": 12.9, "a": -21.0, "pv": 0, "charger": 0, "dc": 120, "state": 9, "active_in": 240,
-              "in": None, "out": (230, 1.3, 50, 280, 300)},
+              "in": None, "out": (230, 1.3, 50, 280, 300), "ttg": 14 * 3600},
     "shore": {"soc": 88, "v": 13.8, "a": 22.0, "pv": 0, "charger": 420, "dc": 110, "state": 5, "active_in": 0,
               "in": (230, 2.96, 50, 650), "out": (230, 0.87, 50, 180, 200)},
 }
@@ -240,6 +240,7 @@ class SimCerbo:
         st.ingest_system("system/0/Dc/Battery/Voltage", s["v"])
         st.ingest_system("system/0/Dc/Battery/Current", s["a"])
         st.ingest_system("system/0/Dc/Battery/Power", round(s["v"] * s["a"]))
+        st.ingest_system("system/0/Dc/Battery/TimeToGo", s.get("ttg"))
         st.ingest_system("system/0/Dc/Pv/Power", s["pv"])
         st.ingest_system("system/0/Dc/Charger/Power", s["charger"])
         st.ingest_system("system/0/Dc/System/Power", s["dc"])

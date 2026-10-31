@@ -1,7 +1,14 @@
-"""Roof (J768) hold-to-run logic. Pure logic, no I/O; time from the injected clock.
+"""Roof (J768) logic. Pure logic, no I/O; time from the injected clock.
 
-Safety rules: S2 (never K1+K2, 300 ms gap on reversal), S3 (hold timeout, socket
-loss, max run time), S4 (no opening while driving), S5 (stop when DI card fails).
+Two ways to run, both driven by run messages from the UI every 100 ms:
+- hold-to-run: messages while the button is held;
+- tap-to-run (``auto``): one tap, the UI keeps sending until STOP, any touch, or the
+  end position. Only available once the end positions (truth table) and the relay
+  direction are measured; camperd stops at the end position itself.
+
+Safety rules: S2 (never K1+K2, 300 ms gap on reversal), S3 (run messages stop / socket
+loss / max run time -> stop), S4 (no opening while driving, ignition required), S5
+(stop when the DI card fails).
 """
 
 from __future__ import annotations
@@ -13,6 +20,7 @@ from camperd.clock import Clock
 from camperd.profile import Profile, is_cal
 
 DIRS = ("open", "close")
+TARGET = {"open": "open", "close": "closed"}
 
 
 @dataclass(frozen=True)
@@ -25,6 +33,19 @@ class RoofConfig:
     truth_table: dict[str, str] | None
     k1_dir: str
     direction_verified: bool
+    tap_to_run: bool = False
+    pump_afterrun_s: float | None = None  # J768 pump run-on after the command ends
+
+    @property
+    def settle_s(self) -> float:
+        """Time after a stop before the roof counts as idle and may reverse."""
+        # OPEN: pump run-on not measured yet -> only the reversal gap applies
+        return max(self.reverse_gap_s, self.pump_afterrun_s or 0.0)
+
+    @property
+    def tap_available(self) -> bool:
+        """One-tap runs need known end positions and a verified relay direction."""
+        return self.tap_to_run and self.truth_table is not None and self.direction_verified
 
     @classmethod
     def from_profile(cls, p: Profile) -> RoofConfig:
@@ -43,6 +64,8 @@ class RoofConfig:
             truth_table={str(k): str(v) for k, v in table.items()} if isinstance(table, dict) else None,
             k1_dir=k1_dir,
             direction_verified=verified,
+            tap_to_run=bool(p.get("roof.tap_to_run", False)),
+            pump_afterrun_s=float(ar) if is_cal(ar := p.get("roof.pump_afterrun_s")) else None,
         )
 
 
@@ -68,15 +91,19 @@ class Roof:
         self._off_since = -1e9
         self._last_energized_dir: str | None = None
         self._latched_timeout = False
+        self._latched_end = False
+        self.auto = False
         self._inputs = RoofInputs(None, None, False, True)
         self.k1 = False
         self.k2 = False
 
     # ----- commands -----
-    def hold(self, direction: str, seq: int) -> str | None:
-        """Hold message from the UI (every 100 ms). Returns a reject reason or None."""
+    def hold(self, direction: str, seq: int, auto: bool = False) -> str | None:
+        """Run message from the UI (every 100 ms). Returns a reject reason or None."""
         if direction not in DIRS:
             return "bad_dir"
+        if auto and not self.cfg.tap_available:
+            return "tap_unavailable"
         now = self.clock.now()
         if not self._inputs.di_ok:
             self.block = "unit_io"
@@ -96,9 +123,13 @@ class Roof:
         if new_press:
             if self.cmd is not None and direction != self.cmd:
                 self._deenergize(now)
+            if auto and self.end_position() == TARGET[direction]:
+                return "at_end"  # already there: nothing to do
             self.cmd = direction
             self._press_start = now
             self._latched_timeout = False
+            self._latched_end = False
+            self.auto = auto
             self.block = "none"
         elif seq <= self._last_seq:
             return "stale_seq"
@@ -106,6 +137,8 @@ class Roof:
         self._last_hold = now
         if self._latched_timeout:
             return "timeout"
+        if self._latched_end:
+            return "at_end"
         return None
 
     def release(self) -> None:
@@ -141,9 +174,12 @@ class Roof:
                 self._deenergize(now)  # S3: max run time per press
                 self._latched_timeout = True
                 self.block = "timeout"
-        if self.cmd is not None and not self._latched_timeout and self._energized != self.cmd:
+            elif self.auto and self.end_position() == TARGET[self.cmd]:
+                self._deenergize(now)  # tap-to-run: stop at the end position
+                self._latched_end = True
+        if self.cmd is not None and not self._latched_timeout and not self._latched_end and self._energized != self.cmd:
             reversing = self._last_energized_dir not in (None, self.cmd)
-            gap_ok = (now - self._off_since >= self.cfg.reverse_gap_s) if reversing else True
+            gap_ok = (now - self._off_since >= self.cfg.settle_s) if reversing else True
             if self._energized is None and gap_ok:
                 self._energized = self.cmd
                 self._last_energized_dir = self.cmd
@@ -169,9 +205,27 @@ class Roof:
     def moving(self) -> bool:
         return self._energized is not None
 
+    @property
+    def afterrun(self) -> bool:
+        """Command off, but the pump may still run on (pump_afterrun_s)."""
+        return (
+            not self.moving
+            and self._last_energized_dir is not None
+            and self.clock.now() - self._off_since < self.cfg.settle_s
+        )
+
+    @property
+    def busy(self) -> bool:
+        """Moving or pump run-on: no shutdown, no idle return (S8)."""
+        return self.moving or self.afterrun
+
     def position(self) -> str:
         if self.moving:
             return "moving"
+        return self.end_position()
+
+    def end_position(self) -> str:
+        """Position from the J768 feedback only (also while the pump runs)."""
         a, b = self._inputs.fb_a, self._inputs.fb_b
         if not self._inputs.di_ok or a is None or b is None:
             return "unknown"
@@ -186,6 +240,9 @@ class Roof:
             "block": self.block,
             "direction_verified": self.cfg.direction_verified,
             "require_ignition": self.cfg.require_ignition,
+            "tap": self.cfg.tap_available,
+            "auto": self.auto and self.cmd is not None,
+            "afterrun": self.afterrun,
         }
 
     def alerts(self) -> list[dict[str, str]]:

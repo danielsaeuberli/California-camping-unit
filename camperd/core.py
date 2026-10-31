@@ -114,11 +114,11 @@ class Controller:
             return self.heater.set(on=values.get("on"), level=values.get("level"))
         return "unknown_target"
 
-    def roof_hold(self, direction: str, seq: int) -> str | None:
+    def roof_hold(self, direction: str, seq: int, auto: bool = False) -> str | None:
         self.power.user_input()
         if not self.released["roof"]:
             return "not_released"
-        return self.roof.hold(direction, seq)
+        return self.roof.hold(direction, seq, auto=auto)
 
     def roof_release(self) -> None:
         self.roof.release()
@@ -198,7 +198,7 @@ class Controller:
                 ignition=self.vehicle.ignition,
                 fridge_active=self.fridge.thermostat_active(),
                 heater_phase=self.heater.phase,
-                roof_moving=self.roof.moving,
+                roof_moving=self.roof.busy,
                 battery_v=self.victron.battery_v(),
             )
         )

@@ -76,6 +76,8 @@ SCHEMA: dict[str, Any] = {
         "max_run_s": LEAF,
         "block_open_when_moving": LEAF,
         "require_ignition": LEAF,
+        "tap_to_run": LEAF,
+        "pump_afterrun_s": LEAF,
     },
     "fridge": {
         "target_c": {"min": LEAF, "max": LEAF, "default": LEAF},

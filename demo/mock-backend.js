@@ -8,7 +8,7 @@
 const now = () => performance.now() / 1000;
 const SCENARIOS = {
   solar: {soc: 76, v: 13.4, a: 3.2, pv: 240, charger: 0, dc: 85, state: 9, active: 240, inp: null, out: [230, 0.43, 50, 90, 100]},
-  night: {soc: 54, v: 12.9, a: -21, pv: 0, charger: 0, dc: 120, state: 9, active: 240, inp: null, out: [230, 1.3, 50, 280, 300]},
+  night: {ttg: 14 * 3600, soc: 54, v: 12.9, a: -21, pv: 0, charger: 0, dc: 120, state: 9, active: 240, inp: null, out: [230, 1.3, 50, 280, 300]},
   shore: {soc: 88, v: 13.8, a: 22, pv: 0, charger: 420, dc: 110, state: 5, active: 0, inp: [230, 2.96, 50, 650], out: [230, 0.87, 50, 180, 200]},
 };
 const CFG = {holdTimeout: 0.3, reverseGap: 0.3, maxRun: 60, fridgeOn: 1.5, fridgeOff: 1.0, minRun: 120, minPause: 180,
@@ -27,13 +27,16 @@ const M = {
   power: 'afterrun',
 };
 
-function roofHold(dir, seq) {
+function roofHold(dir, seq, auto = false) {
   const r = M.roof, t = now();
   if (dir !== 'open' && dir !== 'close') return 'bad_dir';
   if (!W.ignition && !W.moving) { r.block = 'ignition'; return 'blocked_ignition'; }
   if (W.moving && dir === 'open') { r.block = 'moving'; return 'blocked_moving'; }
   const newPress = t - r.lastHold > CFG.holdTimeout || dir !== r.cmd;
+  const atEnd = dir === 'open' ? r.pos >= 1 : r.pos <= 0;
+  if (auto && atEnd && !r.energized) return 'at_end';
   if (newPress) {
+    r.auto = auto;
     if (r.cmd && dir !== r.cmd) roofOff(t);
     r.cmd = dir; r.pressStart = t; r.latched = false; r.block = 'none';
   }
@@ -59,6 +62,7 @@ function tick(dt) {
   if (!r.cmd && !W.moving && r.block === 'moving') r.block = 'none';
   if (!r.cmd && W.ignition && r.block === 'ignition') r.block = 'none';
   if (r.energized) r.pos = Math.min(1, Math.max(0, r.pos + (r.energized === 'open' ? 1 : -1) * dt / CFG.roofTravel));
+  if (r.energized && r.auto && (r.energized === 'open' ? r.pos >= 1 : r.pos <= 0)) { roofOff(t); r.cmd = null; }  // end position
   // fridge thermostat with min run / pause (S6)
   let want = f.request;
   if (!f.on) want = false;
@@ -123,7 +127,7 @@ function stateMsg() {
   const afterrun = h.phase === 'afterrun' ? Math.max(0, Math.round(CFG.afterrun - (now() - h.since))) : 0;
   return {v: 1, type: 'state', ts: Date.now(), data: {
     power: {mode: M.power, ignition: W.ignition || W.moving},
-    roof: {pos: roofPos(), cmd: r.cmd || 'none', block: r.block, direction_verified: true, require_ignition: true},
+    roof: {pos: roofPos(), cmd: r.cmd || 'none', block: r.block, direction_verified: true, require_ignition: true, tap: true, auto: !!(r.auto && r.cmd), afterrun: false},
     fridge: {on: f.on, target_c: f.target, temp_c: Math.round(f.temp * 10) / 10, temp_q: 'ok', request: f.request, fault: W.fridgeFault},
     heater: {on: h.on, level: h.level, phase: h.phase, afterrun_s: afterrun, level_c: null, level_ok: true, levels: 10},
     tanks: {fresh_step: W.fresh, fresh_q: 'ok', waste_full: W.wasteFull, waste_q: 'ok'},
@@ -138,12 +142,14 @@ function stateMsg() {
 }
 function victronMsg() {
   const s = SCENARIOS[W.scenario], e = val => val == null ? null : {val, age_s: 0.4};
+  // like the MultiPlus: "Aus" -> off; "Nur Laden" without shore power -> inverter off, nothing to charge
+  const invOff = VB.mode === 4 || (VB.mode === 1 && s.active === 240);
   const inp = s.inp || [null, null, null, null];
   return {v: 1, type: 'victron', ts: Date.now(), data: W.cerbo ? {
-    soc: e(s.soc), battery_v: e(s.v), battery_a: e(s.a), battery_w: e(Math.round(s.v * s.a)), pv_w: e(s.pv),
+    soc: e(s.soc), time_to_go_s: e(s.ttg), battery_v: e(s.v), battery_a: e(s.a), battery_w: e(Math.round(s.v * s.a)), pv_w: e(s.pv),
     charger_w: e(s.charger), dc_system_w: e(s.dc),
-    vebus: {state: e(VB.mode === 4 ? 0 : s.state), mode: e(VB.mode), current_limit: e(VB.limit), current_limit_adjustable: e(1), active_input: e(s.active), in_v: e(inp[0]), in_i: e(inp[1]), in_f: e(inp[2]), in_p: e(inp[3]),
-      out_v: e(s.out[0]), out_i: e(s.out[1]), out_f: e(s.out[2]), out_p: e(s.out[3]), out_s: e(s.out[4]), measurement_type: null, dc_w: null,
+    vebus: {state: e(invOff ? 0 : s.state), mode: e(VB.mode), current_limit: e(VB.limit), current_limit_adjustable: e(1), active_input: e(s.active), in_v: e(inp[0]), in_i: e(inp[1]), in_f: e(inp[2]), in_p: e(inp[3]),
+      out_v: e(invOff ? 0 : s.out[0]), out_i: e(invOff ? 0 : s.out[1]), out_f: e(invOff ? 0 : s.out[2]), out_p: e(invOff ? 0 : s.out[3]), out_s: e(invOff ? 0 : s.out[4]), measurement_type: null, dc_w: null,
       alarm_overload: e(W.overload ? 2 : 0), alarm_low_battery: e(0), alarm_temperature: e(0), alarm_ripple: e(0)},
     load_pct: Math.round(s.out[4] / 1600 * 100), connected: true, portal_id: 'demo00000000', stale_s: 10,
   } : {connected: false, portal_id: null, stale_s: 10, vebus: {}, load_pct: null}};
@@ -186,7 +192,7 @@ class DemoSocket {
     const m = JSON.parse(raw);
     const ack = (ok, reason, id = m.id) => this.push({v: 1, type: 'ack', id, ok, reason: reason || null});
     if (m.type === 'hold') {
-      const reason = roofHold(m.dir, m.seq);
+      const reason = roofHold(m.dir, m.seq, m.auto === true);
       if (reason === null) this.holding = true;
       else ack(false, reason, 'hold-' + m.seq);
     } else if (m.type === 'release') { roofRelease(); this.holding = false; }

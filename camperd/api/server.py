@@ -156,7 +156,7 @@ class Api:
             reason: str | None = "busy"
         else:
             direction = msg.get("dir") if msg.get("target") == "roof" else None
-            reason = self.ctrl.roof_hold(str(direction), int(msg.get("seq", 0)))
+            reason = self.ctrl.roof_hold(str(direction), int(msg.get("seq", 0)), auto=msg.get("auto") is True)
             if reason is None:
                 self.roof_holder = client.id
         if reason not in (None, "stale_seq"):
