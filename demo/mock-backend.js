@@ -9,6 +9,7 @@ const now = () => performance.now() / 1000;
 const SCENARIOS = {
   solar: {soc: 76, v: 13.4, a: 3.2, pv: 240, charger: 0, dc: 85, state: 9, active: 240, inp: null, out: [230, 0.43, 50, 90, 100]},
   night: {ttg: 14 * 3600, soc: 54, v: 12.9, a: -21, pv: 0, charger: 0, dc: 120, state: 9, active: 240, inp: null, out: [230, 1.3, 50, 280, 300]},
+  driving: {soc: 70, v: 14.1, a: 34, pv: 120, alt: 450, charger: 0, dc: 90, state: 9, active: 240, inp: null, out: [230, 0, 50, 0, 0]},
   shore: {soc: 88, v: 13.8, a: 22, pv: 0, charger: 420, dc: 110, state: 5, active: 0, inp: [230, 2.96, 50, 650], out: [230, 0.87, 50, 180, 200]},
 };
 const CFG = {holdTimeout: 0.3, reverseGap: 0.3, maxRun: 60, fridgeOn: 1.5, fridgeOff: 1.0, minRun: 120, minPause: 180,
@@ -148,7 +149,7 @@ function victronMsg() {
   const inp = s.inp || [null, null, null, null];
   return {v: 1, type: 'victron', ts: Date.now(), data: W.cerbo ? {
     soc: e(s.soc), time_to_go_s: e(s.ttg), battery_v: e(s.v), battery_a: e(s.a), battery_w: e(Math.round(s.v * s.a)), pv_w: e(s.pv),
-    charger_w: e(s.charger), dc_system_w: e(s.dc),
+    charger_w: e(s.charger), alternator_w: e(s.alt || 0), dc_system_w: e(s.dc), starter_v: e(s.alt ? 14.3 : 12.45),
     vebus: {state: e(invOff ? 0 : s.state), mode: e(VB.mode), current_limit: e(VB.limit), current_limit_adjustable: e(1), active_input: e(s.active), in_v: e(inp[0]), in_i: e(inp[1]), in_f: e(inp[2]), in_p: e(inp[3]),
       out_v: e(invOff ? 0 : s.out[0]), out_i: e(invOff ? 0 : s.out[1]), out_f: e(invOff ? 0 : s.out[2]), out_p: e(invOff ? 0 : s.out[3]), out_s: e(invOff ? 0 : s.out[4]), measurement_type: null, dc_w: null,
       alarm_overload: e(W.overload ? 2 : 0), alarm_low_battery: e(0), alarm_temperature: e(0), alarm_ripple: e(0)},
@@ -252,7 +253,7 @@ function controls() {
   bar.className = 'demo';
   bar.innerHTML = `
     <b>Demo</b>
-    <label>Szenario <select data-k="scenario"><option value="solar">Solar lädt</option><option value="night">Nacht, Entladen</option><option value="shore">Landstrom</option></select></label>
+    <label>Szenario <select data-k="scenario"><option value="solar">Solar lädt</option><option value="night">Nacht, Entladen</option><option value="driving">Fahrt, Lichtmaschine</option><option value="shore">Landstrom</option></select></label>
     <label><input type="checkbox" data-k="online" checked> Steuerung online</label>
     <label><input type="checkbox" data-k="cerbo" checked> Victron-Daten</label>
     <label><input type="checkbox" data-k="ignition" checked> Zündung</label>

@@ -211,10 +211,11 @@ Verkabelung: MultiPlus Compact → Cerbo über **VE.Bus** (RJ45-Patchkabel an di
 - Portal-ID beim Start aus `N/+/system/0/Serial` ermitteln. VE.Bus-Instanz aus `N/<id>/vebus/+/ProductId`.
 - Keepalive: `R/<id>/keepalive` mit **leerem** Payload alle `buses.cerbo.keepalive_s` = 5 s. Venus publiziert nur, solange Keepalives kommen, und sendet bei leerem Keepalive alle Werte neu. Weil Werte sonst nur bei Änderung kommen, muss das Intervall ≤ `stale_s` / 2 sein (Code prüft das), damit ein gleichbleibender Wert nicht als veraltet gilt. Optional feste Portal-ID `buses.cerbo.portal_id`, falls `N/+/system/0/Serial` nicht ankommt.
 - Gelesen:
-  - `system/0/Dc/Battery/{Soc,Voltage,Current,Power,TimeToGo}` (TimeToGo nur mit Batteriemonitor), `system/0/Dc/Pv/Power`, `system/0/Dc/Charger/Power`
+  - `system/0/Dc/Battery/{Soc,Voltage,Current,Power,TimeToGo}` (TimeToGo nur mit Batteriemonitor), `system/0/Dc/Pv/Power`, `system/0/Dc/Charger/Power`, `system/0/Dc/Alternator/Power` (Orion XS, Laden während der Fahrt)
   - `vebus/<inst>/{State,Mode,Ac/ActiveIn/ActiveInput,Ac/ActiveIn/L1/{V,I,F,P},Ac/Out/L1/{V,I,F,P,S},Ac/PowerMeasurementType,Dc/0/Power}`
   - `vebus/<inst>/Alarms/{L1/Overload,LowBattery,HighTemperature,L1/Ripple}`
   - `vebus/<inst>/Ac/In/1/{CurrentLimit,CurrentLimitIsAdjustable}`, `system/0/Dc/System/Power`
+  - `alternator/+/Dc/In/V`, `dcdc/+/Dc/In/V`: Eingangsspannung der Orion XS = **Starterbatterie** (nur Anzeige; bei mehr als einem DC-DC-Lader «–»)
   - `temperature/+/{Temperature,Humidity,CustomName,ProductName,TemperatureType}`: Innentemperatur (5.2)
 - Jeder Wert mit Empfangszeit. Alter > 10 s (`stale_s`) oder Verbindung weg → Oberfläche zeigt «–», **nie den letzten Wert**. Fehlender Wert → `null`, nie ein Ersatzwert.
 - Auf `W/…` nur nach 5.1.
@@ -429,3 +430,4 @@ UART 115200 8N1, ASCII-Zeilen mit `\n`:
 | O18 | Akzeptieren J768, J604, J1029 einen Relaiskontakt statt des überwachten E153-Halbleiterausgangs? | erst nach Freigabe am Fahrzeug testen |
 | O19 | **Blockierend:** Antwortet MQTT des Cerbo über dessen WLAN-AP? Adresse im AP-Netz (erwartet 172.24.24.1)? | `tools/cerbo_check.py`. Antwortet MQTT nicht: STOPP und melden; Rückfall unmanaged Switch (HARDWARE.md 5.3) |
 | O20 | Name des Ruuvi-Tags am Cerbo; meldet Venus einen verstummten Tag (Dienst verschwindet) oder publiziert er den letzten Wert weiter? | `custom_name: TODO_CHECK` → einziger Ruuvi-Tag; am Fahrzeug Batterie aus dem Tag nehmen und prüfen, ob die Anzeige nach `stale_s` auf «–» geht |
+| O21 | Füllt Venus 3.85 `system/0/Dc/Alternator/Power` für die Orion XS (in VRM als «Alternator»)? | erledigt (Daniel, 31.10.2026): ja, der Wert kommt |

@@ -25,7 +25,7 @@ a{color:inherit}
 const FIELDS = {
   ignition: 'bool', moving: 'bool', dim58: 'bool', waste_full: 'bool', fresh_step: [0, 1, 2, 3],
   fridge_fault: [null, 1, 2, 3, 4, 5, 6], outside_c: 'num', fridge_c: 'num', roof_pos: 'num',
-  di_card_fail: 'bool', cerbo: 'bool', scenario: ['solar', 'night', 'shore'], overload: 'bool',
+  di_card_fail: 'bool', cerbo: 'bool', scenario: ['solar', 'night', 'driving', 'shore'], overload: 'bool',
 };
 const f = document.getElementById('f');
 const post = body => fetch('/api/sim', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)}).then(r => r.json());

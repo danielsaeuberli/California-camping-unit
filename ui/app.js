@@ -480,13 +480,14 @@ function inverterOn() {
 /* What the battery is actually doing, from the Victron values (null = no data). */
 function batteryStatus() {
   if (!(S.vic && S.vic.connected)) return null;
-  const bw = vic('battery_w'), pv = vic('pv_w'), state = vic('vebus.state'), mode = vic('vebus.mode');
+  const bw = vic('battery_w'), pv = vic('pv_w'), alt = vic('alternator_w'), state = vic('vebus.state'), mode = vic('vebus.mode');
   const active = vic('vebus.active_input'), shore = active != null && active !== 240;
   if (bw == null) return null;
   let key;
   if (shore && [3, 4, 6, 7].includes(state)) key = 'charging_shore';
   else if (shore && state === 5) key = 'full_shore';
   else if (shore && [8, 11].includes(state) && Math.abs(bw) < 10) key = 'passthru';
+  else if (bw > 5 && alt > 5) key = 'charging_alt';
   else if (bw > 5 && pv > 0) key = 'charging_solar';
   else if (bw > 5) key = 'charging';
   else if (bw < -5 && inverterOn()) key = 'inverter';
@@ -499,7 +500,7 @@ function batteryStatus() {
 function renderEnergy() {
   const has = S.vic && S.vic.connected;
   const soc = vic('soc'), v = vic('battery_v'), a = vic('battery_a'), bw = vic('battery_w');
-  const pv = vic('pv_w'), charger = vic('charger_w'), dc = vic('dc_system_w');
+  const pv = vic('pv_w'), charger = vic('charger_w'), alt = vic('alternator_w'), dc = vic('dc_system_w');
   const outP = vic('vebus.out_p'), state = vic('vebus.state'), active = vic('vebus.active_input');
   const shore = active != null && active !== 240;
   const inv = inverterOn() ? outP : 0;
@@ -520,7 +521,11 @@ function renderEnergy() {
   const plain = (x, unit, d = 0) => x == null ? '–' : `${fmt(x, '', d)} ${unit}`;
   const chips = [];
   if (has) {
-    if (pv > 0) chips.push(['ok', t('ov.chip_solar', {w: plain(pv, 'W')})]);
+    // Charging sources in one chip, unit once at the end: "Fahrt 450 · Solar 120 W"
+    const src = [];
+    if (alt > 5) src.push([t('ov.src_alt'), alt]);
+    if (pv > 0) src.push([t('ov.src_solar'), pv]);
+    if (src.length) chips.push(['ok', src.map(([n, w]) => `${n} ${fmt(w)}`).join(' · ') + ' W']);
     const limit = vic('vebus.current_limit');
     if (shore) chips.push(['ok', limit != null ? t('ov.chip_shore_lim', {v: plain(vic('vebus.in_v'), 'V'), a: plain(limit, 'A')}) : t('ov.chip_shore', {v: plain(vic('vebus.in_v'), 'V')})]);
     else chips.push(inverterOn() ? ['accent', t('ov.chip_ac_inv')] : ['', t('ov.chip_ac_off')]);
@@ -533,8 +538,9 @@ function renderEnergy() {
   set('en-v', fmt(v, 'V', 1)); set('en-a', fmt(a, 'A', 1, true)); set('en-dc', fmt(dc, 'W'));
 
   // Charging sources
-  set('en-in', pv != null && charger != null ? fmt(pv + charger, 'W') : '–');
-  set('en-solar', fmt(pv, 'W')); set('en-charger', fmt(charger, 'W')); set('en-alt', '–');
+  set('en-in', pv != null && charger != null ? fmt(pv + charger + (alt ?? 0), 'W') : '–');
+  set('en-solar', fmt(pv, 'W')); set('en-charger', fmt(charger, 'W')); set('en-alt', fmt(alt, 'W'));
+  set('en-starter', fmt(vic('starter_v'), 'V', 1));
   text('en-phase', state == null ? '–' : shore ? t('vebus.desc.' + state) : t('en.no_shore'));
 
   // MultiPlus: what it does now, switch, 230 V side

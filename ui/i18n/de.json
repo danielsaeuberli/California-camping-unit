@@ -373,7 +373,6 @@
   "roof.reject.at_end": "Endlage erreicht",
   "roof.reject.tap_unavailable": "Endlagen noch nicht gemessen · Taste gedrückt halten",
   "ov.sub_ttg": "{w} · reicht noch {t}",
-  "ov.chip_solar": "Solar {w}",
   "ov.chip_shore": "Landstrom {v}",
   "ov.chip_shore_lim": "Landstrom {v} · max {a}",
   "ov.chip_ac_inv": "230 V: Wechselrichter",
@@ -417,5 +416,9 @@
   "interior.missing": "Kein Ruuvi-Sensor am Cerbo",
   "interior.ambiguous": "Mehrere Ruuvi-Sensoren · Namen im Profil setzen",
   "interior.stale": "Sensor sendet nicht",
-  "interior.offline": "Cerbo nicht verbunden"
+  "interior.offline": "Cerbo nicht verbunden",
+  "bat.status.charging_alt": "Lichtmaschine lädt",
+  "ov.src_alt": "Fahrt",
+  "ov.src_solar": "Solar",
+  "en.starter": "Starterbatterie"
 }
