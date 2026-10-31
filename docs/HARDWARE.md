@@ -23,6 +23,7 @@ Viewe-Display ── HDMI ── Pi 5;  Touch ── I²C/USB ── Pi 5, IRQ �
 | --- | --- | --- |
 | Victron Cerbo GX | Datenquelle Batterie, Laden, 230 V über MQTT | MQTT im LAN einschalten, feste IP auf Ethernet |
 | Victron MultiPlus Compact (Annahme 12/1600/70) | Wechselrichter, Ladegerät, Netzumschaltung | Typenschild; über **VE.Bus** (RJ45-Patchkabel) an die VE.Bus-Buchse des Cerbo, **nicht** an Ethernet. Modus und Landstrom-Begrenzung über den Cerbo steuerbar (SPEC 5.1) |
+| Ruuvi-Tag (Bluetooth) | Innentemperatur und Luftfeuchte, nur Anzeige (SPEC 5.2) | am Cerbo unter Bluetooth-Sensoren einschalten (je nach Venus-Version I/O oder Integrationen), Namen vergeben und in `interior_temp.custom_name` eintragen. Platz im Wohnraum, nicht an der Heizungsdüse, nicht in der Sonne |
 | Batteriemonitor (SmartShunt/BMV?) | SoC | vorhanden? Ohne Shunt kein SoC (Anzeige «–») |
 | J768, J698/J1029, J604, G817, G249, G120, G126 | VW-Originalgeräte, bleiben | – |
 | A11 VW-Ladegerät | evtl. durch MultiPlus ersetzt | eingebaut oder nicht (O5) |

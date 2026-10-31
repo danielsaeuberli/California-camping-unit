@@ -90,3 +90,59 @@ def test_only_whitelisted_writes():
     for path in ("Settings/Something", "Hub4/L1/AcPowerSetpoint", "../system/0/Relay/0/State"):
         with pytest.raises(ValueError):
             write_topic("p1", "276", path)
+
+
+def _ruuvi(c, inst, name, temp, product="RuuviTag"):
+    c.handle(f"N/p1/temperature/{inst}/ProductName", msg(product))
+    c.handle(f"N/p1/temperature/{inst}/CustomName", msg(name))
+    c.handle(f"N/p1/temperature/{inst}/Temperature", msg(temp))
+    c.handle(f"N/p1/temperature/{inst}/Humidity", msg(48.4))
+
+
+def _client():
+    clock = FakeClock()
+    store = VictronStore(clock)
+    c = CerboClient(store, "172.24.24.1", portal_id="p1")
+    store.connected = True
+    return clock, store, c
+
+
+def test_temperature_topics_subscribed():
+    _, _store, c = _client()
+    assert "N/p1/temperature/+/#" in c.on_connect()
+
+
+def test_interior_single_ruuvi_without_name():
+    _, store, c = _client()
+    _ruuvi(c, "20", "Ruuvi 1A2B", 21.37)
+    c.handle("N/p1/temperature/21/ProductName", msg("Temperature sensor"))  # wired sensor, not a Ruuvi
+    c.handle("N/p1/temperature/21/Temperature", msg(5.0))
+    assert store.interior(None) == {"c": 21.4, "rh": 48, "name": "Ruuvi 1A2B", "q": "ok"}
+
+
+def test_interior_by_custom_name():
+    _, store, c = _client()
+    _ruuvi(c, "20", "Kuehlbox", 4.0)
+    _ruuvi(c, "21", "Innen", 19.0)
+    assert store.interior(None)["q"] == "ambiguous"  # never guess between two tags
+    assert store.interior("innen")["c"] == 19.0
+    assert store.interior("Bad")["q"] == "missing"
+
+
+def test_interior_stale_and_offline():
+    clock, store, c = _client()
+    _ruuvi(c, "20", "Innen", 19.0)
+    clock.advance(store.stale_s + 1)
+    assert store.interior("Innen") == {"c": None, "rh": None, "name": None, "q": "missing"}
+    c.handle("N/p1/temperature/20/CustomName", msg("Innen"))  # service still there, no reading
+    assert store.interior("Innen")["q"] == "stale"
+    store.connected = False
+    assert store.interior("Innen")["q"] == "offline"
+
+
+def test_interior_rejects_non_numbers():
+    _, store, c = _client()
+    _ruuvi(c, "20", "Innen", None)
+    assert store.interior("Innen")["c"] is None
+    c.handle("N/p1/temperature/20/Temperature", msg(True))
+    assert store.interior("Innen")["c"] is None

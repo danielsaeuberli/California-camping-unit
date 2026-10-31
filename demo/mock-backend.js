@@ -17,7 +17,7 @@ const CFG = {holdTimeout: 0.3, reverseGap: 0.3, maxRun: 60, fridgeOn: 1.5, fridg
 /* ---------- simulated world + modules ---------- */
 const W = {
   online: true, cerbo: true, scenario: 'solar', moving: false, ignition: true, dim58: false,
-  wasteFull: false, fresh: 2, fridgeFault: null, overload: false, outside: 12.5,
+  wasteFull: false, fresh: 2, fridgeFault: null, overload: false, outside: 12.5, inside: 19.5, insideRh: 52,
 };
 const M = {
   roof: {pos: 0, cmd: null, energized: null, lastDir: null, offSince: -1e9, lastHold: -1e9, pressStart: 0, block: 'none', latched: false},
@@ -132,6 +132,7 @@ function stateMsg() {
     heater: {on: h.on, level: h.level, phase: h.phase, afterrun_s: afterrun, level_c: null, level_ok: true, levels: 10},
     tanks: {fresh_step: W.fresh, fresh_q: 'ok', waste_full: W.wasteFull, waste_q: 'ok'},
     outside_c: W.outside, outside_q: 'ok',
+    interior: W.cerbo ? {c: W.inside, rh: W.insideRh, name: 'Innen', q: 'ok'} : {c: null, rh: null, name: null, q: 'offline'},
     vehicle: {moving: W.moving, d_plus: W.moving, t86s: true, dim58: W.dim58},
     alerts: alerts(),
     release: {roof: true, fridge: true, heater: true},

@@ -332,6 +332,16 @@ function fitLine(n) {
   while (n.scrollWidth > n.clientWidth && fs > 28) { fs -= 2; n.style.fontSize = fs + 'px'; }
 }
 
+/* Innentemperatur vom Ruuvi-Sensor über den Cerbo (nur Anzeige) */
+function renderInterior(it) {
+  $('top-interior').hidden = !it; $('ht-in-row').hidden = !it;
+  if (!it) return;
+  set('interior', it.c != null ? fmt(it.c, '°C', 1) : '–');
+  set('ht-interior', it.c != null
+    ? fmt(it.c, '°C', 1) + (it.rh != null ? ' · ' + t('heat.humidity', {n: fmt(it.rh, '%')}) : '')
+    : t('interior.' + it.q));
+}
+
 /* ---------- Darstellung ---------- */
 function render() {
   const st = S.st, on = S.online && !!st;
@@ -343,6 +353,7 @@ function render() {
   $('banner').hidden = on; $('link-unit').hidden = !on;
   $('dot-cerbo').classList.toggle('off', !(S.vic && S.vic.connected));
   set('outside', on ? fmt(st.outside_c, '°C', 1) : '–');
+  renderInterior(on ? st.interior : null);
   document.querySelectorAll('[data-act]').forEach(b => { b.disabled = !on; });
   const alert = on ? (st.alerts.find(a => a.level === 'err') || st.alerts[0]) : null;
   $('alert').hidden = !alert;

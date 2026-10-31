@@ -116,17 +116,22 @@ class CerboClient:
                 log.info("VE.Bus instance %s", instance)
             if instance == self.store.vebus_instance:
                 self.store.ingest_vebus(path, value)
+        elif service == "temperature":
+            self.store.ingest_temperature(instance, path, value)
         return follow
 
     def data_topics(self) -> list[str]:
         portal = self.store.portal_id
-        return [f"N/{portal}/system/0/Dc/#", f"N/{portal}/vebus/+/#"] if portal else []
+        if not portal:
+            return []
+        return [f"N/{portal}/system/0/Dc/#", f"N/{portal}/vebus/+/#", f"N/{portal}/temperature/+/#"]
 
     def on_connect(self) -> list[str]:
         """Topics to subscribe after every (re)connect, incl. after a Cerbo reboot."""
         if not self.fixed_portal:
             self.store.portal_id = None  # rediscover: a replaced Cerbo has a new portal id
         self.store.vebus_instance = None  # may change after a firmware update / VE.Bus reset
+        self.store.temperatures.clear()  # tags may have been removed or renamed meanwhile
         return ["N/+/system/0/Serial", *self.data_topics()]
 
     async def _run(self) -> None:

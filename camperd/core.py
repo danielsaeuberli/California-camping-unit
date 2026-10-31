@@ -16,7 +16,7 @@ from camperd.modules.roof import Roof, RoofConfig, RoofInputs
 from camperd.modules.sensors import Tanks, Thermometer, Vehicle
 from camperd.modules.victron_control import VictronControl, VictronControlConfig
 from camperd.power import PowerConfig, PowerInputs, PowerManager
-from camperd.profile import Profile
+from camperd.profile import Profile, is_cal
 from camperd.signals import Debouncer, PulseDecoder
 
 log = logging.getLogger(__name__)
@@ -65,6 +65,9 @@ class Controller:
         self.ch_speed = ch("inputs.speed", "DI")
         self.speed_counter = profile.get("inputs.speed.mode") == "counter"
         self.outside_source = profile.get("outside_temp_source", "g249")
+        name = profile.get("interior_temp.custom_name")
+        self.interior_name: str | None = str(name) if is_cal(name) and name else None
+        self.interior_on = profile.get("interior_temp.source", "none") == "cerbo"
 
         self._deb = {
             c: Debouncer(float(profile.get(f"inputs.{n}.debounce_ms", 0)) / 1000)
@@ -263,6 +266,7 @@ class Controller:
             "tanks": self.tanks.state(),
             "outside_c": self.outside_c(),
             "outside_q": self.outside_temp.value.q.value,
+            "interior": self.victron.interior(self.interior_name) if self.interior_on else None,
             "vehicle": self.vehicle.state(),
             "alerts": self.alerts(),
             "release": self.released,

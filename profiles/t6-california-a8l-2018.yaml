@@ -120,6 +120,11 @@ tanks:
 
 outside_temp_source: g249          # g249 | cerbo
 
+# Interior temperature (display only): Ruuvi tag received by the Cerbo GX over Bluetooth,
+# read as Venus temperature service. custom_name = the name given to the tag on the Cerbo
+# (Settings -> Integrations -> Bluetooth sensors). Without it: the only Ruuvi tag (O20).
+interior_temp: { source: cerbo, custom_name: TODO_CHECK }
+
 power:
   afterrun_to_standby_s: 60
   standby_to_shutdown_s: 1800
