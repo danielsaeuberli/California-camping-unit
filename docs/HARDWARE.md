@@ -104,6 +104,35 @@ Entfallen gegenüber rev b: Pos. 12 USB-RS485 (I²C reicht), Pos. 15 VE.Direct-U
 
 Noch nicht budgetiert (Menge erst nach Bauraumaufnahme): Pos. 31 Aluträger, 32 Gehäuse, 33 Frontblende für den E153-Ausschnitt, 34 Abstandshalter, 35 EPDM-Dichtung, 37 Testbuchsen, 38 Kabelschutz, 39 Lötstützpunkte, 40 MQS-Crimpwerkzeug. Richtwert zusammen rund CHF 400.
 
+### Links zu den Komponenten
+
+Hersteller- bzw. Händlerseiten, geprüft am 31.10.2026. Seiten von Raspberry Pi, Microchip, Nexperia und Phoenix Contact sperren automatische Abrufe; diese Adressen sind die üblichen Produktseiten, bitte beim Bestellen kurz prüfen.
+
+| Pos | Bauteil | Link | Hinweis |
+| --- | --- | --- | --- |
+| 1 | Raspberry Pi 5 | [raspberrypi.com](https://www.raspberrypi.com/products/raspberry-pi-5/) | |
+| 2 | Active Cooler | [raspberrypi.com](https://www.raspberrypi.com/products/active-cooler/) | |
+| 3 | microSD | [raspberrypi.com SD-Karten](https://www.raspberrypi.com/products/sd-cards/) | oder eine High-Endurance-Karte eines Markenherstellers |
+| 4 | RTC-Batterie | [raspberrypi.com](https://www.raspberrypi.com/products/rtc-battery/) | |
+| 5 | Viewe 6,86" 480×1280 HDMI | [viewedisplay.com](https://viewedisplay.com/); naher Verwandter [UEDX48128068L-HMD-H bei Hubtronics](https://hubtronics.in/hdmi-lcds/viewe-6.8-inch-touch-round-display) | genaue Bezeichnung «UEDX48128068-HMD-H» ohne «L» nicht gefunden: Modell und Touchpaket bei Viewe bestätigen lassen (O9). Vergleichbar: [DLC-T6.86CDH#1-AT bei DigiKey](https://www.digikey.at/en/products/detail/dlc-display-co-ltd/DLC-T6-86CDH-1-AT/26822639) |
+| 8 | Mini-Box DCDC-USB | [mini-box.com](https://www.mini-box.com/DCDC-USB) | |
+| 9 | Pololu D24V22F5 | [pololu.com](https://www.pololu.com/product/2858) | Alternative [D36V28F5](https://www.pololu.com/product/3782) |
+| 10 | Seeed XIAO ESP32-S3 | [seeedstudio.com](https://www.seeedstudio.com/XIAO-ESP32S3-p-5627.html), [Wiki](https://wiki.seeedstudio.com/xiao_esp32s3_getting_started/) | |
+| 11 | Sequent Home Automation HAT (SM-H-001) | [sequentmicrosystems.com](https://sequentmicrosystems.com/products/home-automation-raspberry-pi-hat) | aktuelle Version V4 |
+| 13 | Sequent 16 LV Digital Inputs (SM-I-009) | [sequentmicrosystems.com](https://sequentmicrosystems.com/products/sixteen-lv-digital-inputs-card-for-raspberry-pi) | Weglassen in Prüfung (Optokoppler-Modul + MCP23017) |
+| 14 | Purecrea 4-Kanal-Relaismodul 420053 | [bastelgarage.ch](https://www.bastelgarage.ch/4-channel-relay-module) | kein Datenblatt: Einschaltpegel selbst prüfen |
+| 22 | Phoenix DFK-MSTB 2,5/ 8-GF-5,08 (Art. 0710235) | [Teiledaten](https://www.mymectronic.com/part-detail/Phoenix-Contact/DFKMSTB258GF508) | auf phoenixcontact.com mit der Artikelnummer suchen |
+| 23 | Phoenix MSTB 2,5/ 8-STF-5,08 (Art. 1778043) | [element14](https://cn.element14.com/phoenix-contact/mstb-2-5-8-stf-5-08/-8-12awg/dp/2671289) | Artikelnummer bei Phoenix bestätigen |
+| 29 | Littelfuse SLD15U-017 (unidirektional) | [Octopart](https://octopart.com/part/littelfuse/SLD15U-017) | Klemmspannung max. 24,4 V (< 36 V für Pos. 9). Die Stückliste nennt SLD15-018 (bidirektional); für die 12-V-Plusleitung ist die unidirektionale Variante üblich: abstimmen |
+| 43 | BAT54S | [nexperia.com](https://www.nexperia.com/product/BAT54S) | |
+| 45 | MCP23017 | [microchip.com](https://www.microchip.com/en-us/product/mcp23017) | |
+| 46 | TPS22918 | [ti.com](https://www.ti.com/product/TPS22918) | |
+| 47 | SN74LVC1G125 | [ti.com](https://www.ti.com/product/SN74LVC1G125) | |
+| 48 | TCA9517 | [ti.com](https://www.ti.com/product/TCA9517) | |
+| – | ADS1115 (Option, falls der SM-H-001 entfällt) | [ti.com](https://www.ti.com/product/ADS1115) | |
+
+Ohne Link: Pos. 6 (Touch, Anfrage bei Viewe), 7 (Kabel), 16–21 (Widerstände, VW-Stecker nach Gehäusefoto), 24–28, 30, 36, 41, 42, 44, 49 (Standardteile, beliebiger Händler).
+
 ### Prüfstand (für Entwicklung, nicht im Fahrzeug)
 
 | Teil | Zweck | CHF |
