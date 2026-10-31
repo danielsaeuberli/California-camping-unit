@@ -377,5 +377,12 @@
   "ov.ttg_charging": "charging",
   "ov.ttg_h": "approx. {h} h",
   "ov.ttg_min": "approx. {m} min",
-  "tile.battery": "Battery"
+  "tile.battery": "Battery",
+  "roof.stop": "STOP",
+  "roof.stop_hint": "or tap anywhere",
+  "roof.tap": "tap once",
+  "roof.note_tap": "One tap runs to the end position. STOP or any touch stops it at once.",
+  "roof.chip.afterrun": "Pump running on",
+  "roof.reject.at_end": "End position reached",
+  "roof.reject.tap_unavailable": "End positions not measured yet · press and hold"
 }

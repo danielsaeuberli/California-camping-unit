@@ -91,8 +91,11 @@ roof:
   truth_table: TODO_MEASURE        # {"10": closed, "01": open, "00": moving, ...} aus Messmodus
   hold_timeout_ms: 300
   reverse_gap_ms: 300
+  pump_afterrun_s: TODO_MEASURE    # J768 pump run-on after the command ends (measure); counts as moving
   max_run_s: 60
   block_open_when_moving: true
+  tap_to_run: true                 # one tap runs to the end position (STOP / any touch stops);
+                                   # only once truth_table and roof_a.meaning are measured
   require_ignition: true           # E153 releases the roof only with ignition on (Recherche, Nachtrag)
 
 fridge:

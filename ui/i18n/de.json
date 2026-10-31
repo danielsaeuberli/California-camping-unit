@@ -224,7 +224,7 @@
   "power.standby": "Bereitschaft",
   "power.shutdown": "Abschalten",
   "alert.waste_full": "Abwassertank voll",
-  "alert.roof_open_ignition": "Zündung an, Dach nicht geschlossen",
+  "alert.roof_open_ignition": "Zündung an, Dach nicht zu",
   "alert.heater_fault": "Standheizung: keine Betriebsanzeige",
   "alert.fridge_sensor": "Kühlbox-Fühler ohne gültigen Wert",
   "alert.di_card": "Eingangskarte SM-I-009 gestört · Dach gesperrt",
@@ -377,5 +377,12 @@
   "ov.ttg_charging": "lädt",
   "ov.ttg_h": "ca. {h} h",
   "ov.ttg_min": "ca. {m} min",
-  "tile.battery": "Batterie"
+  "tile.battery": "Batterie",
+  "roof.stop": "STOPP",
+  "roof.stop_hint": "oder irgendwo tippen",
+  "roof.tap": "einmal tippen",
+  "roof.note_tap": "Ein Tippen fährt bis zur Endlage. STOPP oder jede Berührung hält sofort an.",
+  "roof.chip.afterrun": "Pumpe läuft nach",
+  "roof.reject.at_end": "Endlage erreicht",
+  "roof.reject.tap_unavailable": "Endlagen noch nicht gemessen · Taste gedrückt halten"
 }

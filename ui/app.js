@@ -116,6 +116,9 @@ function go(page) {
 
 /* ---------- Eingaben ---------- */
 screen.addEventListener('pointerdown', e => {
+  if (S.roof.auto) {  // tap-to-run: any touch anywhere stops the roof (incl. the STOP button)
+    e.stopPropagation(); e.preventDefault(); stopRoof(t('roof.stopped')); return;
+  }
   if (S.discardTouch) {  // erster Touch nach dem Aufwecken wird verworfen
     S.discardTouch = false; e.stopPropagation(); e.preventDefault(); return;
   }
@@ -134,7 +137,7 @@ const tickClock = () => text('clock', new Date().toLocaleTimeString(LOCALE[LANG]
 /* Zurück zur Übersicht nach Inaktivität, nie während das Dach fährt */
 setInterval(() => {
   const idleMin = S.st?.settings?.idle_min || 2;
-  const roofMoving = S.roof.dir || S.st?.roof?.pos === 'moving';
+  const roofMoving = S.roof.dir || S.st?.roof?.pos === 'moving' || S.st?.roof?.afterrun;
   if (S.page !== 'overview' && !roofMoving && Date.now() - S.lastInput > idleMin * 60000) go('overview');
   tickClock();
 }, 1000);
@@ -151,11 +154,14 @@ $('ht-toggle').addEventListener('click', act(st => {
   cmd('heater', {on: !st.heater.on}); toast(t(st.heater.on ? 'heat.toast_off' : 'heat.toast_on'));
 }));
 
-/* ---------- Dach: Halten, Haltepuls alle 100 ms ---------- */
-function startRoof(dir, btn, pointer) {
+/* ---------- Dach: Laufmeldung alle 100 ms ----------
+   Hold-to-run: while the button is held. Tap-to-run (once the end positions are measured):
+   one tap, the UI keeps sending until STOP, any touch, the end position or a reject. */
+const tapMode = () => !!(S.st?.roof?.tap);
+function startRoof(dir, btn, pointer, auto = false) {
   if (!S.online || S.roof.dir) return false;
-  const r = S.roof; r.dir = dir; r.btn = btn; r.pointer = pointer;
-  const pulse = () => { r.seq++; S.lastInput = Date.now(); send({type: 'hold', target: 'roof', dir, seq: r.seq}); };
+  const r = S.roof; r.dir = dir; r.btn = btn; r.pointer = pointer; r.auto = auto;
+  const pulse = () => { r.seq++; S.lastInput = Date.now(); send({type: 'hold', target: 'roof', dir, seq: r.seq, auto}); };
   pulse();
   r.timer = setInterval(pulse, HOLD_MS);
   render(); return true;
@@ -165,20 +171,21 @@ function stopRoof(reason, notify = true) {
   clearInterval(r.timer);
   if (notify) send({type: 'release', target: 'roof'});
   if (r.btn && r.pointer != null && r.btn.hasPointerCapture?.(r.pointer)) r.btn.releasePointerCapture(r.pointer);
-  r.dir = null; r.btn = null; r.pointer = null;
+  r.dir = null; r.btn = null; r.pointer = null; r.auto = false;
   if (reason) toast(reason);
   render();
 }
 for (const dir of ['open', 'close']) {
   const b = $('rf-' + dir);
   b.addEventListener('pointerdown', e => {
-    if (e.button > 0 || !e.isPrimary) return;
+    if (e.button > 0 || !e.isPrimary || tapMode()) return;
     e.preventDefault();
     if (startRoof(dir, b, e.pointerId)) b.setPointerCapture(e.pointerId);
   });
-  b.addEventListener('pointerup', () => stopRoof(null));
-  b.addEventListener('pointercancel', () => stopRoof(t('roof.stopped')));
-  b.addEventListener('lostpointercapture', () => stopRoof(null));
+  b.addEventListener('click', () => { if (tapMode()) startRoof(dir, null, null, true); });
+  b.addEventListener('pointerup', () => { if (!S.roof.auto) stopRoof(null); });
+  b.addEventListener('pointercancel', () => { if (!S.roof.auto) stopRoof(t('roof.stopped')); });
+  b.addEventListener('lostpointercapture', () => { if (!S.roof.auto) stopRoof(null); });
   b.addEventListener('contextmenu', e => e.preventDefault());
 }
 window.addEventListener('blur', () => stopRoof(t('roof.stopped')));
@@ -324,6 +331,8 @@ function render() {
   text('ov-roof', posText); text('rf-pos', posText);
   const noIgn = r.require_ignition && !st.power.ignition;
   const rel = st.release || {roof: true, fridge: true, heater: true};
+  // tap-to-run reached the end position (camperd stops too)
+  if (S.roof.auto && r.pos === (S.roof.dir === 'open' ? 'open' : 'closed')) stopRoof(null);
   const roofChip = !rel.roof ? [t('common.not_released'), 'warn']
     : moving && !['closed', 'unknown'].includes(r.pos) ? [t('roof.chip.moving_open'), 'err']
     : r.block === 'unit_io' ? [t('roof.chip.io'), 'err']
@@ -331,6 +340,7 @@ function render() {
     : moving ? [t(r.direction_verified ? 'roof.chip.blocked_driving' : 'roof.chip.blocked_driving_all'), 'warn']
     : r.block === 'timeout' ? [t('roof.chip.timeout'), 'warn']
     : r.pos === 'moving' ? [t('roof.chip.running'), 'accent']
+    : r.afterrun ? [t('roof.chip.afterrun'), 'accent']
     : r.pos === 'open' || r.pos === 'closed' ? [t('roof.chip.endpos'), 'ok']
     : r.pos === 'unknown' ? [t('roof.chip.unknown'), 'warn'] : [t('roof.chip.stopped'), 'warn'];
   chip('ov-roof-chip', roofChip[0], roofChip[1]); chip('rf-chip', roofChip[0], roofChip[1]);
@@ -341,6 +351,11 @@ function render() {
   if (!rel.fridge) { chip('fr-chip', t('common.not_released'), 'warn'); chip('ov-fridge-chip', t('common.not_released'), 'warn'); }
   if (!rel.heater) { chip('ht-chip', t('common.not_released'), 'warn'); chip('ov-heat-chip', t('common.not_released'), 'warn'); }
   for (const dir of ['open', 'close']) $('rf-' + dir).setAttribute('aria-pressed', String(localDir === dir));
+  const running = !!S.roof.auto;
+  $('rf-stop').hidden = !running;
+  $('rf-open').hidden = $('rf-close').hidden = running;
+  document.querySelectorAll('.rf-how').forEach(n => { n.textContent = t(r.tap ? 'roof.tap' : 'roof.hold'); });
+  text('rf-note', t(r.tap ? 'roof.note_tap' : 'roof.note'));
 
   // Einstellungen
   const cfg = st.settings;

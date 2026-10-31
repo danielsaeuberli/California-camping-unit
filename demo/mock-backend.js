@@ -27,13 +27,16 @@ const M = {
   power: 'afterrun',
 };
 
-function roofHold(dir, seq) {
+function roofHold(dir, seq, auto = false) {
   const r = M.roof, t = now();
   if (dir !== 'open' && dir !== 'close') return 'bad_dir';
   if (!W.ignition && !W.moving) { r.block = 'ignition'; return 'blocked_ignition'; }
   if (W.moving && dir === 'open') { r.block = 'moving'; return 'blocked_moving'; }
   const newPress = t - r.lastHold > CFG.holdTimeout || dir !== r.cmd;
+  const atEnd = dir === 'open' ? r.pos >= 1 : r.pos <= 0;
+  if (auto && atEnd && !r.energized) return 'at_end';
   if (newPress) {
+    r.auto = auto;
     if (r.cmd && dir !== r.cmd) roofOff(t);
     r.cmd = dir; r.pressStart = t; r.latched = false; r.block = 'none';
   }
@@ -59,6 +62,7 @@ function tick(dt) {
   if (!r.cmd && !W.moving && r.block === 'moving') r.block = 'none';
   if (!r.cmd && W.ignition && r.block === 'ignition') r.block = 'none';
   if (r.energized) r.pos = Math.min(1, Math.max(0, r.pos + (r.energized === 'open' ? 1 : -1) * dt / CFG.roofTravel));
+  if (r.energized && r.auto && (r.energized === 'open' ? r.pos >= 1 : r.pos <= 0)) { roofOff(t); r.cmd = null; }  // end position
   // fridge thermostat with min run / pause (S6)
   let want = f.request;
   if (!f.on) want = false;
@@ -123,7 +127,7 @@ function stateMsg() {
   const afterrun = h.phase === 'afterrun' ? Math.max(0, Math.round(CFG.afterrun - (now() - h.since))) : 0;
   return {v: 1, type: 'state', ts: Date.now(), data: {
     power: {mode: M.power, ignition: W.ignition || W.moving},
-    roof: {pos: roofPos(), cmd: r.cmd || 'none', block: r.block, direction_verified: true, require_ignition: true},
+    roof: {pos: roofPos(), cmd: r.cmd || 'none', block: r.block, direction_verified: true, require_ignition: true, tap: true, auto: !!(r.auto && r.cmd), afterrun: false},
     fridge: {on: f.on, target_c: f.target, temp_c: Math.round(f.temp * 10) / 10, temp_q: 'ok', request: f.request, fault: W.fridgeFault},
     heater: {on: h.on, level: h.level, phase: h.phase, afterrun_s: afterrun, level_c: null, level_ok: true, levels: 10},
     tanks: {fresh_step: W.fresh, fresh_q: 'ok', waste_full: W.wasteFull, waste_q: 'ok'},
@@ -188,7 +192,7 @@ class DemoSocket {
     const m = JSON.parse(raw);
     const ack = (ok, reason, id = m.id) => this.push({v: 1, type: 'ack', id, ok, reason: reason || null});
     if (m.type === 'hold') {
-      const reason = roofHold(m.dir, m.seq);
+      const reason = roofHold(m.dir, m.seq, m.auto === true);
       if (reason === null) this.holding = true;
       else ack(false, reason, 'hold-' + m.seq);
     } else if (m.type === 'release') { roofRelease(); this.holding = false; }

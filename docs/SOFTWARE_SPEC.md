@@ -240,12 +240,12 @@ Nur mit `victron.control: true` im Profil (Standard `false`). Erlaubt sind genau
 | --- | --- |
 | S1 | Beim Start sind K1–K8 aus und H1–H4 stromlos (NC geschlossen = Basiswiderstand R0), bevor `camperd` irgendeine Nachricht annimmt. Der Einschaltzustand der Relais des SM-H-001 (Register «relay default») wird auf 0 gesetzt; der Bootpegel von H1–H4 steht in `config.txt`. |
 | S2 | K1 und K2 nie gleichzeitig. Richtungswechsel nur nach 300 ms mit beiden aus. |
-| S3 | Dachrelais fällt ab, wenn 300 ms kein `hold` kommt, der WebSocket abreisst oder 60 s Laufzeit pro Druck erreicht sind (Wert im Profil). |
+| S3 | Dachrelais fällt ab, wenn 300 ms keine Laufmeldung (`hold`) kommt, der WebSocket abreisst oder 60 s Laufzeit pro Befehl erreicht sind (Wert im Profil). Gilt für beide Bedienarten: Halten und Antippen (`auto`). Beim Antippen sendet die Oberfläche die Laufmeldung selbst, bis STOPP, irgendeine Berührung, die Endlage oder eine Ablehnung; `camperd` stoppt zusätzlich selbst in der Endlage. Antippen nur mit gemessener Wahrheitstabelle und Relaisrichtung (`roof.tap_to_run`), sonst Halten. |
 | S4 | Öffnen des Dachs gesperrt, solange Geschwindigkeitsimpulse anliegen (Profil: `inputs.speed`). Schliessen bleibt erlaubt. Läuft ein Öffnen-Befehl, wenn die Fahrt beginnt: sofort stoppen. Wie beim Original-E153 fährt das Dach nur mit Zündung ein (`roof.require_ignition`); fällt die Zündung ab: sofort stoppen. |
 | S5 | Fällt der SM-I-009 aus (3 I²C-Fehler in Folge): DI-Werte `stale`, Dach gesperrt, Meldung. Schaltet ein Relais des SM-H-001 laut Rücklesen nicht: Fehler. |
 | S6 | Kühlbox: Mindestlaufzeit 2 min, Mindestpause 3 min (Profil). |
 | S7 | Heizungsstufe: H-Relais nur einzeln umschalten, 50 ms Abstand. Nie zwei gleichzeitig. |
-| S8 | Kein Shutdown, solange die Heizung im Nachlauf ist oder das Dach fährt. |
+| S8 | Kein Shutdown, solange die Heizung im Nachlauf ist oder das Dach fährt bzw. die Pumpe nachläuft (`roof.pump_afterrun_s`). |
 | S9 | Ausfall des Cerbo ändert nichts an Dach, Kühlbox und Heizung. |
 | S10 | Ein Watchdog im `camperd` (eigener Thread, weil ein asyncio-Task eine hängende Event-Loop nicht bemerkt) prüft den Hauptzyklus. Hängt er > 2 s: alle Relais aus, Prozess beenden, systemd startet neu. |
 
@@ -264,8 +264,10 @@ Jede Regel hat mindestens einen Test in `tests/safety/`, benannt nach der Nummer
 - Zustände: `closed`, `open`, `moving`, `between`, `unknown`, `fault`.
 - Warnung `roof_open_ignition`, wenn Zündung an und Dach nicht `closed`.
 - Freigabe nur mit Zündung ein und Fahrzeug steht (Original-E153). Welcher Befehl öffnet, ist unbestätigt (O6).
+- **Bedienung (Entscheid 31.10.2026):** ein Tippen fährt in beide Richtungen bis zur Endlage; grosse STOPP-Taste, jede Berührung des Bildschirms stoppt. Bis Endlagen und Richtung gemessen sind: Halten (Hold-to-run).
+- **Pumpennachlauf:** Nach jedem Stopp gilt das Dach für `roof.pump_afterrun_s` als in Bewegung (kein Richtungswechsel, kein Shutdown, keine Rückkehr zur Übersicht; Anzeige «Pumpe läuft nach»). Wert `TODO_MEASURE`; bis dahin gilt nur die Umkehrpause 300 ms (`# OPEN:`).
 
-**Abnahme:** S2, S3, S4 als Tests grün. Im Simulator: Taste halten → K1 an; Taste loslassen → K1 innert 300 ms aus; WebSocket trennen während des Haltens → K1 innert 300 ms aus.
+**Abnahme:** S2, S3, S4 als Tests grün (`tests/safety/test_s3b_roof_tap_and_afterrun.py` für Antippen und Nachlauf). Im Simulator: Antippen → fährt bis zur Endlage und stoppt; STOPP oder Berührung → innert 300 ms aus; WebSocket trennen → innert 300 ms aus; Nachlaufanzeige nach dem Stopp.
 
 ### 7.2 Kühlbox (`fridge`)
 
