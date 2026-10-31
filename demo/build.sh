@@ -12,9 +12,15 @@ cp "$ROOT"/ui/i18n/*.json "$OUT/i18n/"
 cp "$ROOT/demo/mock-backend.js" "$OUT/demo/"
 cp "$ROOT/ui/reference/Camping_Unit_Oberflaeche_v2.html" "$OUT/prototype.html"
 
+# Version stamp on every asset: GitHub Pages lets browsers cache files for ~10 min, and a
+# mix of old and new files (e.g. new index.html, old app.js) breaks the page.
+VER="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || date +%s)"
+
 # Load the mock before app.js so it can replace window.WebSocket.
-sed 's#<script src="app.js"></script>#<script src="demo/mock-backend.js"></script>\n<script src="app.js"></script>#' \
+sed -e "s#<script src=\"app.js\"></script>#<script src=\"demo/mock-backend.js?v=$VER\"></script>\n<script src=\"app.js?v=$VER\"></script>#" \
+    -e "s#href=\"style.css\"#href=\"style.css?v=$VER\"#" \
   "$ROOT/ui/index.html" > "$OUT/index.html"
-grep -q 'demo/mock-backend.js' "$OUT/index.html" || { echo "script injection failed" >&2; exit 1; }
+grep -q "demo/mock-backend.js?v=$VER" "$OUT/index.html" || { echo "script injection failed" >&2; exit 1; }
+grep -q "style.css?v=$VER" "$OUT/index.html" || { echo "stylesheet stamp failed" >&2; exit 1; }
 touch "$OUT/.nojekyll"
 echo "demo built in $OUT"
