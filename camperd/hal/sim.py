@@ -34,6 +34,9 @@ class SimWorld:
     fresh_step: int = 2
     fridge_fault: int | None = None
     outside_c: float = 12.5
+    ruuvi: bool = True  # Ruuvi tag "Innen" seen by the Cerbo
+    interior_c: float = 19.5
+    interior_rh: float = 52.0
     fridge_c: float = 4.8
     roof_pos: float = 0.0  # 0 closed .. 1 open
     heater_running: bool = False
@@ -244,6 +247,10 @@ class SimCerbo:
         st.ingest_system("system/0/Dc/Pv/Power", s["pv"])
         st.ingest_system("system/0/Dc/Charger/Power", s["charger"])
         st.ingest_system("system/0/Dc/System/Power", s["dc"])
+        if w.ruuvi:
+            for path, value in (("ProductName", "RuuviTag"), ("CustomName", "Innen"),
+                                ("Temperature", w.interior_c), ("Humidity", w.interior_rh)):
+                st.ingest_temperature("20", path, value)
         st.ingest_vebus("State", s["state"])
         st.ingest_vebus("Mode", w.vebus_mode)
         st.ingest_vebus("Ac/In/1/CurrentLimit", w.current_limit)

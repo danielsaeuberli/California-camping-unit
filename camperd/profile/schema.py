@@ -96,6 +96,7 @@ SCHEMA: dict[str, Any] = {
     },
     "tanks": {"median_s": LEAF, "median_moving_s": LEAF, "stable_s": LEAF},
     "outside_temp_source": LEAF,
+    "interior_temp": {"source": LEAF, "custom_name": LEAF},
     "power": {
         "afterrun_to_standby_s": LEAF,
         "standby_to_shutdown_s": LEAF,

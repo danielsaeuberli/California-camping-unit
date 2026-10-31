@@ -410,5 +410,12 @@
   "ack.net_cerbo_port": "Invalid port",
   "ack.net_cerbo_on_eth": "Cerbo address is in the Ethernet network; the Cerbo is reached over Wi-Fi",
   "ack.net_apply_failed": "Saved, but applying failed",
-  "ack.net_unavailable": "Network settings not available"
+  "ack.net_unavailable": "Network settings not available",
+  "top.interior": "Inside",
+  "heat.interior": "Inside",
+  "heat.humidity": "humidity {n}",
+  "interior.missing": "No Ruuvi sensor on the Cerbo",
+  "interior.ambiguous": "Several Ruuvi sensors · set the name in the profile",
+  "interior.stale": "Sensor not sending",
+  "interior.offline": "Cerbo not connected"
 }

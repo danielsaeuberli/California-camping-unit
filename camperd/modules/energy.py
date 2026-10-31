@@ -46,6 +46,15 @@ VEBUS_PATHS = {
     "alarm_temperature": "Alarms/HighTemperature",
     "alarm_ripple": "Alarms/L1/Ripple",
 }
+# Venus OS temperature services (``com.victronenergy.temperature``), e.g. a Ruuvi tag the
+# Cerbo receives over Bluetooth. Display only: nothing switches on these values.
+TEMPERATURE_PATHS = {
+    "temp_c": "Temperature",
+    "humidity": "Humidity",
+    "name": "CustomName",
+    "product": "ProductName",
+    "type": "TemperatureType",
+}
 
 
 class VictronStore:
@@ -61,6 +70,8 @@ class VictronStore:
         self._by_path = {p: k for k, p in SYSTEM_PATHS.items()}
         # (vebus path, value) waiting to be written by the Cerbo client (see victron_control)
         self.pending_writes: deque[tuple[str, Any]] = deque()
+        # temperature services by instance: key -> (value, receive time)
+        self.temperatures: dict[str, dict[str, tuple[Any, float]]] = {}
 
     def ingest_system(self, path: str, value: Any) -> None:
         key = self._by_path.get(path)
@@ -72,6 +83,56 @@ class VictronStore:
             if p == path:
                 self._values["vebus." + key] = (value, self.clock.now())
                 return
+
+    def ingest_temperature(self, instance: str, path: str, value: Any) -> None:
+        for key, p in TEMPERATURE_PATHS.items():
+            if p == path:
+                self.temperatures.setdefault(instance, {})[key] = (value, self.clock.now())
+                return
+
+    def _temp_get(self, instance: str, key: str) -> Any:
+        item = self.temperatures.get(instance, {}).get(key)
+        if item is None or self.clock.now() - item[1] > self.stale_s:
+            return None
+        return item[0]
+
+    def find_temperature(self, custom_name: str | None) -> tuple[str | None, str]:
+        """Instance of the interior sensor and a state (ok|missing|ambiguous).
+
+        With ``custom_name`` the service whose CustomName matches (case-insensitive) is used.
+        Without one, the only Ruuvi tag the Cerbo reports.
+        """
+        live = {i for i in self.temperatures if self._temp_get(i, "temp_c") is not None
+                or self._temp_get(i, "name") is not None}
+        if custom_name:
+            hits = [i for i in live if str(self._temp_get(i, "name") or "").strip().lower()
+                    == custom_name.strip().lower()]
+        else:
+            # OPEN: O20 - no sensor name in the profile; fall back to the single Ruuvi tag.
+            hits = [i for i in live if "ruuvi" in str(self._temp_get(i, "product") or "").lower()]
+        if len(hits) > 1:
+            return None, "ambiguous"
+        return (hits[0], "ok") if hits else (None, "missing")
+
+    def interior(self, custom_name: str | None) -> dict[str, Any]:
+        """Interior temperature for the UI; ``c`` stays None unless a fresh reading exists."""
+        out: dict[str, Any] = {"c": None, "rh": None, "name": None, "q": "missing"}
+        if not self.connected:
+            out["q"] = "offline"
+            return out
+        inst, state = self.find_temperature(custom_name)
+        out["q"] = state
+        if inst is None:
+            return out
+        t, rh = self._temp_get(inst, "temp_c"), self._temp_get(inst, "humidity")
+        out["name"] = self._temp_get(inst, "name")
+        if not isinstance(t, (int, float)) or isinstance(t, bool):
+            out["q"] = "stale"
+            return out
+        out["c"] = round(float(t), 1)
+        if isinstance(rh, (int, float)) and not isinstance(rh, bool):
+            out["rh"] = round(float(rh))
+        return out
 
     def get(self, key: str) -> Any:
         """Value if present and fresh, else ``None``."""

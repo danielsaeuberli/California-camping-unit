@@ -215,6 +215,7 @@ Verkabelung: MultiPlus Compact → Cerbo über **VE.Bus** (RJ45-Patchkabel an di
   - `vebus/<inst>/{State,Mode,Ac/ActiveIn/ActiveInput,Ac/ActiveIn/L1/{V,I,F,P},Ac/Out/L1/{V,I,F,P,S},Ac/PowerMeasurementType,Dc/0/Power}`
   - `vebus/<inst>/Alarms/{L1/Overload,LowBattery,HighTemperature,L1/Ripple}`
   - `vebus/<inst>/Ac/In/1/{CurrentLimit,CurrentLimitIsAdjustable}`, `system/0/Dc/System/Power`
+  - `temperature/+/{Temperature,Humidity,CustomName,ProductName,TemperatureType}`: Innentemperatur (5.2)
 - Jeder Wert mit Empfangszeit. Alter > 10 s (`stale_s`) oder Verbindung weg → Oberfläche zeigt «–», **nie den letzten Wert**. Fehlender Wert → `null`, nie ein Ersatzwert.
 - Auf `W/…` nur nach 5.1.
 
@@ -234,6 +235,14 @@ Nur mit `victron.control: true` im Profil (Standard `false`). Erlaubt sind genau
 - Dach, Kühlbox und Heizung hängen weiterhin nicht am Cerbo (S9).
 
 ---
+
+### 5.2 Innentemperatur (Ruuvi-Sensor, nur Anzeige)
+
+- Ein Ruuvi-Tag im Wohnraum sendet per Bluetooth an den Cerbo; Venus OS publiziert ihn als Temperaturdienst `temperature/<inst>`. Keine Verdrahtung zur Unit.
+- Auswahl über `interior_temp.custom_name` (der am Cerbo vergebene Name, Gross-/Kleinschreibung egal). Steht dort `TODO_CHECK`: der einzige Ruuvi-Tag (`ProductName` enthält «Ruuvi»); bei mehreren Tags keine Anzeige und Hinweis «Mehrere Ruuvi-Sensoren» (O20). Nie raten.
+- Anzeige im Kopf («Innen») und auf der Seite Heizung (mit Luftfeuchte). Gleiche Altersregel wie oben: älter als `stale_s` → «–».
+- Nur Anzeige. Die Standheizung regelt weiter mit ihrem eigenen Fühler; keine Schaltlogik hängt am Wert.
+- `interior_temp.source: cerbo` schaltet die Anzeige ein; jeder andere Wert blendet sie aus.
 
 ## 6. Sicherheitsregeln (mit Tests, vor jeder Hardware-Freigabe)
 
@@ -299,6 +308,7 @@ Jede Regel hat mindestens einen Test in `tests/safety/`, benannt nach der Nummer
 
 - G817 und G249 als NTC, Steinhart-Hart aus drei Kalibrierpunkten im Profil. Fehlen sie: `uncalibrated`.
 - Aussentemperatur-Quelle im Profil: `g249` (Standard) oder `cerbo`.
+- Innentemperatur: Ruuvi-Tag über den Cerbo (5.2), nur Anzeige.
 
 ### 7.6 Fahrzeug (`vehicle`)
 
@@ -418,3 +428,4 @@ UART 115200 8N1, ASCII-Zeilen mit `\n`:
 | O17 | Mindestlast der Relaiskontakte bei Signalstrom (K1–K3, H1–H4); Polarität Purecrea-Eingänge | Datenblatt; `gpio_active: TODO_CHECK`, H1–H4 nicht angesteuert |
 | O18 | Akzeptieren J768, J604, J1029 einen Relaiskontakt statt des überwachten E153-Halbleiterausgangs? | erst nach Freigabe am Fahrzeug testen |
 | O19 | **Blockierend:** Antwortet MQTT des Cerbo über dessen WLAN-AP? Adresse im AP-Netz (erwartet 172.24.24.1)? | `tools/cerbo_check.py`. Antwortet MQTT nicht: STOPP und melden; Rückfall unmanaged Switch (HARDWARE.md 5.3) |
+| O20 | Name des Ruuvi-Tags am Cerbo; meldet Venus einen verstummten Tag (Dienst verschwindet) oder publiziert er den letzten Wert weiter? | `custom_name: TODO_CHECK` → einziger Ruuvi-Tag; am Fahrzeug Batterie aus dem Tag nehmen und prüfen, ob die Anzeige nach `stale_s` auf «–» geht |
