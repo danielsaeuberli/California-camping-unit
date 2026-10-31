@@ -77,11 +77,11 @@ main>section{height:384px}
 .seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
 
 /* ---------- Übersicht ---------- */
-.ov{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,1fr);gap:12px}
+.ov{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(2,1fr);gap:12px}
 .tile{background:var(--surface);border:1px solid var(--line)!important;border-radius:18px;padding:18px 22px;text-align:left;display:flex;flex-direction:column;gap:6px;position:relative}
 .tile:active{background:var(--surface-2)}
 .tile .go{position:absolute;right:18px;top:16px;width:26px;height:26px;color:var(--muted)}
-.tile .big{margin-top:4px}
+.tile .big{margin-top:4px;white-space:nowrap;overflow:hidden;max-width:100%}
 .tile .chip{margin-top:auto}
 .tile .tile-foot{margin-top:auto;display:flex;align-items:center;justify-content:space-between;gap:12px}
 .tile .tile-foot .chip{margin-top:0}

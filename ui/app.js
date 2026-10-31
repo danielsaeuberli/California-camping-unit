@@ -238,6 +238,13 @@ function buildExpert() {
 }
 const rowsHtml = list => list.map(([k, v]) => `<div class="row"><span>${k}</span><strong class="num">${v}</strong></div>`).join('');
 
+/* Long status texts on the overview tiles shrink to one line instead of wrapping. */
+function fitLine(n) {
+  n.style.fontSize = '';
+  let fs = parseFloat(getComputedStyle(n).fontSize);
+  while (n.scrollWidth > n.clientWidth && fs > 28) { fs -= 2; n.style.fontSize = fs + 'px'; }
+}
+
 /* ---------- Darstellung ---------- */
 function render() {
   const st = S.st, on = S.online && !!st;
@@ -345,6 +352,7 @@ function render() {
   text('st-note', cfg.backlight_control === 'none' ? t('set.theme_note') + ' ' + t('set.brightness_na') : t('set.theme_note'));
 
   renderExpert();
+  if (S.page === 'overview') document.querySelectorAll('.tile .big').forEach(fitLine);
 }
 
 function renderOfflineValues() {
@@ -413,14 +421,19 @@ function renderEnergy() {
   $('en-load-bar').firstElementChild.style.width = (overload === 2 ? 100 : load || 0) + '%';
   set('en-alarm', overload == null ? '–' : overload === 2 ? `<span style="color:var(--err)">${t('en.alarm_overload')}</span>` : t('en.alarm_none'));
 
-  // Shore tile
+  // Shore/power tile: what supplies power right now
   if (!has || active == null) { set('ov-shore', '–'); text('ov-shore-sub', t('common.no_victron')); chip('ov-shore-chip', t('common.no_data'), 'warn'); }
-  else if (!shore) {
-    text('ov-shore', t('shore.disconnected')); set('ov-shore-sub', t('shore.inverter_sub', {w: fmt(outP, 'W')}));
-    chip('ov-shore-chip', overload === 2 ? t('shore.overload') : state != null ? t('mp.chip.' + state) : '–', overload === 2 ? 'err' : 'accent');
-  } else {
-    set('ov-shore', fmt(vic('vebus.in_v'), 'V')); set('ov-shore-sub', t('shore.charging_sub', {w: fmt(charger, 'W')}));
-    chip('ov-shore-chip', state != null ? t('mp.chip.' + state) : '–', overload === 2 ? 'err' : 'ok');
+  else {
+    const mode = vic('vebus.mode'), mpOff = state === 0 || mode === 4;
+    const inverting = !shore && [1, 9, 10].includes(state);
+    const key = shore ? (mpOff ? 'off' : [3, 4, 5, 6, 7].includes(state) ? 'shore_charging' : 'shore')
+      : pv > 0 && bw > 5 ? 'solar_charging' : inverting ? 'inverter' : mpOff ? 'off' : 'idle';
+    text('ov-shore', t('shore.status.' + key));
+    set('ov-shore-sub', shore ? t('shore.in_sub', {v: fmt(vic('vebus.in_v'), 'V'), w: fmt(charger, 'W')})
+      : inverting ? t('shore.inverter_sub', {w: fmt(outP, 'W')})
+      : key === 'solar_charging' ? t('shore.solar_sub', {w: fmt(pv, 'W')}) : t('shore.no_230'));
+    chip('ov-shore-chip', overload === 2 ? t('shore.overload') : state != null ? t('mp.chip.' + state) : '–',
+      overload === 2 ? 'err' : key === 'off' ? '' : shore || key === 'solar_charging' ? 'ok' : 'accent');
   }
 }
 
