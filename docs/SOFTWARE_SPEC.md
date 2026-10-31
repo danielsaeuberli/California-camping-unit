@@ -429,4 +429,4 @@ UART 115200 8N1, ASCII-Zeilen mit `\n`:
 | O18 | Akzeptieren J768, J604, J1029 einen Relaiskontakt statt des überwachten E153-Halbleiterausgangs? | erst nach Freigabe am Fahrzeug testen |
 | O19 | **Blockierend:** Antwortet MQTT des Cerbo über dessen WLAN-AP? Adresse im AP-Netz (erwartet 172.24.24.1)? | `tools/cerbo_check.py`. Antwortet MQTT nicht: STOPP und melden; Rückfall unmanaged Switch (HARDWARE.md 5.3) |
 | O20 | Name des Ruuvi-Tags am Cerbo; meldet Venus einen verstummten Tag (Dienst verschwindet) oder publiziert er den letzten Wert weiter? | `custom_name: TODO_CHECK` → einziger Ruuvi-Tag; am Fahrzeug Batterie aus dem Tag nehmen und prüfen, ob die Anzeige nach `stale_s` auf «–» geht |
-| O21 | Füllt Venus 3.85 `system/0/Dc/Alternator/Power` für die Orion XS (in VRM als «Alternator»)? | `tools/cerbo_check.py` bei laufendem Motor; fehlt der Wert, zeigt die Oberfläche «–» und kein «Lichtmaschine lädt» |
+| O21 | Füllt Venus 3.85 `system/0/Dc/Alternator/Power` für die Orion XS (in VRM als «Alternator»)? | erledigt (Daniel, 31.10.2026): ja, der Wert kommt |

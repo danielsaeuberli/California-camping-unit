@@ -81,7 +81,7 @@ async def check(host: str, port: int, portal: str | None, wait_s: float) -> int:
     vebus = sorted({t.split("/")[3] for t in seen if t.split("/")[2] == "vebus"})
     print(f"  VE.Bus instance(s): {', '.join(vebus) or '- (MultiPlus not on VE.Bus?)'}")
     services = sorted({"/".join(t.split("/")[2:4]) for t in seen})
-    print(f"  services: {', '.join(services)}")  # O21: Orion XS as alternator/<n> or dcdc/<n>?
+    print(f"  services: {', '.join(services)}")
     for t in sorted(seen):  # O20: Ruuvi tags and their names
         if t.split("/")[2] == "temperature" and t.endswith(("/CustomName", "/ProductName", "/Temperature")):
             print(f"  {t.split('/', 2)[2]} = {seen[t]}")
