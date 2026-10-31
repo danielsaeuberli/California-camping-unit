@@ -20,6 +20,7 @@ from camperd.hal import create_hal
 from camperd.hal.cerbo_mqtt import CerboClient
 from camperd.hal.sim import SimCerbo, SimHal
 from camperd.modules.energy import VictronStore
+from camperd.net import NetworkSettings, apply_hw, apply_sim
 from camperd.power import Watchdog
 from camperd.profile import load_profile
 
@@ -72,20 +73,23 @@ async def run(args: argparse.Namespace) -> None:
     if isinstance(hal, SimHal):
         cerbo = SimCerbo(victron, hal.world)
         await cerbo.start()
+    net = NetworkSettings(args.data_dir / "network.json", profile, apply_hw if args.hal == "hw" else apply_sim)
     cerbo_hw: CerboClient | None = None
     if args.hal == "hw":
         cerbo_hw = CerboClient(
             victron,
-            str(profile.require("buses.cerbo.host")),
-            int(profile.get("buses.cerbo.port", 1883)),
+            net.cfg["cerbo"]["host"],
+            int(net.cfg["cerbo"]["port"]),
             float(profile.get("buses.cerbo.keepalive_s", 5)),
             portal_id=str(pid) if isinstance(pid := profile.get("buses.cerbo.portal_id", None), str) else None,
         )
         await cerbo_hw.start()
+        client = cerbo_hw
+        net.on_change.append(lambda cfg: client.reconfigure(cfg["cerbo"]["host"], int(cfg["cerbo"]["port"])))
 
     settings = Settings(args.data_dir / "settings.json", profile)
     events = EventLog(args.data_dir / "log" / "events.jsonl")
-    api = Api(ctrl, clock, settings, events, args.ui_dir)
+    api = Api(ctrl, clock, settings, events, args.ui_dir, net=net)
     runner = web.AppRunner(api.app())
     await runner.setup()
     await web.TCPSite(runner, args.host, args.port).start()

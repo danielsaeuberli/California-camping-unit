@@ -73,6 +73,8 @@ function connect() {
       if (was != null && was !== S.lastCerbo) toast(S.lastCerbo ? t('victron.back') : t('victron.lost'));
       render();
     } else if (m.type === 'io') { S.io = m.data; if (S.page === 'expert') render(); }
+    else if (m.type === 'net') { S.net = m.data; S.netDraft = null; render(); }
+    else if (m.type === 'ack' && m.ok && String(m.id).startsWith('net-')) toast(t('x.net.applied'));
     else if (m.type === 'ack' && !m.ok) onReject(m);
   };
   ws.onopen = () => { subscribe(); };
@@ -200,7 +202,82 @@ $('st-bright').addEventListener('change', e => send({type: 'settings', set: {bri
 $('st-theme').querySelectorAll('button').forEach(b => b.addEventListener('click', () => send({type: 'settings', set: {theme: b.dataset.v}})));
 $('st-idle').querySelectorAll('button').forEach(b => b.addEventListener('click', () => send({type: 'settings', set: {idle_min: +b.dataset.v}})));
 $('st-lang').querySelectorAll('button').forEach(b => b.addEventListener('click', () => send({type: 'settings', set: {language: b.dataset.v}})));
-$('x-tabs').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { S.expertTab = b.dataset.v; render(); }));
+$('x-tabs').querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+  S.expertTab = b.dataset.v;
+  if (S.expertTab === 'net') send({type: 'net_get'});
+  render();
+}));
+
+/* ---------- Expertenansicht -> Netzwerk ----------
+   Draft of the settings while editing; the Wi-Fi password is never sent to the screen and
+   only goes back to camperd when a new one was typed. Apply needs two taps. */
+const netDraft = () => {
+  if (!S.netDraft && S.net?.config) {
+    const c = S.net.config;
+    S.netDraft = {eth: {...c.eth, dns: (c.eth.dns || []).join(', ')}, wifi: {ssid: c.wifi.ssid, psk: ''}, cerbo: {...c.cerbo}};
+  }
+  return S.netDraft;
+};
+const fieldGet = f => { const [a, b] = f.split('.'); return netDraft()?.[a]?.[b] ?? ''; };
+const fieldSet = (f, v) => { const [a, b] = f.split('.'); netDraft()[a][b] = v; };
+$('x-eth-mode').querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+  if (netDraft()) { netDraft().eth.mode = b.dataset.v; render(); }
+}));
+document.querySelectorAll('.fld').forEach(b => b.addEventListener('click', () => {
+  if (!netDraft()) return;
+  openKeyboard(b.dataset.kb, t('x.net.' + b.dataset.f.split('.')[1]), String(fieldGet(b.dataset.f)), v => { fieldSet(b.dataset.f, v); render(); });
+}));
+let netArm = 0;
+$('x-net-apply').addEventListener('click', () => {
+  const d = netDraft(); if (!d) return;
+  if (Date.now() > netArm) { netArm = Date.now() + 3000; setTimeout(render, 3100); render(); return; }
+  netArm = 0;
+  const eth = {mode: d.eth.mode};
+  if (d.eth.mode === 'static') Object.assign(eth, {address: d.eth.address, gateway: d.eth.gateway, dns: d.eth.dns.split(/[ ,]+/).filter(Boolean)});
+  const wifi = {ssid: d.wifi.ssid};
+  if (d.wifi.psk) wifi.psk = d.wifi.psk;
+  send({type: 'net_set', id: 'net-' + Date.now(), set: {eth, wifi, cerbo: {host: d.cerbo.host, port: +d.cerbo.port}}});
+  render();
+});
+
+/* ---------- On-screen keyboard ---------- */
+const KB_IP = [['1', '2', '3', '⌫'], ['4', '5', '6', '.'], ['7', '8', '9', '/'], [',', '0', '✕', '✓']];
+const KB_TEXT = {
+  abc: [['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'], ['q', 'w', 'e', 'r', 't', 'z', 'u', 'i', 'o', 'p'],
+    ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', '-'], ['⇧', 'y', 'x', 'c', 'v', 'b', 'n', 'm', '_', '⌫'], ['#+=', '.', '@', '␣', '✕', '✓']],
+  sym: [['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'], ['!', '"', '#', '$', '%', '&', '/', '(', ')', '='],
+    ['?', '+', '*', ',', ';', ':', '<', '>', '[', ']'], ['{', '}', '~', '^', "'", '\\', '|', '€', '§', '⌫'], ['abc', '.', '@', '␣', '✕', '✓']],
+};
+const KB = {mode: 'ip', layer: 'abc', shift: false, value: '', done: null};
+function openKeyboard(mode, label, value, done) {
+  Object.assign(KB, {mode, layer: 'abc', shift: false, value, done});
+  text('kb-label', label);
+  $('kb').hidden = false;
+  drawKeyboard();
+}
+function drawKeyboard() {
+  const rows = KB.mode === 'ip' ? KB_IP : KB_TEXT[KB.layer];
+  $('kb-keys').style.gridTemplateRows = `repeat(${rows.length}, 1fr)`;
+  $('kb-keys').innerHTML = rows.map(r => {
+    const cols = r.map(k => k === '␣' ? '4fr' : '1fr').join(' ');
+    return `<div class="kb-row" style="grid-template-columns:${cols}">` + r.map(k => {
+      const label = k.length === 1 && KB.shift ? k.toUpperCase() : k;
+      const cls = k === '✓' ? 'ok' : ['⌫', '✕', '⇧', '#+=', 'abc', '␣'].includes(k) ? 'act' + (k === '⇧' && KB.shift ? ' on' : '') : '';
+      return `<button type="button" class="${cls}" data-k="${k.replace(/"/g, '&quot;')}">${label === '␣' ? '' : label.replace(/</g, '&lt;')}</button>`;
+    }).join('') + '</div>';
+  }).join('');
+  text('kb-val', KB.value || ' ');
+}
+$('kb-keys').addEventListener('click', e => {
+  const k = e.target.closest('button')?.dataset.k; if (k == null) return;
+  if (k === '✕') { $('kb').hidden = true; return; }
+  if (k === '✓') { $('kb').hidden = true; KB.done && KB.done(KB.value.trim()); return; }
+  if (k === '⌫') KB.value = KB.value.slice(0, -1);
+  else if (k === '⇧') KB.shift = !KB.shift;
+  else if (k === '#+=' || k === 'abc') KB.layer = k === '#+=' ? 'sym' : 'abc';
+  else { KB.value += k === '␣' ? ' ' : KB.shift ? k.toUpperCase() : k; KB.shift = false; }
+  drawKeyboard();
+});
 
 /* ---------- MultiPlus-Steuerung: jede Änderung zweimal tippen ---------- */
 let arm = null;  // {key, value, until}
@@ -484,6 +561,31 @@ function renderModeSwitch() {
     : c.unconfirmed === 'mode' ? t('x.ctl.unconfirmed') : c.pending?.includes('mode') ? t('x.ctl.pending') : t('mp.mode_hint'));
 }
 
+function renderNet() {
+  const d = netDraft(), c = S.net?.config;
+  const enabled = !!d && S.online;
+  $('x-eth-mode').querySelectorAll('button').forEach(b => {
+    b.setAttribute('aria-pressed', String(d?.eth.mode === b.dataset.v)); b.disabled = !enabled;
+  });
+  document.querySelectorAll('.fld').forEach(b => {
+    const f = b.dataset.f, v = fieldGet(f);
+    const staticOnly = f.startsWith('eth.') && d?.eth.mode !== 'static';
+    b.disabled = !enabled || staticOnly;
+    b.textContent = f === 'wifi.psk' ? (v ? '••••••••' : c?.wifi.psk_set ? t('x.net.psk_set') : t('x.net.psk_unset'))
+      : staticOnly ? '–' : (v === '' ? '–' : String(v));
+    const orig = !c ? v : f === 'eth.dns' ? (c.eth.dns || []).join(', ') : f === 'wifi.psk' ? '' : c[f.split('.')[0]][f.split('.')[1]];
+    b.classList.toggle('dirty', !!d && String(v) !== String(orig ?? ''));
+  });
+  const st = S.net?.status || {};
+  text('x-eth-now', st.eth0 || t('x.net.no_link'));
+  text('x-wlan-now', (st.wlan0 || t('x.net.no_link')) + ' · Victron ' + (S.vic?.connected ? t('x.conn.online') : t('x.conn.offline')));
+  const armed = Date.now() < netArm;
+  $('x-net-apply').textContent = armed ? t('x.confirm') : t('x.net.apply');
+  $('x-net-apply').classList.toggle('armed', armed);
+  $('x-net-apply').disabled = !enabled;
+  text('x-net-note', !S.net ? t('x.net.loading') : !S.net.config ? t('x.net.unavailable') : t('x.net.hint'));
+}
+
 function renderExpert() {
   if (S.page !== 'expert') return;
   $('x-tabs').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === S.expertTab)));
@@ -534,6 +636,8 @@ function renderExpert() {
   text('x-ctl-note', !c.enabled ? t('x.ctl.disabled') : !online ? t('x.ctl.offline')
     : c.unconfirmed ? t('x.ctl.unconfirmed') : c.pending?.length ? t('x.ctl.pending')
     : c.limit_min_a == null ? t('x.ctl.hint') + ' ' + t('x.ctl.limit_disabled') : t('x.ctl.hint'));
+
+  renderNet();
 
   $('x-conn-cerbo').innerHTML = rowsHtml([[t('x.conn.state'), S.vic?.connected ? t('x.conn.online') : t('x.conn.offline')],
     [t('x.conn.portal'), S.vic?.portal_id || '–']]);

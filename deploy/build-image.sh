@@ -57,6 +57,9 @@ echo "== network: NetworkManager (Wi-Fi to the Cerbo AP, Ethernet to the router)
 raspi-config nonint do_wifi_country "${WIFI_COUNTRY:-CH}"
 systemctl enable NetworkManager
 install -m 644 "$HERE/network/nftables.conf" /etc/nftables.conf
+install -m 644 "$HERE/systemd/camper-network.service" /etc/systemd/system/
+install -D -m 644 "$HERE/network/50-camper-network.rules" /etc/polkit-1/rules.d/50-camper-network.rules
+systemctl enable camper-network.service
 systemctl enable nftables
 if [[ -n "${CERBO_SSID:-}" && -n "${CERBO_PSK:-}" ]]; then
   "$HERE/network/setup-network.sh" "$CERBO_SSID" "$CERBO_PSK"

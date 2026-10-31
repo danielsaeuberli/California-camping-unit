@@ -1,0 +1,13 @@
+[Unit]
+Description=Apply the camper unit network settings (/data/network.json) with nmcli
+After=NetworkManager.service data.mount
+Wants=NetworkManager.service
+Before=camperd.service
+ConditionPathExists=/data/network.json
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 -I /data/releases/current/deploy/network/apply_network.py
+
+[Install]
+WantedBy=multi-user.target

@@ -171,6 +171,12 @@ function ioMsg() {
   }};
 }
 
+// demo network settings (nothing is applied in the browser)
+const NET = {eth: {mode: 'dhcp', address: '', gateway: '', dns: []}, wifi: {ssid: 'venus-HQ2207ABCDE-3a4', psk_set: true},
+  cerbo: {host: '172.24.24.1', port: 1883}};
+const netMsg = () => ({v: 1, type: 'net', ts: Date.now(), data: {config: JSON.parse(JSON.stringify(NET)),
+  status: {eth0: NET.eth.mode === 'static' ? NET.eth.address : '192.168.1.37/24', wlan0: '172.24.24.20/24', default_via: '192.168.1.1 (eth0)'}}});
+
 /* ---------- fake WebSocket ---------- */
 const sockets = new Set();
 const RealWS = window.WebSocket;
@@ -204,6 +210,20 @@ class DemoSocket {
       ack(reason === null, reason); broadcast(stateMsg());
     } else if (m.type === 'subscribe') this.topics = new Set((m.topics || []).filter(x => x === 'io'));
     else if (m.type === 'settings') { Object.assign(M.settings, m.set || {}); ack(true); broadcast(stateMsg()); }
+    else if (m.type === 'net_get') this.push(netMsg());
+    else if (m.type === 'net_set') {
+      const set = m.set || {}, ipOk = x => /^(\d{1,3}\.){3}\d{1,3}$/.test(x);
+      const reason = set.eth?.mode === 'static' && !/^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/.test(set.eth.address || '') ? 'net_eth_address'
+        : !set.wifi?.ssid ? 'net_wifi_ssid' : set.wifi.psk != null && (set.wifi.psk.length < 8 || set.wifi.psk.length > 63) ? 'net_wifi_psk'
+        : !ipOk(set.cerbo?.host || '') ? 'net_cerbo_host' : null;
+      if (!reason) {
+        Object.assign(NET.eth, {address: '', gateway: '', dns: []}, set.eth);
+        NET.wifi.ssid = set.wifi.ssid; if (set.wifi.psk) NET.wifi.psk_set = true;
+        Object.assign(NET.cerbo, set.cerbo);
+      }
+      ack(!reason, reason);
+      if (!reason) this.push(netMsg());
+    }
   }
   close() {
     if (this.readyState > 1) return;

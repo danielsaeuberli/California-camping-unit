@@ -17,6 +17,8 @@ from camperd.api.store import EventLog, Settings
 from camperd.clock import Clock
 from camperd.core import Controller
 from camperd.hal.sim import SimHal
+from camperd.net import NetError, NetworkSettings
+from camperd.net import status as net_status
 
 log = logging.getLogger(__name__)
 
@@ -46,7 +48,9 @@ class Api:
         settings: Settings,
         events: EventLog,
         ui_dir: Path,
+        net: NetworkSettings | None = None,
     ) -> None:
+        self.net = net
         self.ctrl = ctrl
         self.clock = clock
         self.settings = settings
@@ -146,6 +150,23 @@ class Api:
                 ok, reason = False, str(exc)
             await client.send({"v": PROTO, "type": "ack", "id": msg.get("id"), "ok": ok, "reason": reason})
             await self.push_state(force=True)
+        elif kind == "net_get":
+            await client.send(await self.net_msg())
+        elif kind == "net_set":
+            if self.net is None:
+                ok, reason = False, "net_unavailable"
+            else:
+                try:
+                    await self.net.update(msg.get("set") or {})
+                    ok, reason = True, None
+                except NetError as exc:
+                    ok, reason = False, str(exc)
+                except (TypeError, ValueError):
+                    ok, reason = False, "bad_message"
+            self.events.write("net_set", ok=ok, reason=reason)  # never log the settings (password)
+            await client.send({"v": PROTO, "type": "ack", "id": msg.get("id"), "ok": ok, "reason": reason})
+            if ok:
+                await client.send(await self.net_msg())
         elif kind == "touch":
             self.ctrl.power.user_input()
         else:
@@ -176,6 +197,10 @@ class Api:
         data["settings"] = self.settings.public()
         data["ui"] = {"discard_first_touch": self.ctrl.power.wake_touch_pending}
         return {"v": PROTO, "type": "state", "ts": self.clock.wall_ms(), "data": data}
+
+    async def net_msg(self) -> dict[str, Any]:
+        data: dict[str, Any] = {"config": self.net.public() if self.net else None, "status": await net_status()}
+        return {"v": PROTO, "type": "net", "ts": self.clock.wall_ms(), "data": data}
 
     def victron_msg(self) -> dict[str, Any]:
         return {"v": PROTO, "type": "victron", "ts": self.clock.wall_ms(), "data": self.ctrl.victron.snapshot()}

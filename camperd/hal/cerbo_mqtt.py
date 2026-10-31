@@ -79,6 +79,16 @@ class CerboClient:
     async def start(self) -> None:
         self._task = asyncio.create_task(self._run())
 
+    async def reconfigure(self, host: str, port: int) -> None:
+        """New Cerbo address from the network settings: reconnect there."""
+        if (host, port) == (self.host, self.port):
+            return
+        log.info("Cerbo address changed to %s:%d", host, port)
+        await self.stop()
+        self.host, self.port = host, port
+        self.store.connected = False
+        await self.start()
+
     async def stop(self) -> None:
         if self._task:
             self._task.cancel()
