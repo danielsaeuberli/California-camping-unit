@@ -419,5 +419,6 @@
   "interior.offline": "Cerbo nicht verbunden",
   "bat.status.charging_alt": "Lichtmaschine lädt",
   "ov.src_alt": "Fahrt",
-  "ov.src_solar": "Solar"
+  "ov.src_solar": "Solar",
+  "en.starter": "Starterbatterie"
 }

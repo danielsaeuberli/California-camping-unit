@@ -22,7 +22,7 @@ import json
 import logging
 from typing import Any
 
-from camperd.modules.energy import VictronStore
+from camperd.modules.energy import DCDC_SERVICES, STARTER_V_PATH, VictronStore
 from camperd.modules.victron_control import WRITABLE
 
 log = logging.getLogger(__name__)
@@ -118,13 +118,20 @@ class CerboClient:
                 self.store.ingest_vebus(path, value)
         elif service == "temperature":
             self.store.ingest_temperature(instance, path, value)
+        elif service in DCDC_SERVICES:
+            self.store.ingest_dcdc(service, instance, path, value)
         return follow
 
     def data_topics(self) -> list[str]:
         portal = self.store.portal_id
         if not portal:
             return []
-        return [f"N/{portal}/system/0/Dc/#", f"N/{portal}/vebus/+/#", f"N/{portal}/temperature/+/#"]
+        return [
+            f"N/{portal}/system/0/Dc/#",
+            f"N/{portal}/vebus/+/#",
+            f"N/{portal}/temperature/+/#",
+            *(f"N/{portal}/{s}/+/{STARTER_V_PATH}" for s in DCDC_SERVICES),
+        ]
 
     def on_connect(self) -> list[str]:
         """Topics to subscribe after every (re)connect, incl. after a Cerbo reboot."""
@@ -132,6 +139,7 @@ class CerboClient:
             self.store.portal_id = None  # rediscover: a replaced Cerbo has a new portal id
         self.store.vebus_instance = None  # may change after a firmware update / VE.Bus reset
         self.store.temperatures.clear()  # tags may have been removed or renamed meanwhile
+        self.store.dcdc_in_v.clear()
         return ["N/+/system/0/Serial", *self.data_topics()]
 
     async def _run(self) -> None:

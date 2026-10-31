@@ -419,5 +419,6 @@
   "interior.offline": "Cerbo not connected",
   "bat.status.charging_alt": "Alternator charging",
   "ov.src_alt": "Driving",
-  "ov.src_solar": "Solar"
+  "ov.src_solar": "Solar",
+  "en.starter": "Starter battery"
 }

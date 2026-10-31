@@ -249,6 +249,7 @@ class SimCerbo:
         st.ingest_system("system/0/Dc/Pv/Power", s["pv"])
         st.ingest_system("system/0/Dc/Charger/Power", s["charger"])
         st.ingest_system("system/0/Dc/Alternator/Power", s.get("alt", 0))
+        st.ingest_dcdc("alternator", "277", "Dc/In/V", 14.3 if s.get("alt") else 12.45)
         st.ingest_system("system/0/Dc/System/Power", s["dc"])
         if w.ruuvi:
             for path, value in (("ProductName", "RuuviTag"), ("CustomName", "Innen"),

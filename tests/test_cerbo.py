@@ -153,3 +153,20 @@ def test_alternator_power_from_system():
     c.handle("N/p1/system/0/Dc/Alternator/Power", msg(452))
     assert store.get("alternator_w") == 452
     assert store.snapshot()["alternator_w"]["val"] == 452
+
+
+def test_starter_battery_from_orion_input():
+    clock, store, c = _client()
+    assert "N/p1/alternator/+/Dc/In/V" in c.data_topics()
+    assert store.snapshot()["starter_v"] is None
+    c.handle("N/p1/alternator/277/Dc/In/V", msg(12.452))
+    assert store.snapshot()["starter_v"]["val"] == 12.45
+    clock.advance(store.stale_s + 1)
+    assert store.starter_v() is None  # stale -> "–"
+
+
+def test_starter_battery_ambiguous_with_two_dcdc():
+    _, store, c = _client()
+    c.handle("N/p1/alternator/277/Dc/In/V", msg(12.4))
+    c.handle("N/p1/dcdc/280/Dc/In/V", msg(13.1))
+    assert store.starter_v() is None

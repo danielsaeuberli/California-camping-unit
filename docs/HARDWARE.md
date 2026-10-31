@@ -26,7 +26,7 @@ Viewe-Display ── HDMI ── Pi 5;  Touch ── I²C/USB ── Pi 5, IRQ �
 | Ruuvi-Tag (Bluetooth) | Innentemperatur und Luftfeuchte, nur Anzeige (SPEC 5.2) | am Cerbo unter Bluetooth-Sensoren einschalten (je nach Venus-Version I/O oder Integrationen), Namen vergeben und in `interior_temp.custom_name` eintragen. Platz im Wohnraum, nicht an der Heizungsdüse, nicht in der Sonne |
 | Batteriemonitor: **SmartShunt, geplant** (Daniel, 31.10.2026) | SoC, Restlaufzeit, 12-V-Verbraucher | Heute keiner: Der SoC kommt vom MultiPlus (Schätzung ohne die 12-V-Verbraucher), keine Restlaufzeit, «12-V-Verbraucher» 0 W. Nach dem Einbau am Cerbo unter Einstellungen → System-Setup → Batteriemonitor den SmartShunt wählen und «Hat DC-System» einschalten. In `camperd` nichts zu ändern: Es liest `system/0/Dc/Battery/*`, die Restlaufzeit erscheint dann von selbst |
 | Victron **SmartSolar MPPT 100/20** (VRM-Instanz 279) | Solarladen, `system/0/Dc/Pv/Power` | – |
-| Victron **Orion XS 12/12-50A** (VRM-Instanz 277, in VRM als «Alternator») | DC-DC-Laden aus der Starterbatterie während der Fahrt, `system/0/Dc/Alternator/Power` | Wert kommt (O21 erledigt) |
+| Victron **Orion XS 12/12-50A** (VRM-Instanz 277, in VRM als «Alternator») | DC-DC-Laden aus der Starterbatterie während der Fahrt, `system/0/Dc/Alternator/Power` | Wert kommt (O21 erledigt). Ihre Eingangsspannung zeigt die Unit als Starterbatterie |
 | J768, J698/J1029, J604, G817, G249, G120, G126 | VW-Originalgeräte, bleiben | – |
 | A11 VW-Ladegerät | evtl. durch MultiPlus ersetzt | eingebaut oder nicht (O5) |
 | N162 VW-Shunt | wird nicht mehr gebraucht | T32b/25, /26 nur auf Breakout |

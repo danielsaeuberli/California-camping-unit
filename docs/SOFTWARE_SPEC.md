@@ -215,6 +215,7 @@ Verkabelung: MultiPlus Compact → Cerbo über **VE.Bus** (RJ45-Patchkabel an di
   - `vebus/<inst>/{State,Mode,Ac/ActiveIn/ActiveInput,Ac/ActiveIn/L1/{V,I,F,P},Ac/Out/L1/{V,I,F,P,S},Ac/PowerMeasurementType,Dc/0/Power}`
   - `vebus/<inst>/Alarms/{L1/Overload,LowBattery,HighTemperature,L1/Ripple}`
   - `vebus/<inst>/Ac/In/1/{CurrentLimit,CurrentLimitIsAdjustable}`, `system/0/Dc/System/Power`
+  - `alternator/+/Dc/In/V`, `dcdc/+/Dc/In/V`: Eingangsspannung der Orion XS = **Starterbatterie** (nur Anzeige; bei mehr als einem DC-DC-Lader «–»)
   - `temperature/+/{Temperature,Humidity,CustomName,ProductName,TemperatureType}`: Innentemperatur (5.2)
 - Jeder Wert mit Empfangszeit. Alter > 10 s (`stale_s`) oder Verbindung weg → Oberfläche zeigt «–», **nie den letzten Wert**. Fehlender Wert → `null`, nie ein Ersatzwert.
 - Auf `W/…` nur nach 5.1.

@@ -540,6 +540,7 @@ function renderEnergy() {
   // Charging sources
   set('en-in', pv != null && charger != null ? fmt(pv + charger + (alt ?? 0), 'W') : '–');
   set('en-solar', fmt(pv, 'W')); set('en-charger', fmt(charger, 'W')); set('en-alt', fmt(alt, 'W'));
+  set('en-starter', fmt(vic('starter_v'), 'V', 1));
   text('en-phase', state == null ? '–' : shore ? t('vebus.desc.' + state) : t('en.no_shore'));
 
   // MultiPlus: what it does now, switch, 230 V side
