@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="de-CH">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cali Camping Unit</title>
+<link rel="stylesheet" href="style.css?v=4360e0d">
+</head>
+<body>
+<div id="frame">
+<div id="screen" data-theme="dark">
+  <header class="top">
+    <button type="button" class="back" id="back" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg><span id="back-label"></span></button>
+    <div class="brand" id="brand" data-t="brand"></div>
+    <h1 id="title"></h1>
+    <div class="top-right">
+      <span id="top-interior" hidden><span data-t="top.interior"></span> <span class="outside num" id="interior">–</span></span>
+      <span><span data-t="top.outside"></span> <span class="outside num" id="outside">–</span></span>
+      <span class="link" id="link-unit"><i class="dot" id="dot-unit"></i><span data-t="top.unit"></span></span><span class="offline" id="banner" data-t="top.offline" hidden></span>
+      <span class="link"><i class="dot off" id="dot-cerbo"></i><span data-t="top.victron"></span></span>
+      <span class="alert" id="alert" hidden></span>
+      <span class="num" id="clock">--:--</span>
+      <button type="button" class="icon-btn" id="open-settings" data-t-aria="top.settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+    </div>
+  </header>
+
+  <main>
+    <!-- Übersicht -->
+    <section data-page="overview" class="ov">
+      <!-- Batterie und Strom: one wide tile (battery left, sources and 230 V right) -->
+      <button type="button" class="tile wide" data-go="energy">
+        <span class="label" data-t="page.energy"></span><svg class="go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg>
+        <div class="wide-body">
+          <div class="batt" id="ov-batt">
+            <div class="batt-fill" id="ov-batt-fill"></div>
+            <span class="batt-label"><svg class="batt-bolt" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg><span class="num" id="ov-soc">–</span></span>
+          </div>
+          <div class="wide-info">
+            <span class="big" id="ov-bat-status">–</span>
+            <span class="sub num" id="ov-bat-sub">–</span>
+            <div class="chips" id="ov-chips"></div>
+          </div>
+        </div>
+      </button>
+      <button type="button" class="tile" data-go="fridge">
+        <span class="label" data-t="tile.fridge"></span><svg class="go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg>
+        <span class="big num" id="ov-fridge">–</span>
+        <span class="sub num" id="ov-fridge-sub">–</span>
+        <span class="chip" id="ov-fridge-chip">–</span>
+      </button>
+      <button type="button" class="tile" data-go="heat">
+        <span class="label" data-t="tile.heat"></span><svg class="go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg>
+        <span class="big" id="ov-heat">–</span>
+        <span class="sub num" id="ov-heat-sub">–</span>
+        <span class="chip" id="ov-heat-chip">–</span>
+      </button>
+      <button type="button" class="tile" data-go="water">
+        <span class="label" data-t="tile.water"></span><svg class="go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg>
+        <span class="big" id="ov-fresh">–</span>
+        <div class="steps" id="ov-fresh-steps"><span></span><span></span><span></span></div>
+        <span class="chip" id="ov-waste-chip">–</span>
+      </button>
+      <button type="button" class="tile" data-go="roof">
+        <span class="label" data-t="tile.roof"></span><svg class="go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg>
+        <span class="big" id="ov-roof">–</span>
+        <span class="sub" data-t="common.tap"></span>
+        <span class="chip" id="ov-roof-chip">–</span>
+      </button>
+    </section>
+
+    <!-- Energie -->
+    <section data-page="energy" class="three" hidden>
+      <div class="panel">
+        <span class="label" data-t="tile.battery"></span>
+        <!-- same battery graphic as on the overview -->
+        <div class="batt batt-panel" id="en-batt">
+          <div class="batt-fill" id="en-batt-fill"></div>
+          <span class="batt-label"><svg class="batt-bolt" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg><span class="num" id="en-soc">–</span></span>
+        </div>
+        <span class="sub" id="en-soc-sub">–</span>
+        <div class="rows">
+          <div class="row"><span data-t="bat.voltage"></span><strong class="num" id="en-v">–</strong></div>
+          <div class="row"><span data-t="bat.current"></span><strong class="num" id="en-a">–</strong></div>
+          <div class="row"><span data-t="en.dc"></span><strong class="num" id="en-dc">–</strong></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="headline"><span class="label" data-t="en.in"></span><span class="big num" id="en-in">–</span></div>
+        <div class="rows">
+          <!-- one row per charging device: what it does now and how much it delivers -->
+          <div class="row"><span data-t="en.src_shore"></span><strong class="num" id="en-shore">–</strong></div>
+          <div class="row"><span data-t="en.src_solar"></span><strong class="num" id="en-solar">–</strong></div>
+          <div class="row"><span data-t="en.src_alt"></span><strong class="num" id="en-alt">–</strong></div>
+          <div class="row"><span data-t="en.starter"></span><strong class="num" id="en-starter">–</strong></div>
+        </div>
+      </div>
+      <div class="panel mp">
+        <div class="headline"><span class="label" data-t="en.mp"></span><span class="chip" id="en-mp-chip">–</span></div>
+        <span class="sub" id="en-mp-state">–</span>
+        <div class="seg" id="en-mode">
+          <button type="button" data-v="1" data-act></button><button type="button" data-v="3" data-act></button><button type="button" data-v="4" data-act></button>
+        </div>
+        <span class="note" id="en-mode-note"></span>
+        <div class="rows">
+          <div class="row"><span data-t="en.inv"></span><strong class="num" id="en-inv">–</strong></div>
+          <div class="row" style="border-bottom:0"><span data-t="en.load"></span><strong class="num" id="en-load">–</strong></div>
+          <div class="bar" id="en-load-bar"><span></span></div>
+          <div class="row"><span data-t="en.alarms"></span><strong id="en-alarm">–</strong></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Kühlbox -->
+    <section data-page="fridge" class="two" hidden>
+      <div class="panel">
+        <span class="label" data-t="fridge.inside"></span>
+        <span class="huge num" id="fr-temp">–</span>
+        <span class="chip" id="fr-chip">–</span>
+        <span class="note" id="fr-note" style="margin-top:auto">–</span>
+      </div>
+      <div class="panel">
+        <span class="label" data-t="fridge.target"></span>
+        <div class="stepper">
+          <button type="button" class="step" id="fr-minus" data-t-aria="fridge.colder" data-act>−</button>
+          <div class="val"><span class="huge num" id="fr-target">–</span></div>
+          <button type="button" class="step" id="fr-plus" data-t-aria="fridge.warmer" data-act>+</button>
+        </div>
+        <button type="button" class="btn toggle" id="fr-toggle" data-act>–</button>
+      </div>
+    </section>
+
+    <!-- Heizung -->
+    <section data-page="heat" class="two" hidden>
+      <div class="panel">
+        <span class="label" data-t="heat.state"></span>
+        <span class="big" id="ht-phase" style="font-size:64px">–</span>
+        <span class="chip" id="ht-chip">–</span>
+        <div class="sub" id="ht-in-row" hidden><span data-t="heat.interior"></span> <span class="num" id="ht-interior">–</span></div>
+        <span class="note" id="ht-note" style="margin-top:auto">–</span>
+      </div>
+      <div class="panel">
+        <span class="label" data-t="heat.level"></span>
+        <div class="stepper">
+          <button type="button" class="step" id="ht-minus" data-t-aria="heat.less" data-act>−</button>
+          <div class="val"><span class="huge num" id="ht-level">–</span><div class="sub" id="ht-of">–</div></div>
+          <button type="button" class="step" id="ht-plus" data-t-aria="heat.more" data-act>+</button>
+        </div>
+        <button type="button" class="btn toggle" id="ht-toggle" data-act>–</button>
+      </div>
+    </section>
+
+    <!-- Wasser -->
+    <section data-page="water" class="two" style="grid-template-columns:1.4fr 1fr" hidden>
+      <div class="panel" style="gap:14px">
+        <span class="label" data-t="water.fresh"></span>
+        <span class="huge" id="wa-fresh">–</span>
+        <div class="steps lg" id="wa-fresh-steps"><span></span><span></span><span></span></div>
+        <span class="note" style="margin-top:auto" data-t="water.note_fresh"></span>
+      </div>
+      <div class="panel" style="gap:14px">
+        <span class="label" data-t="water.waste"></span>
+        <span class="big" id="wa-waste" style="font-size:56px">–</span>
+        <span class="chip" id="wa-waste-chip">–</span>
+        <span class="note" style="margin-top:auto" data-t="water.note_waste"></span>
+      </div>
+    </section>
+
+    <!-- Dach -->
+    <section data-page="roof" class="roof" hidden>
+      <div class="panel" style="gap:12px">
+        <span class="label" data-t="roof.position"></span>
+        <span class="big" id="rf-pos" style="font-size:56px">–</span>
+        <span class="chip" id="rf-chip">–</span>
+        <span class="note" style="margin-top:auto" id="rf-note"></span>
+      </div>
+      <div class="hold-pair">
+        <button type="button" class="hold" id="rf-open" aria-pressed="false" data-act>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 15l7-7 7 7"/></svg><span data-t="roof.open"></span><small class="rf-how"></small></button>
+        <button type="button" class="hold" id="rf-close" aria-pressed="false" data-act>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9l7 7 7-7"/></svg><span data-t="roof.close"></span><small class="rf-how"></small></button>
+        <button type="button" class="hold stop" id="rf-stop" hidden><span data-t="roof.stop"></span><small data-t="roof.stop_hint"></small></button>
+      </div>
+    </section>
+
+    <!-- Einstellungen -->
+    <section data-page="settings" class="two settings" style="grid-template-columns:1fr 1fr" hidden>
+      <div class="panel">
+        <span class="label" data-t="set.screen"></span>
+        <div class="headline"><span class="sub" data-t="set.brightness"></span><span class="big num" id="st-bright-val">–</span></div>
+        <input type="range" class="slider" id="st-bright" min="10" max="100" step="5" data-t-aria="set.brightness">
+        <span class="sub" data-t="set.appearance"></span>
+        <div class="seg" id="st-theme">
+          <button type="button" data-v="auto" data-t="set.theme.auto"></button><button type="button" data-v="light" data-t="set.theme.light"></button><button type="button" data-v="dark" data-t="set.theme.dark"></button>
+        </div>
+        <span class="note" style="margin-top:auto" id="st-note" data-t="set.theme_note"></span>
+      </div>
+      <div class="panel">
+        <span class="label" data-t="set.operation"></span>
+        <span class="sub" data-t="set.idle"></span>
+        <div class="seg" id="st-idle">
+          <button type="button" data-v="1" data-t="set.idle.1"></button><button type="button" data-v="2" data-t="set.idle.2"></button><button type="button" data-v="5" data-t="set.idle.5"></button>
+        </div>
+        <span class="sub" data-t="set.language"></span>
+        <div class="seg" id="st-lang">
+          <button type="button" data-v="de" data-t="set.lang.de"></button><button type="button" data-v="en" data-t="set.lang.en"></button>
+        </div>
+        <button type="button" class="btn expert-btn" id="open-expert"><span data-t="set.expert"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg></button>
+      </div>
+    </section>
+
+    <!-- Expertenansicht -->
+    <section data-page="expert" class="expert" hidden>
+      <div class="seg" id="x-tabs">
+        <button type="button" data-v="io" data-t="x.tab.io"></button>
+        <button type="button" data-v="pins" data-t="x.tab.pins"></button>
+        <button type="button" data-v="ac" data-t="x.tab.ac"></button>
+        <button type="button" data-v="conn" data-t="x.tab.conn"></button>
+        <button type="button" data-v="net" data-t="x.tab.net"></button>
+        <button type="button" data-v="measure" data-t="x.tab.measure"></button>
+      </div>
+      <div class="xbody">
+        <div data-x="io" class="io">
+          <div class="panel"><span class="label" data-t="x.di"></span><div class="list" id="x-di"></div></div>
+          <div class="panel"><span class="label" data-t="x.do"></span><div class="list" id="x-do"></div></div>
+          <div class="panel"><span class="label" data-t="x.ai"></span><div class="list" id="x-ai"></div></div>
+        </div>
+        <div data-x="pins" hidden>
+          <div class="pins" id="x-pins"></div>
+          <div class="pin-info"><strong id="x-pin-name">T32b/01</strong><span id="x-pin-desc">–</span></div>
+        </div>
+        <div data-x="ac" class="ac" hidden>
+          <div class="panel"><span class="label" data-t="x.ac_in"></span><div class="rows" id="x-ac-in"></div></div>
+          <div class="panel"><span class="label" data-t="x.ac_out"></span><div class="rows" id="x-ac-out"></div></div>
+          <div class="panel"><span class="label" data-t="x.ac_dev"></span><div class="rows" id="x-ac-dev"></div></div>
+          <div class="panel ctl">
+            <span class="label" data-t="x.lim"></span>
+            <div class="limit">
+              <button type="button" class="step sm" id="x-lim-minus" data-act>−</button>
+              <span class="big num" id="x-lim">–</span>
+              <button type="button" class="step sm" id="x-lim-plus" data-act>+</button>
+            </div>
+            <button type="button" class="btn sm" id="x-lim-set" data-act></button>
+            <span class="note" id="x-ctl-note"></span>
+          </div>
+        </div>
+        <div data-x="conn" class="conn" hidden>
+          <div class="panel">
+            <span class="label" data-t="x.conn.cerbo"></span>
+            <div class="rows" id="x-conn-cerbo"></div>
+            <span class="note" style="margin-top:12px" data-t="x.conn.note"></span>
+          </div>
+          <div class="panel topics">
+            <span class="label" data-t="x.conn.unit"></span>
+            <div class="rows" id="x-conn-unit"></div>
+          </div>
+        </div>
+        <div data-x="net" class="netcfg" hidden>
+          <div class="panel">
+            <span class="label" data-t="x.net.eth"></span>
+            <div class="seg" id="x-eth-mode">
+              <button type="button" data-v="dhcp" data-t="x.net.dhcp"></button><button type="button" data-v="static" data-t="x.net.static"></button>
+            </div>
+            <div class="rows">
+              <div class="row"><span data-t="x.net.address"></span><button type="button" class="fld num" data-f="eth.address" data-kb="ip">–</button></div>
+              <div class="row"><span data-t="x.net.gateway"></span><button type="button" class="fld num" data-f="eth.gateway" data-kb="ip">–</button></div>
+              <div class="row"><span data-t="x.net.dns"></span><button type="button" class="fld num" data-f="eth.dns" data-kb="ip">–</button></div>
+              <div class="row"><span data-t="x.net.now"></span><strong class="num" id="x-eth-now">–</strong></div>
+            </div>
+          </div>
+          <div class="panel">
+            <span class="label" data-t="x.net.wifi"></span>
+            <div class="rows">
+              <div class="row"><span data-t="x.net.ssid"></span><button type="button" class="fld" data-f="wifi.ssid" data-kb="text">–</button></div>
+              <div class="row"><span data-t="x.net.psk"></span><button type="button" class="fld" data-f="wifi.psk" data-kb="text">–</button></div>
+              <div class="row"><span data-t="x.net.cerbo_host"></span><button type="button" class="fld num" data-f="cerbo.host" data-kb="ip">–</button></div>
+              <div class="row"><span data-t="x.net.wlan_now"></span><strong class="num" id="x-wlan-now">–</strong></div>
+            </div>
+            <div class="net-actions"><span class="note" id="x-net-note"></span><button type="button" class="btn sm" id="x-net-apply"></button></div>
+          </div>
+        </div>
+        <div data-x="measure" class="measure" hidden>
+          <div class="panel"><span class="label" data-t="x.measure.title"></span><span class="note" style="margin-top:12px" data-t="x.measure.note"></span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- On-screen keyboard for the network fields (no physical keyboard in the van) -->
+    <div class="kb" id="kb" hidden>
+      <div class="kb-head"><span class="label" id="kb-label"></span><span class="kb-val num" id="kb-val"></span></div>
+      <div class="kb-keys" id="kb-keys"></div>
+    </div>
+    <div class="toast" id="toast"></div>
+  </main>
+</div>
+</div>
+<script src="demo/mock-backend.js?v=4360e0d"></script>
+<script src="app.js?v=4360e0d"></script>
+</body>
+</html>
