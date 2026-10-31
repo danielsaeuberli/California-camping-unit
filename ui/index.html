@@ -26,11 +26,22 @@
   <main>
     <!-- Übersicht -->
     <section data-page="overview" class="ov">
-      <button type="button" class="tile" data-go="energy">
-        <span class="label" data-t="tile.battery"></span><svg class="go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg>
-        <span class="big num" id="ov-soc">–</span>
-        <span class="sub num" id="ov-bat-sub">–</span>
-        <span class="chip" id="ov-bat-chip">–</span>
+      <!-- Batterie und Strom: one wide tile (battery left, sources and 230 V right) -->
+      <button type="button" class="tile wide" data-go="energy">
+        <span class="label" data-t="page.energy"></span><svg class="go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg>
+        <div class="wide-body">
+          <div class="wide-left">
+            <span class="big num" id="ov-soc">–</span>
+            <span class="sub num" id="ov-bat-sub">–</span>
+            <span class="chip" id="ov-bat-chip">–</span>
+          </div>
+          <div class="rows wide-right">
+            <div class="row"><span data-t="ov.charge"></span><strong class="num" id="ov-charge">–</strong></div>
+            <div class="row"><span data-t="ov.ac"></span><strong class="num" id="ov-ac">–</strong></div>
+            <div class="row"><span data-t="ov.shore"></span><strong class="num" id="ov-shore">–</strong></div>
+            <div class="row"><span data-t="ov.ttg"></span><strong class="num" id="ov-ttg">–</strong></div>
+          </div>
+        </div>
       </button>
       <button type="button" class="tile" data-go="fridge">
         <span class="label" data-t="tile.fridge"></span><svg class="go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg>
@@ -43,12 +54,6 @@
         <span class="big" id="ov-heat">–</span>
         <span class="sub num" id="ov-heat-sub">–</span>
         <span class="chip" id="ov-heat-chip">–</span>
-      </button>
-      <button type="button" class="tile" data-go="energy">
-        <span class="label" data-t="tile.shore"></span><svg class="go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg>
-        <span class="big" id="ov-shore">–</span>
-        <span class="sub num" id="ov-shore-sub">–</span>
-        <span class="chip" id="ov-shore-chip">–</span>
       </button>
       <button type="button" class="tile" data-go="water">
         <span class="label" data-t="tile.water"></span><svg class="go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg>

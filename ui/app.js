@@ -432,19 +432,22 @@ function renderEnergy() {
   $('en-load-bar').firstElementChild.style.width = (overload === 2 ? 100 : load || 0) + '%';
   set('en-alarm', overload == null ? '–' : overload === 2 ? `<span style="color:var(--err)">${t('en.alarm_overload')}</span>` : t('en.alarm_none'));
 
-  // Shore/power tile: what supplies power right now
-  if (!has || active == null) { set('ov-shore', '–'); text('ov-shore-sub', t('common.no_victron')); chip('ov-shore-chip', t('common.no_data'), 'warn'); }
-  else {
-    const mode = vic('vebus.mode'), mpOff = state === 0 || mode === 4;
-    const inverting = inverterOn();
-    const key = shore ? (mpOff ? 'off' : [3, 4, 5, 6, 7].includes(state) ? 'shore_charging' : 'shore')
-      : pv > 0 && bw > 5 ? 'solar_charging' : inverting ? 'inverter' : mpOff ? 'off' : 'idle';
-    text('ov-shore', t('shore.status.' + key));
-    set('ov-shore-sub', shore ? t('shore.in_sub', {v: fmt(vic('vebus.in_v'), 'V'), w: fmt(charger, 'W')})
-      : inverting ? t('shore.inverter_sub', {w: fmt(outP, 'W')})
-      : key === 'solar_charging' ? t('shore.solar_sub', {w: fmt(pv, 'W')}) : t('shore.no_230'));
-    chip('ov-shore-chip', overload === 2 ? t('shore.overload') : state != null ? t('mp.chip.' + state) : '–',
-      overload === 2 ? 'err' : key === 'off' ? '' : shore || key === 'solar_charging' ? 'ok' : 'accent');
+  // Wide overview tile, right column: where power comes from and where it goes
+  if (!has) {
+    for (const id of ['ov-charge', 'ov-ac', 'ov-shore', 'ov-ttg']) set(id, '–');
+  } else {
+    const parts = [];
+    if (pv > 0) parts.push(t('ov.charge_solar', {w: fmt(pv, 'W')}));
+    if (shore && charger > 0) parts.push(t('ov.charge_shore', {w: fmt(charger, 'W')}));
+    set('ov-charge', parts.length ? parts.join(' + ') : t('ov.charge_none'));
+    set('ov-ac', shore ? t('ov.ac_shore', {w: fmt(outP, 'W')}) : inverterOn() ? t('ov.ac_inverter', {w: fmt(outP, 'W')}) : t('ov.ac_off'));
+    const limit = vic('vebus.current_limit');
+    set('ov-shore', !shore ? t('ov.shore_none')
+      : limit != null ? t('ov.shore_in_limit', {v: fmt(vic('vebus.in_v'), 'V'), a: fmt(limit, 'A', 1)}) : fmt(vic('vebus.in_v'), 'V'));
+    const ttg = vic('time_to_go_s');
+    set('ov-ttg', st && st.charging ? t('ov.ttg_charging')
+      : ttg != null && bw < -5 ? (ttg >= 3600 ? t('ov.ttg_h', {h: fmt(ttg / 3600, '', ttg < 36000 ? 1 : 0)}) : t('ov.ttg_min', {m: Math.round(ttg / 60)}))
+      : '–');
   }
 }
 

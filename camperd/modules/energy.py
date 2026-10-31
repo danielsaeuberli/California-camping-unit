@@ -17,6 +17,8 @@ SYSTEM_PATHS = {
     "battery_v": "system/0/Dc/Battery/Voltage",
     "battery_a": "system/0/Dc/Battery/Current",
     "battery_w": "system/0/Dc/Battery/Power",
+    # Remaining time in s from the battery monitor (SmartShunt/BMV); absent without one.
+    "time_to_go_s": "system/0/Dc/Battery/TimeToGo",
     "pv_w": "system/0/Dc/Pv/Power",
     "charger_w": "system/0/Dc/Charger/Power",
     # Not in the SPEC 5 list; needed for the "12-V-Verbraucher" row of the prototype.

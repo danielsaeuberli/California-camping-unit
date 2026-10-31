@@ -210,7 +210,7 @@ Verkabelung: MultiPlus Compact → Cerbo über **VE.Bus** (RJ45-Patchkabel an di
 - Portal-ID beim Start aus `N/+/system/0/Serial` ermitteln. VE.Bus-Instanz aus `N/<id>/vebus/+/ProductId`.
 - Keepalive: `R/<id>/keepalive` mit **leerem** Payload alle `buses.cerbo.keepalive_s` = 5 s. Venus publiziert nur, solange Keepalives kommen, und sendet bei leerem Keepalive alle Werte neu. Weil Werte sonst nur bei Änderung kommen, muss das Intervall ≤ `stale_s` / 2 sein (Code prüft das), damit ein gleichbleibender Wert nicht als veraltet gilt. Optional feste Portal-ID `buses.cerbo.portal_id`, falls `N/+/system/0/Serial` nicht ankommt.
 - Gelesen:
-  - `system/0/Dc/Battery/{Soc,Voltage,Current,Power}`, `system/0/Dc/Pv/Power`, `system/0/Dc/Charger/Power`
+  - `system/0/Dc/Battery/{Soc,Voltage,Current,Power,TimeToGo}` (TimeToGo nur mit Batteriemonitor), `system/0/Dc/Pv/Power`, `system/0/Dc/Charger/Power`
   - `vebus/<inst>/{State,Mode,Ac/ActiveIn/ActiveInput,Ac/ActiveIn/L1/{V,I,F,P},Ac/Out/L1/{V,I,F,P,S},Ac/PowerMeasurementType,Dc/0/Power}`
   - `vebus/<inst>/Alarms/{L1/Overload,LowBattery,HighTemperature,L1/Ripple}`
   - `vebus/<inst>/Ac/In/1/{CurrentLimit,CurrentLimitIsAdjustable}`, `system/0/Dc/System/Power`
@@ -330,7 +330,7 @@ Wird vor den Schaltfunktionen gebraucht (M3). Original-E153 bleibt angeschlossen
 Vorlage: `ui/reference/Camping_Unit_Oberflaeche_v2.html`. Layout, Farben, Navigation und Texte von dort übernehmen. Die Demo-Logik und die Demo-Steuerung unter dem Bildschirm entfallen und werden durch den WebSocket ersetzt.
 
 - Feste Leinwand 1280 × 480: Kopfzeile 64 px, Inhalt 416 px.
-- **Navigation:** Übersicht (6 Kacheln) → Detailseite → «‹ Übersicht». Zahnrad → Einstellungen → «Expertenansicht» → Reiter Signale / Stecker T32b / MultiPlus / Verbindung / Messmodus. Keine weiteren Menüpunkte.
+- **Navigation:** Übersicht (5 Kacheln: «Batterie und Strom» doppelt breit, Kühlbox, Heizung, Wasser, Dach) → Detailseite → «‹ Übersicht». Zahnrad → Einstellungen → «Expertenansicht» → Reiter Signale / Stecker T32b / MultiPlus / Verbindung / Messmodus. Keine weiteren Menüpunkte.
 - **Rückkehr zur Übersicht** nach 1/2/5 min ohne Bedienung (Einstellung, Standard 2 min), nie während das Dach fährt.
 - **Tastengrössen:** Plus/Minus 112 px, Ein/Aus 88 px hoch, Dachtasten volle Höhe, sonst mindestens 52 px.
 - **Farben:** eine Akzentfarbe; Grün/Gelb/Rot nur für Zustände. Tag- und Nachtschema, Automatik über 58d.
