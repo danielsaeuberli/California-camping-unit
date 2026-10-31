@@ -3,6 +3,9 @@
 (() => {
 'use strict';
 const $ = id => document.getElementById(id);
+// Version suffix of this script (demo builds load app.js?v=<build>); used for the language
+// files so a browser never mixes texts and code from different builds.
+const ASSET_V = (document.currentScript && new URL(document.currentScript.src).search) || '';
 const screen = $('screen');
 const PROTO = 1;
 const HOLD_MS = 100;
@@ -35,7 +38,7 @@ const fmt = (v, unit = '', d = 0, signed = false) => {
 };
 const set = (id, html) => { const n = $(id); if (n) n.innerHTML = html; };
 const text = (id, s) => { const n = $(id); if (n) n.textContent = s; };
-const chip = (id, label, cls = '') => { const n = $(id); n.className = 'chip ' + cls; n.textContent = label; };
+const chip = (id, label, cls = '') => { const n = $(id); if (!n) return; n.className = 'chip ' + cls; n.textContent = label; };
 let toastT;
 const toast = (msg, cls = '') => {
   const el = $('toast'); el.textContent = msg; el.className = 'toast show ' + cls;
@@ -565,7 +568,7 @@ function applyTexts() {
 function loadLanguage(lang) {
   if (langLoading === lang) return Promise.resolve();
   langLoading = lang;
-  return fetch(`i18n/${lang}.json`).then(r => r.json()).then(dict => {
+  return fetch(`i18n/${lang}.json${ASSET_V}`).then(r => r.json()).then(dict => {
     T = dict; LANG = lang; langLoading = null;
     applyTexts();
     render();
