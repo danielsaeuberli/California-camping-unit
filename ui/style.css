@@ -85,7 +85,7 @@ main>section{height:384px}
 .tile .big{margin-top:4px;white-space:nowrap;overflow:hidden;max-width:100%}
 .tile .chip{margin-top:auto}
 .tile.wide{grid-column:span 2}
-.wide-body{display:grid;grid-template-columns:280px minmax(0,1fr);gap:40px;align-items:center;flex:1;min-height:0;padding-right:24px}
+.wide-body{display:grid;grid-template-columns:264px minmax(0,1fr);gap:36px;align-items:center;flex:1;min-height:0;padding-right:12px}
 /* Battery graphic: outline, terminal, fill = state of charge */
 .batt{position:relative;height:104px;border:5px solid var(--ink);border-radius:18px;padding:6px;margin-right:16px}
 .batt::after{content:"";position:absolute;right:-17px;top:50%;width:10px;height:40px;transform:translateY(-50%);background:var(--ink);border-radius:0 6px 6px 0}

@@ -146,3 +146,10 @@ def test_interior_rejects_non_numbers():
     assert store.interior("Innen")["c"] is None
     c.handle("N/p1/temperature/20/Temperature", msg(True))
     assert store.interior("Innen")["c"] is None
+
+
+def test_alternator_power_from_system():
+    _, store, c = _client()
+    c.handle("N/p1/system/0/Dc/Alternator/Power", msg(452))
+    assert store.get("alternator_w") == 452
+    assert store.snapshot()["alternator_w"]["val"] == 452

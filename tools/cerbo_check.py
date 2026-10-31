@@ -57,7 +57,7 @@ async def check(host: str, port: int, portal: str | None, wait_s: float) -> int:
                             seen[topic] = json.loads(msg.payload or b"{}").get("value")
                         except (ValueError, AttributeError):
                             seen[topic] = msg.payload
-                    if len(seen) >= 50 or time.monotonic() > deadline:
+                    if time.monotonic() > deadline:  # collect everything: Orion XS / Ruuvi come late
                         break
     except TimeoutError:
         pass
@@ -75,10 +75,16 @@ async def check(host: str, port: int, portal: str | None, wait_s: float) -> int:
         print(FALLBACK)
         return 4
     print(f"OK: {len(seen)} topics after the keepalive, e.g.:")
-    for key in ("system/0/Dc/Battery/Soc", "system/0/Dc/Battery/Voltage", "system/0/Dc/Pv/Power"):
+    for key in ("system/0/Dc/Battery/Soc", "system/0/Dc/Battery/Voltage", "system/0/Dc/Battery/TimeToGo",
+                "system/0/Dc/Pv/Power", "system/0/Dc/Alternator/Power"):
         print(f"  {key} = {seen.get(f'N/{portal}/{key}', '-')}")
     vebus = sorted({t.split("/")[3] for t in seen if t.split("/")[2] == "vebus"})
     print(f"  VE.Bus instance(s): {', '.join(vebus) or '- (MultiPlus not on VE.Bus?)'}")
+    services = sorted({"/".join(t.split("/")[2:4]) for t in seen})
+    print(f"  services: {', '.join(services)}")  # O21: Orion XS as alternator/<n> or dcdc/<n>?
+    for t in sorted(seen):  # O20: Ruuvi tags and their names
+        if t.split("/")[2] == "temperature" and t.endswith(("/CustomName", "/ProductName", "/Temperature")):
+            print(f"  {t.split('/', 2)[2]} = {seen[t]}")
     return 0
 
 

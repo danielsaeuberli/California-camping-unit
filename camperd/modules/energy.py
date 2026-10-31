@@ -21,6 +21,9 @@ SYSTEM_PATHS = {
     "time_to_go_s": "system/0/Dc/Battery/TimeToGo",
     "pv_w": "system/0/Dc/Pv/Power",
     "charger_w": "system/0/Dc/Charger/Power",
+    # Sum of the alternator services (Orion XS 12/12-50A DC-DC charger, VRM instance 277).
+    # OPEN: confirm with tools/cerbo_check.py that Venus 3.85 fills it for the Orion XS.
+    "alternator_w": "system/0/Dc/Alternator/Power",
     # Not in the SPEC 5 list; needed for the "12-V-Verbraucher" row of the prototype.
     "dc_system_w": "system/0/Dc/System/Power",
 }

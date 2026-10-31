@@ -373,7 +373,6 @@
   "roof.reject.at_end": "End position reached",
   "roof.reject.tap_unavailable": "End positions not measured yet · press and hold",
   "ov.sub_ttg": "{w} · lasts {t}",
-  "ov.chip_solar": "Solar {w}",
   "ov.chip_shore": "Shore {v}",
   "ov.chip_shore_lim": "Shore {v} · max {a}",
   "ov.chip_ac_inv": "230 V: inverter",
@@ -417,5 +416,8 @@
   "interior.missing": "No Ruuvi sensor on the Cerbo",
   "interior.ambiguous": "Several Ruuvi sensors · set the name in the profile",
   "interior.stale": "Sensor not sending",
-  "interior.offline": "Cerbo not connected"
+  "interior.offline": "Cerbo not connected",
+  "bat.status.charging_alt": "Alternator charging",
+  "ov.src_alt": "Driving",
+  "ov.src_solar": "Solar"
 }

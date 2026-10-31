@@ -190,6 +190,8 @@ SCENARIOS: dict[str, dict[str, Any]] = {
               "in": None, "out": (230, 0.43, 50, 90, 100)},
     "night": {"soc": 54, "v": 12.9, "a": -21.0, "pv": 0, "charger": 0, "dc": 120, "state": 9, "active_in": 240,
               "in": None, "out": (230, 1.3, 50, 280, 300), "ttg": 14 * 3600},
+    "driving": {"soc": 70, "v": 14.1, "a": 34.0, "pv": 120, "alt": 450, "charger": 0, "dc": 90, "state": 9,
+                "active_in": 240, "in": None, "out": (230, 0.0, 50, 0, 0)},
     "shore": {"soc": 88, "v": 13.8, "a": 22.0, "pv": 0, "charger": 420, "dc": 110, "state": 5, "active_in": 0,
               "in": (230, 2.96, 50, 650), "out": (230, 0.87, 50, 180, 200)},
 }
@@ -246,6 +248,7 @@ class SimCerbo:
         st.ingest_system("system/0/Dc/Battery/TimeToGo", s.get("ttg"))
         st.ingest_system("system/0/Dc/Pv/Power", s["pv"])
         st.ingest_system("system/0/Dc/Charger/Power", s["charger"])
+        st.ingest_system("system/0/Dc/Alternator/Power", s.get("alt", 0))
         st.ingest_system("system/0/Dc/System/Power", s["dc"])
         if w.ruuvi:
             for path, value in (("ProductName", "RuuviTag"), ("CustomName", "Innen"),
