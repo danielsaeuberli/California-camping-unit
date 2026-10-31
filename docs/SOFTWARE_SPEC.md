@@ -280,7 +280,7 @@ Jede Regel hat mindestens einen Test in `tests/safety/`, benannt nach der Nummer
 
 - K4 = S+ (T6ap/3, bestätigt). DI4 = Betriebsanzeige (T6ap/2).
 - Stufe → H1–H4 binär (H1 = Bit 0 … H4 = Bit 3). Relais an = NC offen = Segment wirksam. Widerstand = R0 + Σ Segmente. R0 und Segmente `TODO_MEASURE` (1750 / 27,4 / 54,9 / 110 / 237 Ω unbestätigt); bis dahin bleibt die Leiter stromlos und die Stufe ist nicht einstellbar.
-- Anzahl Stufen `heater.levels` (≤ 16). Laut SSP 329 hat das Original 10 Stufen (+10 bis +30 °C); am T6 zählen (O15).
+- **10 Stufen** wie am Original (`heater.levels: 10`, bestätigt; SSP 329: +10 bis +30 °C). Intern 0–9 → H1–H4 binär (4 Relais, 10 von 16 Kombinationen genutzt); die Oberfläche zählt 1–10.
 - Phasen: `off` → (ein) `start` → (DI4 an) `heating` → (aus) `afterrun` → (DI4 aus) `off`. `start` ohne DI4 nach 120 s → `fault`.
 - Anzeige in Stufen, bis `heater.level_to_c` im Profil kalibriert ist.
 
@@ -334,7 +334,7 @@ Vorlage: `ui/reference/Camping_Unit_Oberflaeche_v2.html`. Layout, Farben, Naviga
 - **Rückkehr zur Übersicht** nach 1/2/5 min ohne Bedienung (Einstellung, Standard 2 min), nie während das Dach fährt.
 - **Tastengrössen:** Plus/Minus 112 px, Ein/Aus 88 px hoch, Dachtasten volle Höhe, sonst mindestens 52 px.
 - **Farben:** eine Akzentfarbe; Grün/Gelb/Rot nur für Zustände. Tag- und Nachtschema, Automatik über 58d.
-- **Texte** aus `ui/i18n/de.json`. Keine Texte im JS.
+- **Texte** aus `ui/i18n/de.json` (Standard) und `ui/i18n/en.json`. Umschaltbar unter Einstellungen → Bedienung → Sprache (Einstellung `language`, Profil-Standard `ui.language`); Zahlen und Uhrzeit folgen der Sprache. Keine Texte im JS.
 - **Keine externen Ressourcen** (keine CDNs, keine Webfonts). Systemschrift.
 - **Erster Touch nach dem Aufwecken** wird verworfen (kommt als Flag von `camperd`).
 - **Helligkeit:** Regler schickt `settings.brightness`. `camperd` setzt die Hintergrundbeleuchtung, sobald geklärt ist, wie die Viewe-Treiberplatine das erlaubt (O10).
@@ -410,7 +410,7 @@ UART 115200 8N1, ASCII-Zeilen mit `\n`:
 | O12 | Belastung der Fahrzeugsignale durch Optokoppler im Messmodus | vor dem Anschliessen mit Multimeter prüfen (Daniel) |
 | O13 | Startzeit > 15 s mit Pi OS Lite | Buildroot-Image als eigener Meilenstein nach M8 prüfen |
 | O14 | Reicht der SM-I-009 für das Geschwindigkeitssignal (Pulsfrequenz)? | V3: Hardware-Zähler; V2: Flanken bei 20 ms zählen, sonst T32b/3 über Optokoppler an einen Pi-GPIO mit Interrupt. Frequenz messen |
-| O15 | Sollwertleiter: Stufenzahl (10 laut SSP 329?), Widerstand je Stufe, Richtung | Leiter stromlos, Stufe nicht einstellbar, Heizung nicht freigegeben |
+| O15 | Sollwertleiter: Widerstand je Stufe (10 Stufen, bestätigt), Richtung | Leiter stromlos, Stufe nicht einstellbar, Heizung nicht freigegeben |
 | O16 | 15-kΩ-Pull-up auf dem SM-H-001 bestückt? Eingangsimpedanz je Revision | `ai_input_ohm: TODO_CHECK`; offene AI-Spannung messen |
 | O17 | Mindestlast der Relaiskontakte bei Signalstrom (K1–K3, H1–H4); Polarität Purecrea-Eingänge | Datenblatt; `gpio_active: TODO_CHECK`, H1–H4 nicht angesteuert |
 | O18 | Akzeptieren J768, J604, J1029 einen Relaiskontakt statt des überwachten E153-Halbleiterausgangs? | erst nach Freigabe am Fahrzeug testen |

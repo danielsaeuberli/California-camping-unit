@@ -25,8 +25,14 @@ const S = {
 };
 
 /* ---------- Hilfen ---------- */
-const fmt = (v, unit = '', d = 0, signed = false) => v == null ? '–'
-  : (signed && v > 0 ? '+' : '') + Number(v).toFixed(d).replace('-', '−').replace('.', ',') + (unit ? `<span class="unit">${unit}</span>` : '');
+let LANG = 'de';
+const LOCALE = {de: 'de-CH', en: 'en-GB'};
+const fmt = (v, unit = '', d = 0, signed = false) => {
+  if (v == null) return '–';
+  let n = Number(v).toFixed(d).replace('-', '−');
+  if (LANG === 'de') n = n.replace('.', ',');
+  return (signed && v > 0 ? '+' : '') + n + (unit ? `<span class="unit">${unit}</span>` : '');
+};
 const set = (id, html) => { const n = $(id); if (n) n.innerHTML = html; };
 const text = (id, s) => { const n = $(id); if (n) n.textContent = s; };
 const chip = (id, label, cls = '') => { const n = $(id); n.className = 'chip ' + cls; n.textContent = label; };
@@ -123,7 +129,7 @@ $('open-settings').addEventListener('click', () => go('settings'));
 $('open-expert').addEventListener('click', () => go('expert'));
 document.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => go(b.dataset.go)));
 
-const tickClock = () => text('clock', new Date().toLocaleTimeString('de-CH', {hour: '2-digit', minute: '2-digit'}));
+const tickClock = () => text('clock', new Date().toLocaleTimeString(LOCALE[LANG], {hour: '2-digit', minute: '2-digit'}));
 
 /* Zurück zur Übersicht nach Inaktivität, nie während das Dach fährt */
 setInterval(() => {
@@ -183,6 +189,7 @@ $('st-bright').addEventListener('input', e => set('st-bright-val', fmt(+e.target
 $('st-bright').addEventListener('change', e => send({type: 'settings', set: {brightness: +e.target.value}}));
 $('st-theme').querySelectorAll('button').forEach(b => b.addEventListener('click', () => send({type: 'settings', set: {theme: b.dataset.v}})));
 $('st-idle').querySelectorAll('button').forEach(b => b.addEventListener('click', () => send({type: 'settings', set: {idle_min: +b.dataset.v}})));
+$('st-lang').querySelectorAll('button').forEach(b => b.addEventListener('click', () => send({type: 'settings', set: {language: b.dataset.v}})));
 $('x-tabs').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { S.expertTab = b.dataset.v; render(); }));
 
 /* ---------- MultiPlus-Steuerung: jede Änderung zweimal tippen ---------- */
@@ -267,7 +274,7 @@ function render() {
   $('fr-toggle').setAttribute('aria-pressed', String(f.on));
   $('fr-minus').disabled = !f.on || f.target_c <= 1;
   $('fr-plus').disabled = !f.on || f.target_c >= 10;
-  text('fr-note', fcode ? t('fridge.note_fault') : f.on && f.temp_q !== 'ok' ? t('fridge.note_sensor') : t('fridge.note', {on: '1,5', off: '1'}));
+  text('fr-note', fcode ? t('fridge.note_fault') : f.on && f.temp_q !== 'ok' ? t('fridge.note_sensor') : t('fridge.note', {on: fmt(1.5, '', 1), off: fmt(1, '', 0)}));
 
   // Heizung
   const h = st.heater;
@@ -275,13 +282,14 @@ function render() {
     afterrun: ['warn', t('heat.chip.afterrun', {t: mmss(h.afterrun_s)})], fault: ['err', t('heat.chip.fault')]}[h.phase];
   const phase = t('heat.phase.' + h.phase);
   set('ov-heat', phase);
-  text('ov-heat-sub', h.phase === 'afterrun' ? t('heat.chip.afterrun', {t: mmss(h.afterrun_s)}) : t('heat.level_sub', {n: h.level, max: (h.levels || 16) - 1}));
+  text('ov-heat-sub', h.phase === 'afterrun' ? t('heat.chip.afterrun', {t: mmss(h.afterrun_s)}) : t('heat.level_sub', {n: h.level + 1, max: h.levels || 10}));
   chip('ov-heat-chip', h.phase === 'start' ? t('heat.chip.start') : PH[1], PH[0]);
   set('ht-phase', phase); chip('ht-chip', PH[1], PH[0]);
   text('ht-note', h.phase === 'afterrun' ? t('heat.note_afterrun') : h.phase === 'fault' ? t('heat.note_fault') : t('heat.note'));
-  const maxLevel = (h.levels || 16) - 1;
-  set('ht-level', h.level_c != null ? fmt(h.level_c, '°C') : h.level);
-  text('ht-of', h.level_ok === false ? t('heat.level_uncal') : t('heat.of', {n: maxLevel}));
+  // Levels are counted 1..N like the original panel; internally 0..N-1.
+  const maxLevel = (h.levels || 10) - 1;
+  set('ht-level', h.level_c != null ? fmt(h.level_c, '°C') : h.level + 1);
+  text('ht-of', h.level_ok === false ? t('heat.level_uncal') : t('heat.of', {n: maxLevel + 1}));
   text('ht-toggle', t(h.on ? 'heat.toggle_on' : 'heat.toggle_off'));
   $('ht-toggle').setAttribute('aria-pressed', String(h.on));
   $('ht-minus').disabled = h.level_ok === false || h.level <= 0;
@@ -332,6 +340,8 @@ function render() {
   if (document.activeElement !== $('st-bright')) { $('st-bright').value = cfg.brightness; set('st-bright-val', fmt(cfg.brightness, '%')); }
   $('st-theme').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === cfg.theme)));
   $('st-idle').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.v === cfg.idle_min)));
+  $('st-lang').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === LANG)));
+  if (cfg.language && cfg.language !== LANG) loadLanguage(cfg.language);
   text('st-note', cfg.backlight_control === 'none' ? t('set.theme_note') + ' ' + t('set.brightness_na') : t('set.theme_note'));
 
   renderExpert();
@@ -498,12 +508,29 @@ const fit = () => screen.style.setProperty('--k', String(frame.getBoundingClient
 new ResizeObserver(fit).observe(frame); fit();
 
 /* ---------- Start ---------- */
-fetch('i18n/de.json').then(r => r.json()).then(dict => {
-  T = dict;
+/* Language: texts come from i18n/<lang>.json; the choice is a setting stored by camperd. */
+let langLoading = null;
+function applyTexts() {
+  document.documentElement.lang = LANG === 'de' ? 'de-CH' : 'en';
   document.querySelectorAll('[data-t]').forEach(n => { n.textContent = t(n.dataset.t); });
   document.querySelectorAll('[data-t-aria]').forEach(n => n.setAttribute('aria-label', t(n.dataset.tAria)));
+  for (const id of ['x-di', 'x-do', 'x-ai', 'x-pins']) $(id).innerHTML = '';
   buildExpert();
+  text('title', t('page.' + S.page));
+  text('back-label', t('page.' + (PAGES[S.page].back || 'overview')));
   tickClock();
+}
+function loadLanguage(lang) {
+  if (langLoading === lang) return Promise.resolve();
+  langLoading = lang;
+  return fetch(`i18n/${lang}.json`).then(r => r.json()).then(dict => {
+    T = dict; LANG = lang; langLoading = null;
+    applyTexts();
+    render();
+  });
+}
+
+loadLanguage('de').then(() => {
   go('overview');
   connect();
 });

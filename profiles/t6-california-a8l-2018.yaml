@@ -105,7 +105,7 @@ fridge:
   self_regulating_j1029: TODO_MEASURE   # O2
 
 heater:
-  levels: 16                       # OPEN: T5 SSP 329 says 10 levels; count at the T6 panel. <= 16 (4 relays)
+  levels: 10                       # original panel has 10 levels (confirmed); index 0-9 -> H1-H4 binary
   level_to_c: TODO_MEASURE         # 16 Werte, aus Messung T2p am Original
   start_timeout_s: 120
   afterrun_expected_s: 240
@@ -143,6 +143,7 @@ release:
 
 ui:
   idle_return_min: 2
+  language: de                     # de | en (default; changeable in the settings)
   theme: auto                      # auto | light | dark
   brightness_pct: 80
   backlight_control: none          # O10

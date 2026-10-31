@@ -92,3 +92,32 @@ def test_ui_keys_exist_in_language_file():
     keys = set(re.findall(r'data-t(?:-aria)?="([^"]+)"', html)) | set(re.findall(r"\bt\('([a-z_.0-9]+)'", js))
     missing = sorted(k for k in keys if not k.endswith(".") and k not in lang)  # "x." = dynamic prefix
     assert not missing, missing
+
+
+def test_language_files_have_the_same_keys():
+    de = json.loads((ROOT / "ui" / "i18n" / "de.json").read_text())
+    en = json.loads((ROOT / "ui" / "i18n" / "en.json").read_text())
+    assert set(de) == set(en)
+    assert set(de["pins"]) == set(en["pins"])
+    for key in ("io.di", "io.k", "io.ai"):
+        assert len(de[key]) == len(en[key])
+        assert [v is None for v in de[key]] == [v is None for v in en[key]]
+
+
+def test_german_texts_use_swiss_spelling():
+    text = (ROOT / "ui" / "i18n" / "de.json").read_text()
+    assert "ß" not in text
+
+
+async def test_language_setting(rig, tmp_path):
+    _, client = await client_for(rig, tmp_path)
+    async with client:
+        ws = await client.ws_connect("/ws")
+        st = await recv_type(ws, "state")
+        assert st["data"]["settings"]["language"] == "de"
+        await ws.send_str(json.dumps({"v": 1, "type": "settings", "id": "s1", "set": {"language": "en"}}))
+        assert (await recv_type(ws, "ack"))["ok"]
+        await ws.send_str(json.dumps({"v": 1, "type": "settings", "id": "s2", "set": {"language": "fr"}}))
+        ack = await recv_type(ws, "ack")
+        assert not ack["ok"] and "language" in ack["reason"]
+    assert json.loads((tmp_path / "s.json").read_text())["language"] == "en"

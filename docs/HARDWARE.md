@@ -100,7 +100,7 @@ Quelle der Wahrheit für die Software ist `profiles/t6-california-a8l-2018.yaml`
 
 **COM K1–K4:** Die vier Relais teilen sich eine COM. Annahme: alle schalten +12 V über die 2-A-Sicherung (Pos. 44). Zeigt die Messung, dass ein Eingang nach Masse geschaltet werden muss, braucht dieser Kanal ein Relais aus der zweiten Gruppe (K5–K8) mit COM auf Masse. E153 überwacht seine Ausgänge auf Kurzschluss und Unterbrechung (Fehlercodes 1100–3101); ob J768/J604/J1029 einen Relaiskontakt ohne Fehlermeldung akzeptieren, zeigt erst der Test.
 
-**Sollwertleiter:** T2p/1 → R0 → Segment H1 → H2 → H3 → H4 → T2p/2. Jedes Segment hat einen NC-Kontakt parallel. Stromlos sind alle Segmente überbrückt: R0. Laut SSP 329 hat das Original 10 Stufen (+10 bis +30 °C). Nicht veröffentlicht: der Widerstand je Stufe und ob mehr Widerstand wärmer oder kälter bedeutet. **R0 und die Segmentwerte erst nach der Messung bestellen.** Ist die Stufe mit grösserem Widerstand die wärmere, ist R0 die kälteste Stufe; sonst R0 und die Abbildung Stufe → Bits umkehren.
+**Sollwertleiter:** T2p/1 → R0 → Segment H1 → H2 → H3 → H4 → T2p/2. Jedes Segment hat einen NC-Kontakt parallel. Stromlos sind alle Segmente überbrückt: R0. Das Original hat **10 Stufen** (bestätigt; SSP 329: +10 bis +30 °C); die vier Relais bilden Stufe 0–9 binär ab. Nicht veröffentlicht: der Widerstand je Stufe und ob mehr Widerstand wärmer oder kälter bedeutet. **R0 und die Segmentwerte erst nach der Messung bestellen.** Ist die Stufe mit grösserem Widerstand die wärmere, ist R0 die kälteste Stufe; sonst R0 und die Abbildung Stufe → Bits umkehren.
 
 ### 4.2 Digitaleingänge (SM-I-009, 3–24 V)
 

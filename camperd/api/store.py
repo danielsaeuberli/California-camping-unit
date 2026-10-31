@@ -12,6 +12,7 @@ from camperd.profile import Profile
 
 THEMES = ("auto", "light", "dark")
 IDLE_CHOICES = (1, 2, 5)
+LANGUAGES = ("de", "en")
 EVENTS_MAX_BYTES = 10 * 1024 * 1024
 
 
@@ -22,6 +23,7 @@ class Settings:
             "brightness": int(profile.get("ui.brightness_pct", 80)),
             "theme": str(profile.get("ui.theme", "auto")),
             "idle_min": int(profile.get("ui.idle_return_min", 2)),
+            "language": str(profile.get("ui.language", "de")),
         }
         self.backlight_control = profile.get("ui.backlight_control", "none")
         with contextlib.suppress(OSError, ValueError):
@@ -43,7 +45,11 @@ class Settings:
             if int(values["idle_min"]) not in IDLE_CHOICES:
                 raise ValueError("bad idle_min")
             out["idle_min"] = int(values["idle_min"])
-        unknown = set(values) - {"brightness", "theme", "idle_min"}
+        if "language" in values:
+            if values["language"] not in LANGUAGES:
+                raise ValueError("bad language")
+            out["language"] = values["language"]
+        unknown = set(values) - {"brightness", "theme", "idle_min", "language"}
         if unknown:
             raise ValueError(f"unknown settings: {sorted(unknown)}")
         return out

@@ -8,7 +8,7 @@ OUT="${1:-$ROOT/_site}"
 rm -rf "$OUT"
 mkdir -p "$OUT/i18n" "$OUT/demo"
 cp "$ROOT/ui/app.js" "$ROOT/ui/style.css" "$OUT/"
-cp "$ROOT/ui/i18n/de.json" "$OUT/i18n/"
+cp "$ROOT"/ui/i18n/*.json "$OUT/i18n/"
 cp "$ROOT/demo/mock-backend.js" "$OUT/demo/"
 cp "$ROOT/ui/reference/Camping_Unit_Oberflaeche_v2.html" "$OUT/prototype.html"
 
