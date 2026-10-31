@@ -417,12 +417,27 @@ function renderEnergy() {
   const inv = inverterOn() ? outP : 0;
   const socCls = soc == null ? '' : soc < 15 ? 'err' : soc < 30 ? 'warn' : 'ok';
   const st = batteryStatus();
-  const stCls = !st ? 'warn' : st.charging ? 'ok' : socCls || 'accent';
 
-  // Overview tile and battery panel
-  set('ov-soc', fmt(soc, '%'));
-  set('ov-bat-sub', has ? `${fmt(v, 'V', 1)} · ${fmt(bw, 'W', 0, true)}` : t('common.no_victron'));
-  chip('ov-bat-chip', st ? st.text : t('common.no_data'), stCls);
+  // Overview tile: battery graphic + key info
+  const ttg = vic('time_to_go_s');
+  const ttgText = ttg == null || !(bw < -5) ? null
+    : ttg >= 3600 ? t('ov.ttg_h', {h: fmt(ttg / 3600, '', ttg < 36000 ? 1 : 0)}) : t('ov.ttg_min', {m: Math.round(ttg / 60)});
+  set('ov-soc', soc == null ? '–' : fmt(soc, '%'));
+  $('ov-batt-fill').style.width = (soc ?? 0) + '%';
+  $('ov-batt-fill').className = 'batt-fill ' + (soc == null ? 'none' : socCls);
+  $('ov-batt').classList.toggle('charging', !!st?.charging);
+  text('ov-bat-status', st ? t('bat.status.' + (st.key === 'inverter' ? 'discharging' : st.key)) : has ? '–' : t('common.no_victron'));
+  set('ov-bat-sub', !has || bw == null ? '' : ttgText ? t('ov.sub_ttg', {w: fmt(bw, 'W', 0, true), t: ttgText}) : `${fmt(bw, 'W', 0, true)} · ${fmt(v, 'V', 1)}`);
+  // Chips: plain "240 W" (no small unit style); on shore power one chip says it all
+  const plain = (x, unit, d = 0) => x == null ? '–' : `${fmt(x, '', d)} ${unit}`;
+  const chips = [];
+  if (has) {
+    if (pv > 0) chips.push(['ok', t('ov.chip_solar', {w: plain(pv, 'W')})]);
+    const limit = vic('vebus.current_limit');
+    if (shore) chips.push(['ok', limit != null ? t('ov.chip_shore_lim', {v: plain(vic('vebus.in_v'), 'V'), a: plain(limit, 'A')}) : t('ov.chip_shore', {v: plain(vic('vebus.in_v'), 'V')})]);
+    else chips.push(inverterOn() ? ['accent', t('ov.chip_ac_inv')] : ['', t('ov.chip_ac_off')]);
+  }
+  $('ov-chips').innerHTML = chips.map(([c, x]) => `<span class="chip ${c}">${x}</span>`).join('');
   set('en-soc', fmt(soc, '%'));
   text('en-soc-sub', !st ? t('common.no_data') : st.charging ? t('bat.charging_lc') : bw < -5 ? t('bat.discharging_lc') : t('bat.status.idle'));
   $('ring-val').setAttribute('stroke-dasharray', `${soc != null ? soc / 100 * 270 : 0} 360`);
@@ -450,23 +465,6 @@ function renderEnergy() {
   $('en-load-bar').firstElementChild.style.width = (overload === 2 ? 100 : load || 0) + '%';
   set('en-alarm', overload == null ? '–' : overload === 2 ? `<span style="color:var(--err)">${t('en.alarm_overload')}</span>` : t('en.alarm_none'));
 
-  // Wide overview tile, right column: where power comes from and where it goes
-  if (!has) {
-    for (const id of ['ov-charge', 'ov-ac', 'ov-shore', 'ov-ttg']) set(id, '–');
-  } else {
-    const parts = [];
-    if (pv > 0) parts.push(t('ov.charge_solar', {w: fmt(pv, 'W')}));
-    if (shore && charger > 0) parts.push(t('ov.charge_shore', {w: fmt(charger, 'W')}));
-    set('ov-charge', parts.length ? parts.join(' + ') : t('ov.charge_none'));
-    set('ov-ac', shore ? t('ov.ac_shore', {w: fmt(outP, 'W')}) : inverterOn() ? t('ov.ac_inverter', {w: fmt(outP, 'W')}) : t('ov.ac_off'));
-    const limit = vic('vebus.current_limit');
-    set('ov-shore', !shore ? t('ov.shore_none')
-      : limit != null ? t('ov.shore_in_limit', {v: fmt(vic('vebus.in_v'), 'V'), a: fmt(limit, 'A', 1)}) : fmt(vic('vebus.in_v'), 'V'));
-    const ttg = vic('time_to_go_s');
-    set('ov-ttg', st && st.charging ? t('ov.ttg_charging')
-      : ttg != null && bw < -5 ? (ttg >= 3600 ? t('ov.ttg_h', {h: fmt(ttg / 3600, '', ttg < 36000 ? 1 : 0)}) : t('ov.ttg_min', {m: Math.round(ttg / 60)}))
-      : '–');
-  }
 }
 
 /* MultiPlus mode switch on the battery page: Nur Laden / Ein / Aus, two taps to confirm */
