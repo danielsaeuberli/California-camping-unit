@@ -72,8 +72,12 @@
     <section data-page="energy" class="three" hidden>
       <div class="panel">
         <span class="label" data-t="tile.battery"></span>
-        <div class="ring"><svg viewBox="0 0 200 200"><circle cx="100" cy="100" r="84" fill="none" stroke="var(--surface-2)" stroke-width="16" stroke-linecap="round" pathLength="360" stroke-dasharray="270 360"/><circle id="ring-val" cx="100" cy="100" r="84" fill="none" stroke="var(--accent)" stroke-width="16" stroke-linecap="round" pathLength="360" stroke-dasharray="0 360"/></svg>
-          <div class="center"><span class="big num" id="en-soc">–</span><span class="sub" id="en-soc-sub">–</span></div></div>
+        <!-- same battery graphic as on the overview -->
+        <div class="batt batt-panel" id="en-batt">
+          <div class="batt-fill" id="en-batt-fill"></div>
+          <span class="batt-label"><svg class="batt-bolt" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg><span class="num" id="en-soc">–</span></span>
+        </div>
+        <span class="sub" id="en-soc-sub">–</span>
         <div class="rows">
           <div class="row"><span data-t="bat.voltage"></span><strong class="num" id="en-v">–</strong></div>
           <div class="row"><span data-t="bat.current"></span><strong class="num" id="en-a">–</strong></div>
@@ -83,10 +87,10 @@
       <div class="panel">
         <div class="headline"><span class="label" data-t="en.in"></span><span class="big num" id="en-in">–</span></div>
         <div class="rows">
-          <div class="row"><span data-t="en.solar"></span><strong class="num" id="en-solar">–</strong></div>
-          <div class="row"><span data-t="en.charger"></span><strong class="num" id="en-charger">–</strong></div>
-          <div class="row"><span data-t="en.phase"></span><strong id="en-phase">–</strong></div>
-          <div class="row"><span data-t="en.alt"></span><strong class="num" id="en-alt">–</strong></div>
+          <!-- one row per charging device: what it does now and how much it delivers -->
+          <div class="row"><span data-t="en.src_shore"></span><strong class="num" id="en-shore">–</strong></div>
+          <div class="row"><span data-t="en.src_solar"></span><strong class="num" id="en-solar">–</strong></div>
+          <div class="row"><span data-t="en.src_alt"></span><strong class="num" id="en-alt">–</strong></div>
           <div class="row"><span data-t="en.starter"></span><strong class="num" id="en-starter">–</strong></div>
         </div>
       </div>

@@ -215,6 +215,7 @@ Verkabelung: MultiPlus Compact → Cerbo über **VE.Bus** (RJ45-Patchkabel an di
   - `vebus/<inst>/{State,Mode,Ac/ActiveIn/ActiveInput,Ac/ActiveIn/L1/{V,I,F,P},Ac/Out/L1/{V,I,F,P,S},Ac/PowerMeasurementType,Dc/0/Power}`
   - `vebus/<inst>/Alarms/{L1/Overload,LowBattery,HighTemperature,L1/Ripple}`
   - `vebus/<inst>/Ac/In/1/{CurrentLimit,CurrentLimitIsAdjustable}`, `system/0/Dc/System/Power`
+  - `solarcharger/+/State`, `alternator/+/State`, `dcdc/+/State`: Ladephase von MPPT und Orion XS (0 aus, 2 Fehler, 3 Bulk, 4 Absorption, 5 Erhaltung, 6 Lagerung, 7 Ausgleich). Ladeleistung des MultiPlus aus `vebus/<inst>/Dc/0/Power` (positiv = lädt); `system/0/Dc/Charger/Power` zählt nur separate Ladegeräte, nicht den MultiPlus
   - `alternator/+/Dc/In/V`, `dcdc/+/Dc/In/V`: Eingangsspannung der Orion XS = **Starterbatterie** (nur Anzeige; bei mehr als einem DC-DC-Lader «–»)
   - `temperature/+/{Temperature,Humidity,CustomName,ProductName,TemperatureType}`: Innentemperatur (5.2)
 - Jeder Wert mit Empfangszeit. Alter > 10 s (`stale_s`) oder Verbindung weg → Oberfläche zeigt «–», **nie den letzten Wert**. Fehlender Wert → `null`, nie ein Ersatzwert.

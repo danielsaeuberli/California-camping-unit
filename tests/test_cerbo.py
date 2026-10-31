@@ -170,3 +170,14 @@ def test_starter_battery_ambiguous_with_two_dcdc():
     c.handle("N/p1/alternator/277/Dc/In/V", msg(12.4))
     c.handle("N/p1/dcdc/280/Dc/In/V", msg(13.1))
     assert store.starter_v() is None
+
+
+def test_charger_phases_of_mppt_and_orion():
+    _, store, c = _client()
+    c.handle("N/p1/solarcharger/279/State", msg(4))
+    c.handle("N/p1/alternator/277/State", msg(0))
+    c.handle("N/p1/solarcharger/279/Yield/Power", msg(5))  # not stored
+    snap = store.snapshot()
+    assert snap["solar_state"]["val"] == 4 and snap["alt_state"]["val"] == 0
+    assert all(k.endswith(("/State", "/Dc/In/V")) for k in store.devices)
+    assert "N/p1/solarcharger/+/State" in c.data_topics()

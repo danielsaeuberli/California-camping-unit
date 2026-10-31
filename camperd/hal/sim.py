@@ -247,9 +247,11 @@ class SimCerbo:
         st.ingest_system("system/0/Dc/Battery/Power", round(s["v"] * s["a"]))
         st.ingest_system("system/0/Dc/Battery/TimeToGo", s.get("ttg"))
         st.ingest_system("system/0/Dc/Pv/Power", s["pv"])
-        st.ingest_system("system/0/Dc/Charger/Power", s["charger"])
+        st.ingest_system("system/0/Dc/Charger/Power", 0)  # no separate AC charger; the MultiPlus charges
         st.ingest_system("system/0/Dc/Alternator/Power", s.get("alt", 0))
-        st.ingest_dcdc("alternator", "277", "Dc/In/V", 14.3 if s.get("alt") else 12.45)
+        st.ingest_device("alternator", "277", "Dc/In/V", 14.3 if s.get("alt") else 12.45)
+        st.ingest_device("alternator", "277", "State", 3 if s.get("alt") else 0)
+        st.ingest_device("solarcharger", "279", "State", 3 if s["pv"] > 0 else 0)
         st.ingest_system("system/0/Dc/System/Power", s["dc"])
         if w.ruuvi:
             for path, value in (("ProductName", "RuuviTag"), ("CustomName", "Innen"),
@@ -264,6 +266,8 @@ class SimCerbo:
             st.ingest_vebus(f"Ac/ActiveIn/L1/{key}", val)
         for key, val in zip(("V", "I", "F", "P", "S"), s["out"], strict=True):
             st.ingest_vebus(f"Ac/Out/L1/{key}", val)
+        # MultiPlus DC side: + charging from shore power, - inverting
+        st.ingest_vebus("Dc/0/Power", s["charger"] if shore else -round(s["out"][3] * 1.1))
         st.ingest_vebus("Alarms/L1/Overload", 2 if w.overload else 0)
         for path in ("Alarms/LowBattery", "Alarms/HighTemperature", "Alarms/L1/Ripple"):
             st.ingest_vebus(path, 0)
