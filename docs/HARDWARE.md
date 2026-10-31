@@ -14,7 +14,7 @@ Preise sind Budgetwerte in CHF, keine Offerten. Status «Bestätigen/Anfragen/Pr
 
 | Teil | Versorgung | Rolle |
 | --- | --- | --- |
-| **XIAO ESP32-S3** | Standby-5-V, immer an | **Einziger Master für alle Ausgänge:** Kühlbox-Thermostat (G817 → K3), Heizung (S+ an K4, Sollwertleiter H1–H4, Betriebsanzeige T6ap/2), Dach (K1/K2, Freigabe Zündung an und Stillstand über T32b/3). Liest SM-H-001 und SM-I-009 über I²C und die wenigen Victron-Werte, die die Regelung braucht (Batteriespannung, SoC für Unterspannung), über WLAN/MQTT am Access Point des Cerbo. Schaltet den Pi ein und aus. |
+| **XIAO ESP32-S3** | Standby-5-V, immer an | **Einziger Master für alle Ausgänge:** Kühlbox-Thermostat (G817 → K3), Heizung (S+ an K4, Sollwertleiter H1–H4, Betriebsanzeige T6ap/2), Dach (K1/K2, Freigabe Zündung an und Stillstand über T32b/3). Liest SM-H-001 und SM-I-009 über I²C, die Batteriespannung für den Unterspannungsschutz über AI8. **Kein WLAN, kein Bluetooth, kein MQTT** (Entscheid 31.10.2026). Schaltet den Pi ein und aus. |
 | **SM-H-001, SM-I-009** | Standby-5-V, abgesetzt | Ein-/Ausgänge, **nur** am I²C der XIAO. Nicht auf den Pi gesteckt (Rückspeisung über die 5-V-Pins des Headers). |
 | **Pi 5** | geschaltete 5-V-Schiene (DCDC-USB, Enable von der XIAO) | **Reines Bedienterminal:** Oberfläche und Konfiguration. Schickt Wünsche per UART an die XIAO, schaltet nie selbst. Holt die Victron-Werte für die Anzeige selbst über das WLAN des Cerbo und bedient den MultiPlus (SPEC 5.1). Kein Zugriff auf den Sequent-I²C (`dtparam=i2c_arm=off`). |
 | Display | geschaltet über Lastschalter | aus, sobald das Display schläft |
@@ -34,7 +34,7 @@ Preise sind Budgetwerte in CHF, keine Offerten. Status «Bestätigen/Anfragen/Pr
                                                      └── 2 A ── COM K1–K4
 Fahrzeug T32b/T6ap/T2p ── Breakout X1–X4 ── SM-H-001 (K1–K4, AI1–AI8) / SM-I-009 (DI1–DI16) / H1–H4
 XIAO ── I²C ── SM-H-001 (0x28), SM-I-009 (0x27), MCP23017 (0x20)
-XIAO ── WLAN ── AP des Cerbo GX (MQTT)          XIAO ── UART (Puffer) ── Pi 5
+Pi 5 ── WLAN ── AP des Cerbo GX (MQTT)          XIAO ── UART (Puffer) ── Pi 5
 Viewe-Display ── HDMI ── Pi 5;  Touch ── I²C-Puffer ── Pi 5, IRQ ── XIAO
 ```
 
@@ -226,7 +226,7 @@ Bestellnummern der Gehäuse sind daraus nicht ableitbar: Herstellermarkierungen 
 
 ### 5.1 Leistungsbudget
 
-**Geparkt, Pi aus (Ziel 0,5–1 W an 12 V):** XIAO mit WLAN am AP des Cerbo, SM-H-001, SM-I-009, MCP23017, Touch-Controller im Ruhezustand, Standby-Wandler. Dazu je nach Regelung: K3 (Kühlanforderung) und K4 (S+), wenn sie als Relais bleiben, je etwa 0,4 W. Keine Herstellerangaben für den Ruhestrom der Sequent-Karten: **am Prüfstand messen**, je Teil einzeln.
+**Geparkt, Pi aus (Ziel 0,5–1 W an 12 V):** XIAO ohne Funk (WLAN und Bluetooth aus), SM-H-001, SM-I-009, MCP23017, Touch-Controller im Ruhezustand, Standby-Wandler. Dazu je nach Regelung: K3 (Kühlanforderung) und K4 (S+), wenn sie als Relais bleiben, je etwa 0,4 W. Keine Herstellerangaben für den Ruhestrom der Sequent-Karten: **am Prüfstand messen**, je Teil einzeln.
 
 **Bedienung, Pi an:**
 
@@ -235,11 +235,11 @@ Bestellnummern der Gehäuse sind daraus nicht ableitbar: Herstellermarkierungen 
 | Raspberry Pi 5 + Kühler | DCDC-USB | 3,20 | 5,00 | 16,3 | 25,5 |
 | Display + HDMI-Treiber | DCDC-USB über Lastschalter | 0,26 | 0,45 | 1,3 | 2,3 |
 | PCAP-Touch | Standby | 0,08 | 0,15 | 0,4 | 0,8 |
-| XIAO ESP32-S3 mit WLAN | Standby | 0,10 | 0,35 | 0,5 | 1,8 |
+| XIAO ESP32-S3, ohne Funk | Standby | 0,04 | 0,10 | 0,2 | 0,5 |
 | SM-H-001, SM-I-009, MCP23017, 4 Zusatzrelais | Standby | 0,45 | 1,05 | 2,3 | 5,3 |
 | Reserve | | 0,35 | 0,70 | 1,8 | 3,5 |
 
-Standby-Schiene Spitze etwa 1,6 A → D24V22F5 (2,5 A) mit Reserve. Mit `cog` statt Chromium dürfte der Pi tiefer liegen. Alle Werte am Prüfstand messen (Abnahme Kapitel 0).
+Standby-Schiene Spitze etwa 1,3 A → D24V22F5 (2,5 A) mit Reserve. Mit `cog` statt Chromium dürfte der Pi tiefer liegen. Alle Werte am Prüfstand messen (Abnahme Kapitel 0).
 
 ### 5.2 Regeln
 
@@ -253,13 +253,11 @@ Standby-Schiene Spitze etwa 1,6 A → D24V22F5 (2,5 A) mit Reserve. Mit `cog` st
 
 ```
 Cerbo GX ── Ethernet ── Camper-Router (unverändert: VRM, Remote Console)
-Cerbo GX ── WLAN-AP «venus-…» (immer an) ─┬─ XIAO    (MQTT 1883, nur Werte für die Regelung, immer)
-                                          └─ Pi 5 wlan0 (MQTT 1883, Anzeige und MultiPlus-Bedienung, nur wenn der Pi läuft)
+Cerbo GX ── WLAN-AP «venus-…» (immer an) ── Pi 5 wlan0 (MQTT 1883, Anzeige und MultiPlus-Bedienung, nur wenn der Pi läuft)
 Pi 5 eth0 ── LAN-Port Camper-Router (Router nur zeitweise an: SSH, Fernzugriff)
 ```
 
-- **Victron über den Pi (Entscheid 31.10.2026):** Der Pi hängt wie bisher selbst am AP des Cerbo und holt alle Werte für die Anzeige; die UART trägt keine Victron-Daten. Die XIAO liest nur, was die Regelung braucht. SSID und Passwort stellt man in der Expertenansicht ein; der Pi wendet sie für sich an (NetworkManager) und gibt sie per UART an die XIAO weiter.
-- Keepalive der XIAO an `R/<portalId>/keepalive` mindestens alle 30 s; ob Venus dann alle nötigen Werte frisch hält, prüfen (SPEC 5, O19).
+- **Victron über den Pi (Entscheid 31.10.2026):** Der Pi hängt wie bisher selbst am AP des Cerbo und holt alle Werte für die Anzeige; die UART trägt keine Victron-Daten. Die XIAO hat keine Netzverbindung; die Regelung braucht keine Victron-Werte (Unterspannung über AI8). SSID und Passwort stellt man in der Expertenansicht ein; der Pi wendet sie an (NetworkManager).
 
 - Cerbo (Daniel, von Hand): Einstellungen → WLAN → «Access Point erstellen» = EIN; Einstellungen → Dienste → «MQTT im LAN» = EIN (unverschlüsselt 1883 genügt im abgeschlossenen AP-Netz).
 - Bis die XIAO-Firmware steht, prüft der Pi den AP mit `sudo deploy/network/setup-network.sh "<venus-SSID>" "<Passwort vom Etikett>"` und `python3 tools/cerbo_check.py` (Prüfstand, O19).

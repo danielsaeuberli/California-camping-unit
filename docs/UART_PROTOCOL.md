@@ -52,7 +52,6 @@ XIAO → {"t":"snapshot","state":{…},"settings":{…},"power":{…}}
 | `roof` | `id`, `xiao`, `pi`, `dir` (`open`/`close`/`stop`), `seq`, `auto` | Laufmeldung alle 100 ms, solange das Dach fahren soll. `seq` steigt streng. Die XIAO stoppt nach 300 ms ohne `roof` (S3), bei `stop`, in der Endlage oder bei jeder Sperre. Nie gepuffert: Eine Laufmeldung, die älter als der letzte Stopp ist (`seq` kleiner), gilt nicht |
 | `settings` | `id`, `xiao`, `pi`, `set` | Helligkeit, Darstellung, `idle_min`, Sprache |
 | `subscribe` | `topics` (`["io"]`) | Rohwerte schnell senden (Expertenansicht, Messmodus) |
-| `config` | `id`, `xiao`, `pi`, `wifi` (`ssid`, `psk`), `cerbo` (`host`, `port`) | WLAN zum AP des Cerbo; XIAO speichert im NVS. `psk` wird nie zurückgeschickt |
 | `profile` | `id`, `xiao`, `pi`, `sha256`, `part`, `of`, `data` | Profil als JSON in Teilen ≤ 700 Byte. Die XIAO prüft Hash und Schema, speichert erst vollständig. Änderungen an `release.*` gelten erst nach einer Bestätigung am Gerät (zweimal tippen) |
 | `shutdown_ok` | – | Antwort auf `shutdown`: der Pi fährt jetzt herunter |
 | `busy` | `s` (≤ 60) | Herunterfahren aufschieben (Update läuft), höchstens 10 min insgesamt |

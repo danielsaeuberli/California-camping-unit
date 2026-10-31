@@ -1,7 +1,8 @@
 # XIAO ESP32-S3 firmware (master controller)
 
 Since SPEC 2.0 (decision 31.10.2026) the XIAO is the only master for all outputs:
-fridge thermostat, heater, roof, the Victron MQTT client and the safety rules S1–S14.
+fridge thermostat, heater, roof, undervoltage protection (AI8) and the safety rules
+S1–S14. No Wi-Fi, no Bluetooth, no MQTT: Victron is read by the Pi only.
 The Pi 5 is only the operator terminal and talks to the XIAO over UART
 (`docs/UART_PROTOCOL.md`).
 
@@ -14,7 +15,7 @@ xiao/
   components/
     io/              SM-H-001, SM-I-009, MCP23017
     signals/ modules/ safety/   plain C, no ESP-IDF dependency, injected clock
-    victron/ power/ link/ store/
+    power/ link/ store/
   test/              Unity tests, run on the host with `pio test -e native`
 ```
 

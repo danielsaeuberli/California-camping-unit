@@ -2,7 +2,7 @@
 
 Version 2.0 | 31. Oktober 2026 | Fahrzeug: VW T6 California 2.0 TDI 4Motion, MJ 2018, Campingausrüstung A8L/A8R
 
-**Version 2.0 (Entscheid 31.10.2026, «XIAO regelt, Pi nur zur Bedienung»):** Regelung, Zustandsautomaten, Sicherheitslogik und ein schmaler Victron-Client für Regelwerte laufen in der Firmware der XIAO ESP32-S3 (ESP-IDF), die immer an ist. Der Pi 5 ist nur noch Bedienterminal (Oberfläche und Konfiguration), läuft nur bei Bedienung oder Zündung, schickt Wünsche per UART (`docs/UART_PROTOCOL.md`) und holt die Victron-Anzeige selbst über das WLAN des Cerbo. Ziel: geparkt mit Regelung 0,5–1 W statt 5–7 W. Betroffen: Kapitel 1, 2, 3, 5, 6, 10, 11, 12. Hardware: HARDWARE.md 1.3, Kapitel 0.
+**Version 2.0 (Entscheid 31.10.2026, «XIAO regelt, Pi nur zur Bedienung»):** Regelung, Zustandsautomaten und Sicherheitslogik laufen in der Firmware der XIAO ESP32-S3 (ESP-IDF), die immer an ist, ohne WLAN und ohne MQTT. Der Pi 5 ist nur noch Bedienterminal (Oberfläche und Konfiguration), läuft nur bei Bedienung oder Zündung, schickt Wünsche per UART (`docs/UART_PROTOCOL.md`) und holt die Victron-Anzeige selbst über das WLAN des Cerbo. Ziel: geparkt mit Regelung 0,5–1 W statt 5–7 W. Betroffen: Kapitel 1, 2, 3, 5, 6, 10, 11, 12. Hardware: HARDWARE.md 1.3, Kapitel 0.
 
 Version 1.1: Analogeingänge 0–3,3 V mit Referenz aus der Karte, Dachfreigabe nur mit Zündung, Freigabe je Schaltfunktion im Profil (Messung ausstehend), 58d evtl. PWM, T32b/29 = Laderelais-Befehl J713.
 
@@ -30,7 +30,7 @@ Die Unit ersetzt das Bedienteil E153. Die Original-Steuergeräte bleiben im Fahr
 
 | Teil | Läuft | Aufgabe | Nie |
 | --- | --- | --- | --- |
-| **XIAO-Firmware** (`xiao/`, ESP-IDF über PlatformIO) | immer | liest SM-H-001, SM-I-009, MCP23017 (I²C) und Victron (MQTT über den AP des Cerbo); führt Thermostat, Heizung, Dach, Tanks, Temperaturen, Fahrzeug, Energie; Sicherheitsregeln (Kapitel 6); schaltet Pi und Display ein und aus | – |
+| **XIAO-Firmware** (`xiao/`, ESP-IDF über PlatformIO) | immer | liest SM-H-001, SM-I-009, MCP23017 (I²C), Batteriespannung über AI8; kein WLAN, kein MQTT; führt Thermostat, Heizung, Dach, Tanks, Temperaturen, Fahrzeug, Unterspannungsschutz; Sicherheitsregeln (Kapitel 6); schaltet Pi und Display ein und aus | – |
 | **`camperd`** auf dem Pi | bei Bedienung oder Zündung | liefert die Oberfläche aus, übersetzt WebSocket ↔ UART, holt die Victron-Werte für die Anzeige selbst (MQTT über den AP des Cerbo) und bedient den MultiPlus (5.1), verwaltet Profil, Einstellungen, Netzwerk, Messdaten-Ablage | schaltet nie einen Ausgang der Unit, kein Zugriff auf den Sequent-I²C |
 
 **Nicht im Umfang v1:** CAN/LIN zum Fahrzeug, Zugriff aus dem Internet, Schreiben auf den Cerbo ausser MultiPlus-Modus und Landstrom-Begrenzung (5.1), Licht-Dimmer, Batterie-Management.
@@ -108,16 +108,15 @@ EEPROM: `BOOT_ORDER=0xf1` (nur SD-Karte, keine Netz-/USB-Suche), `POWER_OFF_ON_H
 
 ### 2.7 Netzwerk
 
-Entscheid (HARDWARE.md 5.3). **Victron über den Pi:** Der Pi hängt selbst am AP des Cerbo und holt alle Werte für die Anzeige. Die XIAO verbindet sich zusätzlich und liest nur, was die Regelung braucht (O25).
+Entscheid (HARDWARE.md 5.3). **Victron über den Pi:** Der Pi hängt selbst am AP des Cerbo und holt alle Werte für die Anzeige. Die XIAO hat kein WLAN und kein MQTT (Entscheid 31.10.2026, O25).
 
 - **Cerbo-Ethernet** bleibt am Camper-Router (unverändert; VRM, Remote Console).
 - **Pi `wlan0` → Access Point des Cerbo** (wie bisher, NetworkManager, `deploy/network/setup-network.sh`): nie Standardroute, IPv6 aus, Autoconnect ohne Limit. Cerbo-Adresse im AP-Netz erwartet `172.24.24.1` (O19). Der WLAN-Aufbau läuft nach dem Start im Hintergrund und bremst die Bedienbarkeit nicht; bis dahin zeigt die Oberfläche bei Victron «–».
-- **XIAO → Access Point des Cerbo** (immer). SSID, Passwort und Cerbo-Adresse stellt man in der Expertenansicht ein; `camperd` prüft sie, wendet sie für den Pi an und gibt sie per UART an die XIAO (`config`), die sie im NVS speichert. Das Passwort geht nie zurück an die Oberfläche.
 - **Pi `eth0` → LAN-Port des Routers** (Router nur zeitweise an): DHCP, Routenmetrik 100; Standardroute nur, solange der Router da ist. Für SSH und Fernzugriff (optional Tailscale).
 - Der Cerbo kann zwischen WLAN und Ethernet weder bridgen noch routen (Venus-OS-Kernel ohne Bridge). Nicht versuchen.
 - **Keine Steuerfunktion hängt am Router-Netz.** Die Regelung braucht kein Netz; Victron-Daten kommen nur über den AP an die XIAO.
 - Firewall (`deploy/network/nftables.conf`): auf `wlan0` keine neuen eingehenden Verbindungen; `sshd` nur mit Schlüssel über `eth0`.
-- **Einstellen am Gerät:** Expertenansicht → Netzwerk. Ethernet und WLAN wendet der Root-Dienst `camper-network` mit `nmcli` an (wie bisher, `/data/network.json`, Rechte 600, polkit nur für diesen Dienst). Die WLAN-Werte gehen zusätzlich an die XIAO (siehe oben).
+- **Einstellen am Gerät:** Expertenansicht → Netzwerk. Ethernet und WLAN wendet der Root-Dienst `camper-network` mit `nmcli` an (wie bisher, `/data/network.json`, Rechte 600, polkit nur für diesen Dienst).
 
 ### 2.8 Oberfläche anzeigen
 
@@ -149,12 +148,12 @@ Kein Git und kein Paketmanager im Betrieb. `make deploy` vom Mac:
 ```
 Fahrzeug ─ T32b/T6ap/T2p ─ Breakout ─ SM-H-001 / SM-I-009 / MCP23017 → H1–H4
                                           │ I²C
-Cerbo GX ─ WLAN-AP, MQTT ──────┐          │      (zweiter Client: Pi, Anzeige)
+Batteriespannung (T32b/32) ─ AI8 ┐       │
 Touch-IRQ, Zündung, 86s ──┐    │          │
                           ▼    ▼          ▼
               XIAO ESP32-S3 (ESP-IDF, immer an)
                 io → signals → modules → safety → Ausgänge
-                victron (MQTT, nur Regelwerte), power (Pi, Display), link (UART)
+                power (Pi, Display, Unterspannung), link (UART); kein Funk
                           │ UART (Puffer, HARDWARE.md 4.4)
                           ▼
               camperd (Python, asyncio) – nur bei Bedienung/Zündung
@@ -174,8 +173,7 @@ Die XIAO entscheidet über jeden Ausgang. Der Pi schickt nur Wünsche; jede Rege
 | `signals/` | Entprellen, Median, Pulszähler, Qualität `ok/stale/open/short/implausible/uncalibrated` (wie heute in Python). |
 | `modules/` | `roof`, `fridge`, `heater`, `tanks`, `climate`, `vehicle`, `energy`. **Reines C ohne ESP-IDF-Abhängigkeit,** Uhr als Parameter → auf dem Rechner testbar. |
 | `safety/` | Freigaben je Funktion, Regeln S1–S14, Task-Watchdog. |
-| `victron/` | MQTT-Client (esp-mqtt) zum Cerbo, nur Regelwerte (Batteriespannung, SoC), Keepalive. Schreibt nichts. |
-| `power/` | Pi-Versorgung, Display-Schalter, Summer, Nachlauf (Kapitel 10). |
+| `power/` | Pi-Versorgung, Display-Schalter, Summer, Nachlauf, Unterspannung über AI8 (Kapitel 10). WLAN und Bluetooth der XIAO bleiben aus. |
 | `link/` | UART-Protokoll zum Pi (`docs/UART_PROTOCOL.md`). |
 | `store/` | Profil und Einstellungen im NVS, mit Hash. |
 
@@ -188,7 +186,7 @@ Tests: `pio test -e native` führt die Modul- und Sicherheitstests auf dem Rechn
 | `api/` | wie bisher: statische Oberfläche, WebSocket `/ws` (Kapitel 4). |
 | `link/` (neu) | UART zur XIAO: Snapshot beim Verbindungsaufbau, Befehle mit ID weiterreichen, Antworten und Zustand an die Oberfläche. |
 | `profile/` | lädt und prüft das YAML-Profil und überträgt es an die XIAO (`profile`). |
-| `net.py` | Ethernet und WLAN am Pi; die WLAN-Werte gehen zusätzlich an die XIAO. |
+| `net.py` | Ethernet und WLAN am Pi (wie bisher). |
 | `hal/cerbo_mqtt.py`, `modules/energy.py`, `modules/victron_control.py` | bleiben im Betrieb: Victron-Anzeige und MultiPlus-Bedienung (Kapitel 5). |
 | `hal/`, `signals/`, `modules/`, `power/` | **Referenzmodell und Simulator.** Die heutige Python-Logik mit ihren Tests (`tests/safety/`) ist die ausführbare Vorlage für die Firmware. `make dev` läuft weiter damit. Im Fahrzeug wird `--hal hw` nicht mehr benutzt; der Treiber `hw` bleibt nur für den Prüfstand, bis die Firmware die Karten liest (M5). |
 
@@ -239,14 +237,13 @@ JSON-Nachrichten, ein Objekt pro Frame. Version im Feld `v`.
 
 ## 5. Victron Cerbo GX (MQTT)
 
-**Ab Version 2.0 zwei Clients:** `camperd` auf dem Pi wie bisher für Anzeige und MultiPlus-Bedienung (5.1), solange der Pi läuft. Die XIAO-Firmware (`xiao/victron/`, esp-mqtt) liest dauernd nur, was die Regelung braucht (Batteriespannung, SoC für Unterspannung), und schreibt nichts. Beide halten sich an dieses Kapitel; für die XIAO gilt der Keepalive unten.
+**Ab Version 2.0 unverändert in `camperd` auf dem Pi:** Anzeige und MultiPlus-Bedienung (5.1), solange der Pi läuft. Die XIAO spricht nicht mit dem Cerbo; keine Regelfunktion hängt an Victron-Werten (S9).
 
 Verkabelung: MultiPlus Compact → Cerbo über **VE.Bus** (RJ45-Patchkabel an die VE.Bus-Buchse des Cerbo, nicht an dessen Ethernet). Pi ↔ Cerbo über Ethernet.
 
 - Verbindung `172.24.24.1:1883` (AP des Cerbo, `buses.cerbo.host`), Client-ID `camperd`, MQTT-Ping 10 s. Reconnect ohne manuellen Schritt nach Neustart oder Firmware-Update des Cerbo: Backoff 1–10 s; nach jedem Verbinden Portal-ID und VE.Bus-Instanz neu ermitteln und alle Datenthemen neu abonnieren. Offene Schreibbefehle verfallen beim Verbindungsabbruch.
 - Portal-ID beim Start aus `N/+/system/0/Serial` ermitteln. VE.Bus-Instanz aus `N/<id>/vebus/+/ProductId`.
 - Keepalive: `R/<id>/keepalive` mit **leerem** Payload alle `buses.cerbo.keepalive_s` = 5 s. Venus publiziert nur, solange Keepalives kommen, und sendet bei leerem Keepalive alle Werte neu. Weil Werte sonst nur bei Änderung kommen, muss das Intervall ≤ `stale_s` / 2 sein (Code prüft das), damit ein gleichbleibender Wert nicht als veraltet gilt. Optional feste Portal-ID `buses.cerbo.portal_id`, falls `N/+/system/0/Serial` nicht ankommt.
-- **Keepalive in der XIAO (O27, prüfen):** Ein leerer Keepalive alle 5 s lässt Venus jedes Mal alle Werte des Systems neu senden; das ist für die XIAO unnötig viel. Vorgabe: `R/<id>/keepalive` mindestens alle 30 s mit `{"keepalive-options":["suppress-republish"]}`, und die wenigen Regelwerte alle 5 s gezielt mit `R/<id>/<service>/<instance>/<path>` anfordern, damit gleichbleibende Werte nicht als veraltet gelten. Am Cerbo prüfen: Antwortet Venus auf die gezielten Anfragen, und bleibt die Last am WLAN klein? Sonst Rückfall auf den leeren Keepalive mit `stale_s` > Intervall.
 - Gelesen:
   - `system/0/Dc/Battery/{Soc,Voltage,Current,Power,TimeToGo}` (TimeToGo nur mit Batteriemonitor), `system/0/Dc/Pv/Power`, `system/0/Dc/Charger/Power`, `system/0/Dc/Alternator/Power` (Orion XS, Laden während der Fahrt)
   - `vebus/<inst>/{State,Mode,Ac/ActiveIn/ActiveInput,Ac/ActiveIn/L1/{V,I,F,P},Ac/Out/L1/{V,I,F,P,S},Ac/PowerMeasurementType,Dc/0/Power}`
@@ -421,7 +418,7 @@ Die XIAO läuft immer und regelt. Sie schaltet nur den Pi und das Display.
 - Der Pi kann das Herunterfahren mit `busy` um je 60 s aufschieben (z. B. Update läuft), höchstens 10 min.
 - Kein `hb` vom Pi für 2 min im Zustand `on`: Pi hängt → Enable aus, 5 s, wieder an (Root-Dateisystem schreibgeschützt).
 - Dach fährt oder Pumpe läuft nach: kein Herunterfahren (S8).
-- **Unterspannung** (Batteriespannung vom Cerbo < Schwelle im Profil, 60 s; O11): Pi aus; Kühlbox-Anforderung aus; laufender Heizungsnachlauf bleibt (O26). Ohne Cerbo-Spannung nur Warnung.
+- **Unterspannung** (Batteriespannung über AI8 < Schwelle im Profil, 60 s; O11): Pi aus; Kühlbox-Anforderung aus; laufender Heizungsnachlauf bleibt (O26). AI8 misst über SH21 (Spannungsabfall, HARDWARE.md 4.3); solange der Teiler nicht kalibriert ist, kein Abschalten, nur Warnung.
 
 ### 10.2 Protokoll Pi ↔ XIAO
 
@@ -429,7 +426,7 @@ Die XIAO läuft immer und regelt. Sie schaltet nur den Pi und das Display.
 
 ### 10.3 Ruhestrom
 
-Ziel geparkt mit Regelung 0,5–1 W an 12 V (HARDWARE.md Kapitel 0). WLAN der XIAO im Modem-Schlaf zwischen den MQTT-Paketen; Regelzyklus 100 ms reicht für Thermostat und Heizung, 20 ms nur bei Zündung an (Dach, Fahrt). Messen in drei Zuständen: geparkt mit Regelung, Bedienung, alles aus.
+Ziel geparkt mit Regelung 0,5–1 W an 12 V (HARDWARE.md Kapitel 0). WLAN und Bluetooth der XIAO aus; Regelzyklus 100 ms reicht für Thermostat und Heizung, 20 ms nur bei Zündung an (Dach, Fahrt). Messen in drei Zuständen: geparkt mit Regelung, Bedienung, alles aus.
 
 ---
 
@@ -442,7 +439,7 @@ Ziel geparkt mit Regelung 0,5–1 W an 12 V (HARDWARE.md Kapitel 0). WLAN der XI
 | M3 | Messmodus und Kalibrier-Assistent (am Prüfstand mit dem Pi, später über die XIAO) | Messfahrt mit Original-E153 möglich |
 | M4 | (Daniel) Messungen am Fahrzeug, Profil füllen (HARDWARE.md 6, «nicht bauen, bevor gemessen») | keine `TODO_MEASURE` mehr in den Pflichtfeldern |
 | M5 | **XIAO-Grundgerüst:** ESP-IDF-Projekt, Treiber SM-H-001/SM-I-009/MCP23017, UART-Link, `camperd`-Bridge, Pi- und Display-Versorgung, Summer, Profil im NVS | Pi startet per Berührung, zeigt Rohwerte von der XIAO; Verbrauch in 3 Zuständen und Zeit Berührung → bedienbar (5 Läufe) gemessen |
-| M6 | Firmware: Victron-Regelwerte (Unterspannung), lesende Module (Tanks, Temperaturen, Energie, Fahrzeug) | Unit läuft im Auto parallel zum Original, ohne zu schalten; Regelung läuft mit Pi aus |
+| M6 | Firmware: Unterspannung über AI8, lesende Module (Tanks, Temperaturen, Energie, Fahrzeug) | Unit läuft im Auto parallel zum Original, ohne zu schalten; Regelung läuft mit Pi aus |
 | M7 | Firmware: Schaltfunktionen Heizung, Kühlbox, Dach; alle S-Tests (Rechner) grün, Differenztest gegen Python grün | jede Funktion einzeln am Fahrzeug freigegeben |
 | M8 | Feinschliff: Meldungen, Nachtmodus, Ereignislog, Updates (Pi über `/data/releases`, XIAO per UART oder USB) | Einbau-Version 1.0 |
 
@@ -476,7 +473,7 @@ Ziel geparkt mit Regelung 0,5–1 W an 12 V (HARDWARE.md Kapitel 0). WLAN der XI
 | O22 | Brauchen SM-H-001 und SM-I-009 am Header 3,3 V vom Pi, oder erzeugen sie sie selbst? | im Schema prüfen; sonst 3,3 V von der Standby-Schiene zuführen, nie vom Pi |
 | O23 | Touch-Schnittstelle zum Pi: I²C oder USB? | I²C über TCA9517 (Partial-Power-Down); bei USB entfällt der Puffer, Wake trotzdem über IRQ an die XIAO |
 | O24 | Pi-Versorgung, wenn die XIAO neu startet | Enable mit Pull-down: Pi aus (Root schreibgeschützt). Bei Zündung an kurz unterbrochen; prüfen, ob das stört |
-| O25 | Victron für Anzeige und Bedienung über den Pi, XIAO nur Regelwerte | entschieden 31.10.2026 (Daniel): Pi am WLAN des Cerbo. Zwei MQTT-Clients am Cerbo; Last am Cerbo prüfen |
+| O25 | Victron nur über den Pi; XIAO ohne WLAN und MQTT | entschieden 31.10.2026 (Daniel). Unterspannung der XIAO über AI8 |
 | O26 | Verhalten nach XIAO-Neustart und bei Unterspannung | Kühlbox-Wunsch aus dem NVS wiederherstellen, alles andere aus; Unterspannung: Pi und Kühlbox aus, Heizungsnachlauf bleibt |
-| O27 | Keepalive 30 s mit `suppress-republish` und gezielten Leseanfragen | am Cerbo prüfen (5); Rückfall leerer Keepalive |
+| O27 | entfällt (XIAO ohne MQTT) | – |
 | O28 | Reicht UART 115200 Bd für `state` + `io` (Messmodus)? | messen; sonst 460800 Bd |
