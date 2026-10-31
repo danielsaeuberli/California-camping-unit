@@ -1,6 +1,8 @@
 # Cali Camping Unit – Software-Spezifikation
 
-Version 1.2 | 30. Oktober 2026 | Fahrzeug: VW T6 California 2.0 TDI 4Motion, MJ 2018, Campingausrüstung A8L/A8R
+Version 2.0 | 31. Oktober 2026 | Fahrzeug: VW T6 California 2.0 TDI 4Motion, MJ 2018, Campingausrüstung A8L/A8R
+
+**Version 2.0 (Entscheid 31.10.2026, «XIAO regelt, Pi nur zur Bedienung»):** Regelung, Zustandsautomaten, Victron-Client und Sicherheitslogik laufen in der Firmware der XIAO ESP32-S3 (ESP-IDF), die immer an ist. Der Pi 5 ist nur noch Bedienterminal (Oberfläche und Konfiguration), läuft nur bei Bedienung oder Zündung und schickt Wünsche per UART (`docs/UART_PROTOCOL.md`). Ziel: geparkt mit Regelung 0,5–1 W statt 5–7 W. Betroffen: Kapitel 1, 2, 3, 5, 6, 10, 11, 12. Hardware: HARDWARE.md 1.3, Kapitel 0.
 
 Version 1.1: Analogeingänge 0–3,3 V mit Referenz aus der Karte, Dachfreigabe nur mit Zündung, Freigabe je Schaltfunktion im Profil (Messung ausstehend), 58d evtl. PWM, T32b/29 = Laderelais-Befehl J713.
 
@@ -24,6 +26,13 @@ Die Unit ersetzt das Bedienteil E153. Die Original-Steuergeräte bleiben im Fahr
 | Victron | Cerbo GX, MultiPlus Compact 12/1600 | Batterie, Laden, 230 V anzeigen (nur lesen) |
 | Fahrzeug | 15a, 86s, D+, 58d, Geschwindigkeit | Power-Zustände, Fahrsperre, Nachtmodus |
 
+### Rollen (ab Version 2.0)
+
+| Teil | Läuft | Aufgabe | Nie |
+| --- | --- | --- | --- |
+| **XIAO-Firmware** (`xiao/`, ESP-IDF über PlatformIO) | immer | liest SM-H-001, SM-I-009, MCP23017 (I²C) und Victron (MQTT über den AP des Cerbo); führt Thermostat, Heizung, Dach, Tanks, Temperaturen, Fahrzeug, Energie; Sicherheitsregeln (Kapitel 6); schaltet Pi und Display ein und aus | – |
+| **`camperd`** auf dem Pi | bei Bedienung oder Zündung | liefert die Oberfläche aus, übersetzt WebSocket ↔ UART, verwaltet Profil, Einstellungen, Netzwerk (Ethernet), Messdaten-Ablage | schaltet nie selbst, kein Zugriff auf den Sequent-I²C, kein MQTT zum Cerbo |
+
 **Nicht im Umfang v1:** CAN/LIN zum Fahrzeug, Zugriff aus dem Internet, Schreiben auf den Cerbo ausser MultiPlus-Modus und Landstrom-Begrenzung (5.1), Licht-Dimmer, Batterie-Management.
 
 **Licht-Dimmer:** T32b hat in A8L/A8R (Nr. 133) keinen Lichtausgang; Pin 27 / T6ap/4 (58d) ist ein Eingang. Mit 9CE/9CI können Nr. 145/146 weitere Anschlüsse bringen. Dimmen ginge später nur mit eigener Verdrahtung, z. B. über die vier Open-Drain-PWM-Ausgänge des SM-H-001 (24 V, 3 A).
@@ -36,7 +45,7 @@ Die Unit ersetzt das Bedienteil E153. Die Original-Steuergeräte bleiben im Fahr
 
 | Grösse | Ziel |
 | --- | --- |
-| Kaltstart bis bedienbare Oberfläche | ≤ 15 s (messen in M1) |
+| Berührung bis bedienbare Oberfläche (Pi war aus) | **< 12 s**, 5 Durchläufe am Prüfstand |
 | Laufende Dienste ausser Kernel/systemd | `camperd`, `cog`, `systemd-journald`, `systemd-networkd`, `sshd` (nur Service) |
 | RAM im Betrieb | ≤ 600 MB |
 | Image auf der SD-Karte | ≤ 2 GB belegt |
@@ -58,12 +67,12 @@ python3-venv
 libgpiod2
 ```
 
-Python-Pakete im venv unter `/opt/camperd/venv`: `aiohttp`, `aiomqtt`, `smbus2`, `gpiod`, `pyserial-asyncio`, `pyyaml`. Mit Hash-Pinning (`requirements.lock`).
+Python-Pakete im venv unter `/opt/camperd/venv`: `aiohttp`, `pyserial-asyncio`, `pyyaml`. Mit Hash-Pinning (`requirements.lock`). `aiomqtt`, `smbus2` und `gpiod` braucht der Pi im Betrieb nicht mehr; sie bleiben für Prüfstand und Referenzmodell (3.3), bis die Firmware die Funktionen übernommen hat.
 
 ### 2.4 Entfernen bzw. deaktivieren
 
 ```
-bluetooth hciuart triggerhappy avahi-daemon ModemManager
+bluetooth hciuart triggerhappy avahi-daemon ModemManager wpa_supplicant (WLAN aus, O25)
 cups* rsyslog dphys-swapfile man-db apt-daily* apt-daily-upgrade*
 keyboard-setup console-setup (nach Ersteinrichtung)
 ```
@@ -72,19 +81,24 @@ keyboard-setup console-setup (nach Ersteinrichtung)
 
 ```
 # /boot/firmware/config.txt (Auszug)
-dtparam=i2c_arm=on
+dtparam=i2c_arm=off        # kein Zugriff auf den Sequent-I²C (die XIAO ist Master)
 dtparam=audio=off
 camera_auto_detect=0
 display_auto_detect=0
 disable_splash=1
 boot_delay=0
 dtoverlay=disable-bt
-dtoverlay=uart2-pi5        # Wake-MCU an GPIO4/5 (HARDWARE.md, O4)
+dtoverlay=disable-wifi     # Victron kommt über die XIAO (O25)
+dtoverlay=uart2-pi5        # XIAO an GPIO4/5 (HARDWARE.md 4.4)
+dtoverlay=gpio-poweroff,gpiopin=26   # meldet der XIAO «heruntergefahren»
 hdmi_force_hotplug=1
+# NICHT max_framebuffers=0: sonst bleibt der frühe Startbildschirm aus
 # HDMI-Modus für Viewe 480x1280 nach Datenblatt der Treiberplatine; Drehung auf 1280x480 quer
 ```
 
 `cmdline.txt`: `quiet loglevel=3 logo.nologo consoleblank=0 fsck.repair=yes`.
+
+EEPROM: `BOOT_ORDER=0xf1` (nur SD-Karte, keine Netz-/USB-Suche), `POWER_OFF_ON_HALT=1`. Keine weiteren Boot-Quellen und keine Auto-Erkennung. Kein Yocto/Buildroot: Startzeit zuerst mit diesen Abschaltungen messen.
 
 ### 2.6 Dateisysteme
 
@@ -95,16 +109,16 @@ hdmi_force_hotplug=1
 
 ### 2.7 Netzwerk
 
-Entscheid (HARDWARE.md 5.3), NetworkManager (`deploy/network/setup-network.sh`):
+Entscheid (HARDWARE.md 5.3). **Ab Version 2.0 ist die XIAO der einzige Victron-Client;** der Pi braucht kein WLAN (O25).
 
 - **Cerbo-Ethernet** bleibt am Camper-Router (unverändert; VRM, Remote Console).
-- **Pi `wlan0` → Access Point des Cerbo** (immer an, SSID «venus-…», Passwort auf dem Cerbo-Etikett). Nie Standardroute (`ipv4.never-default`), IPv6 aus, Autoconnect ohne Limit, WLAN-Stromsparen aus. Cerbo-Adresse im AP-Netz erwartet `172.24.24.1` (O19).
+- **XIAO → Access Point des Cerbo** (immer an, SSID «venus-…», Passwort auf dem Cerbo-Etikett). Cerbo-Adresse im AP-Netz erwartet `172.24.24.1` (O19). SSID, Passwort und Cerbo-Adresse stellt man in der Expertenansicht ein; `camperd` prüft sie und gibt sie per UART an die XIAO (`config`), die sie im NVS speichert. Das Passwort geht nie zurück an die Oberfläche.
+- **Übergang bis zur Firmware (M5/M6):** Am Prüfstand verbindet sich der Pi wie bisher selbst mit dem AP (NetworkManager, `deploy/network/setup-network.sh`, `tools/cerbo_check.py`), um O19 zu prüfen. Im Fahrzeug nicht.
 - **Pi `eth0` → LAN-Port des Routers** (Router nur zeitweise an): DHCP, Routenmetrik 100; Standardroute nur, solange der Router da ist. Für SSH und Fernzugriff (optional Tailscale).
 - Der Cerbo kann zwischen WLAN und Ethernet weder bridgen noch routen (Venus-OS-Kernel ohne Bridge). Nicht versuchen.
-- **Keine Steuerfunktion hängt am Router-Netz.** `camperd` braucht für Dach, Kühlbox und Heizung gar kein Netz; Victron-Daten kommen nur über den AP.
-- Firewall (`deploy/network/nftables.conf`): auf `wlan0` keine neuen eingehenden Verbindungen (der AP ist mit dem Etikett-Passwort für jeden offen). `sshd` nur mit Schlüssel, erreichbar über `eth0`.
-- `config.txt`: `dtoverlay=disable-bt`, WLAN bleibt an.
-- **Einstellen am Gerät:** Expertenansicht → Netzwerk (Ethernet DHCP/statisch mit Adresse/Präfix, Gateway, DNS; WLAN-SSID und -Passwort zum Cerbo-AP; Cerbo-Adresse). Eingabe über eine Bildschirmtastatur. `camperd` prüft die Werte und speichert sie in `/data/network.json` (Rechte 600; das Passwort geht nie an die Oberfläche und nie ins Ereignislog). Der Root-Dienst `camper-network` wendet sie mit `nmcli` an, bei jedem Start (Root-Dateisystem schreibgeschützt) und auf Anforderung; `camperd` darf per polkit nur diesen einen Dienst starten. Eine neue Cerbo-Adresse übernimmt der MQTT-Client ohne Neustart. Erstinbetriebnahme ohne Bildschirm: `deploy/network/setup-network.sh`.
+- **Keine Steuerfunktion hängt am Router-Netz.** Die Regelung braucht kein Netz; Victron-Daten kommen nur über den AP an die XIAO.
+- Firewall (`deploy/network/nftables.conf`): keine neuen eingehenden Verbindungen ausser `sshd` (nur Schlüssel) über `eth0`.
+- **Einstellen am Gerät:** Expertenansicht → Netzwerk. Ethernet (DHCP/statisch) wendet der Root-Dienst `camper-network` mit `nmcli` an (wie bisher, `/data/network.json`, Rechte 600, polkit nur für diesen Dienst). WLAN-Werte gehen an die XIAO (siehe oben).
 
 ### 2.8 Oberfläche anzeigen
 
@@ -131,35 +145,54 @@ Kein Git und kein Paketmanager im Betrieb. `make deploy` vom Mac:
 
 ## 3. Architektur
 
-### 3.1 Ein Prozess
+### 3.1 Zwei Rechner, ein Master
 
 ```
-Fahrzeug ─ T32b/T6ap/T2p ─ Breakout X1–X4 ─ SM-H-001 / SM-I-009 / H1–H4
-                                               │ I²C, GPIO
-Cerbo GX ─ Ethernet, MQTT ──────────┐          │
-Wake-MCU ─ UART ───────────────┐    │          │
-                               ▼    ▼          ▼
-                    camperd (Python, asyncio, ein Prozess)
-                      hal → signals → modules → state
-                      api: HTTP (statische UI) + WebSocket
-                               │ 127.0.0.1:8080
-                               ▼
-                    cog (WPE WebKit, DRM) → Viewe 1280×480
+Fahrzeug ─ T32b/T6ap/T2p ─ Breakout ─ SM-H-001 / SM-I-009 / MCP23017 → H1–H4
+                                          │ I²C
+Cerbo GX ─ WLAN-AP, MQTT ──────┐          │
+Touch-IRQ, Zündung, 86s ──┐    │          │
+                          ▼    ▼          ▼
+              XIAO ESP32-S3 (ESP-IDF, immer an)
+                io → signals → modules → safety → Ausgänge
+                victron (MQTT), power (Pi, Display), link (UART)
+                          │ UART (Puffer, HARDWARE.md 4.4)
+                          ▼
+              camperd (Python, asyncio) – nur bei Bedienung/Zündung
+                link: UART ↔ Zustand; api: HTTP + WebSocket; profile; net
+                          │ 127.0.0.1:8080
+                          ▼
+              cog (WPE WebKit, DRM) → Viewe 1280×480
 ```
 
-### 3.2 Pakete in `camperd`
+Die XIAO entscheidet über jeden Ausgang. Der Pi schickt nur Wünsche; jede Regel aus Kapitel 6 prüft die XIAO selbst, egal was der Pi schickt. Fällt der Pi aus oder ist er aus, läuft die Regelung unverändert weiter (das Dach stoppt, weil keine Laufmeldungen mehr kommen).
 
-| Paket | Aufgabe |
+### 3.2 Firmware `xiao/`
+
+| Komponente | Aufgabe |
 | --- | --- |
-| `hal/` | Treiber pro Quelle: `sim`, `sm_h001`, `sm_i009`, `hw` (beide Karten + Leiter-GPIO + ALIVE), `cerbo_mqtt`, `wake_uart`. Einheitliche Schnittstelle: `read_di()`, `read_ai()`, `read_rail()` (3,3-V-Schiene SM-H-001), `read_counters()`, `write_relay(ch, on)`, `write_gpio(ch, on)`, Ereignisse als `asyncio.Queue`. |
-| `profile/` | Lädt und validiert das YAML-Profil. Unbekannte Schlüssel → Fehler. `TODO_MEASURE` → Wert gilt als «nicht kalibriert». |
-| `signals/` | Rohwert → Wert mit Zeitstempel und Qualität: `ok`, `stale`, `open`, `short`, `implausible`, `uncalibrated`. Entprellen, Median, Pulszähler, Frequenz. |
-| `modules/` | Zustandsmaschinen: `roof`, `fridge`, `heater`, `tanks`, `climate`, `vehicle`, `energy`. Rein logisch, keine I/O, Uhr injiziert. |
-| `power/` | Betriebszustände, Shutdown-Bedingungen, Wake-MCU-Protokoll. |
-| `api/` | `aiohttp`: liefert `ui/` aus, WebSocket `/ws`, Ereignislog. |
-| `measure/` | Messmodus und Kalibrier-Assistent (Kapitel 8). |
+| `io/` | Treiber SM-H-001 (Relais mit Rücklesen, AI, 3,3-V-Schiene), SM-I-009 (DI, Zähler), MCP23017 (H1–H4, Display-Schalter). I²C-Fehlerzähler (S5). |
+| `signals/` | Entprellen, Median, Pulszähler, Qualität `ok/stale/open/short/implausible/uncalibrated` (wie heute in Python). |
+| `modules/` | `roof`, `fridge`, `heater`, `tanks`, `climate`, `vehicle`, `energy`. **Reines C ohne ESP-IDF-Abhängigkeit,** Uhr als Parameter → auf dem Rechner testbar. |
+| `safety/` | Freigaben je Funktion, Regeln S1–S14, Task-Watchdog. |
+| `victron/` | MQTT-Client (esp-mqtt) zum Cerbo, Keepalive, Schreibwhitelist (5.1). |
+| `power/` | Pi-Versorgung, Display-Schalter, Summer, Nachlauf (Kapitel 10). |
+| `link/` | UART-Protokoll zum Pi (`docs/UART_PROTOCOL.md`). |
+| `store/` | Profil und Einstellungen im NVS, mit Hash. |
 
-Zyklus: Eingänge 20 ms (DI) bzw. 100 ms (AI) lesen, Module rechnen, Ausgänge schreiben, Zustand an die Oberfläche bei Änderung, spätestens jede Sekunde.
+Tests: `pio test -e native` führt die Modul- und Sicherheitstests auf dem Rechner aus (Unity), ohne Hardware und ohne Warten (Uhr injiziert). Je Regel S1–S14 mindestens ein Test, benannt nach der Nummer.
+
+### 3.3 `camperd` auf dem Pi und das Python-Referenzmodell
+
+| Paket | Aufgabe ab Version 2.0 |
+| --- | --- |
+| `api/` | wie bisher: statische Oberfläche, WebSocket `/ws` (Kapitel 4). |
+| `link/` (neu) | UART zur XIAO: Snapshot beim Verbindungsaufbau, Befehle mit ID weiterreichen, Antworten und Zustand an die Oberfläche. |
+| `profile/` | lädt und prüft das YAML-Profil und überträgt es an die XIAO (`profile`). |
+| `net.py` | Ethernet am Pi; WLAN-Werte für den Cerbo-AP gehen an die XIAO. |
+| `hal/`, `signals/`, `modules/`, `power/` | **Referenzmodell und Simulator.** Die heutige Python-Logik mit ihren Tests (`tests/safety/`) ist die ausführbare Vorlage für die Firmware. `make dev` läuft weiter damit. Im Fahrzeug wird `--hal hw` nicht mehr benutzt; der Treiber `hw` bleibt nur für den Prüfstand, bis die Firmware die Karten liest (M5). |
+
+Dieselben Szenarien laufen gegen Python und gegen die Firmware-Module (Differenztest), bis die Firmware die Funktion übernommen hat.
 
 ---
 
@@ -200,16 +233,20 @@ JSON-Nachrichten, ein Objekt pro Frame. Version im Feld `v`.
 
 - `hold` alle 100 ms, solange die Dachtaste gedrückt ist. `seq` steigt monoton.
 - Verbindungsabbruch = Last Will: Die Oberfläche sperrt alle Bedienelemente und zeigt «Steuerung offline». `camperd` behandelt einen abgerissenen Socket wie ausbleibende `hold`-Nachrichten.
+- **Ab Version 2.0** bleibt dieses Protokoll gleich. `camperd` reicht `cmd`, `hold` und `settings` per UART an die XIAO weiter und gibt deren `state`, `victron`, `io` und `ack` an die Oberfläche (`docs/UART_PROTOCOL.md`). Ist die XIAO nicht erreichbar, zeigt die Oberfläche «Steuerung offline». Ein `ack` kommt erst, wenn die XIAO geantwortet hat.
 
 ---
 
 ## 5. Victron Cerbo GX (MQTT)
+
+**Ab Version 2.0 läuft der Client in der XIAO-Firmware** (`xiao/victron/`, esp-mqtt); `camperd` spricht nicht mehr mit dem Cerbo. Die Regeln dieses Kapitels gelten unverändert für die Firmware, mit einer Änderung beim Keepalive (unten). Der Python-Client `camperd/hal/cerbo_mqtt.py` bleibt Referenz und Prüfwerkzeug.
 
 Verkabelung: MultiPlus Compact → Cerbo über **VE.Bus** (RJ45-Patchkabel an die VE.Bus-Buchse des Cerbo, nicht an dessen Ethernet). Pi ↔ Cerbo über Ethernet.
 
 - Verbindung `172.24.24.1:1883` (AP des Cerbo, `buses.cerbo.host`), Client-ID `camperd`, MQTT-Ping 10 s. Reconnect ohne manuellen Schritt nach Neustart oder Firmware-Update des Cerbo: Backoff 1–10 s; nach jedem Verbinden Portal-ID und VE.Bus-Instanz neu ermitteln und alle Datenthemen neu abonnieren. Offene Schreibbefehle verfallen beim Verbindungsabbruch.
 - Portal-ID beim Start aus `N/+/system/0/Serial` ermitteln. VE.Bus-Instanz aus `N/<id>/vebus/+/ProductId`.
 - Keepalive: `R/<id>/keepalive` mit **leerem** Payload alle `buses.cerbo.keepalive_s` = 5 s. Venus publiziert nur, solange Keepalives kommen, und sendet bei leerem Keepalive alle Werte neu. Weil Werte sonst nur bei Änderung kommen, muss das Intervall ≤ `stale_s` / 2 sein (Code prüft das), damit ein gleichbleibender Wert nicht als veraltet gilt. Optional feste Portal-ID `buses.cerbo.portal_id`, falls `N/+/system/0/Serial` nicht ankommt.
+- **Keepalive in der XIAO (O27, prüfen):** Ein leerer Keepalive alle 5 s lässt Venus jedes Mal alle Werte des Systems neu senden; das ist für die XIAO unnötig viel. Vorgabe: `R/<id>/keepalive` mindestens alle 30 s mit `{"keepalive-options":["suppress-republish"]}`, und die benötigten Werte (Liste unten) alle 5 s gezielt mit `R/<id>/<service>/<instance>/<path>` anfordern, damit gleichbleibende Werte nicht als veraltet gelten. Am Cerbo prüfen: Antwortet Venus auf die gezielten Anfragen, und bleibt die Last am WLAN klein? Sonst Rückfall auf den leeren Keepalive mit `stale_s` > Intervall.
 - Gelesen:
   - `system/0/Dc/Battery/{Soc,Voltage,Current,Power,TimeToGo}` (TimeToGo nur mit Batteriemonitor), `system/0/Dc/Pv/Power`, `system/0/Dc/Charger/Power`, `system/0/Dc/Alternator/Power` (Orion XS, Laden während der Fahrt)
   - `vebus/<inst>/{State,Mode,Ac/ActiveIn/ActiveInput,Ac/ActiveIn/L1/{V,I,F,P},Ac/Out/L1/{V,I,F,P,S},Ac/PowerMeasurementType,Dc/0/Power}`
@@ -248,18 +285,24 @@ Nur mit `victron.control: true` im Profil (Standard `false`). Erlaubt sind genau
 
 ## 6. Sicherheitsregeln (mit Tests, vor jeder Hardware-Freigabe)
 
+**Ort ab Version 2.0: XIAO-Firmware** (`xiao/safety/`, Tests auf dem Rechner). Die Python-Tests in `tests/safety/` bleiben als Referenz, bis die Firmware dieselben Fälle besteht. Wo unten `camperd` steht, ist ab 2.0 die Firmware gemeint.
+
 | Nr. | Regel |
 | --- | --- |
-| S1 | Beim Start sind K1–K8 aus und H1–H4 stromlos (NC geschlossen = Basiswiderstand R0), bevor `camperd` irgendeine Nachricht annimmt. Der Einschaltzustand der Relais des SM-H-001 (Register «relay default») wird auf 0 gesetzt; der Bootpegel von H1–H4 steht in `config.txt`. |
+| S1 | Beim Start sind K1–K8 aus und H1–H4 stromlos (NC geschlossen = Basiswiderstand R0), bevor die XIAO irgendeine Nachricht annimmt. Der Einschaltzustand der Relais des SM-H-001 (Register «relay default») ist 0; der MCP23017 bleibt im Reset, bis die XIAO ihn initialisiert hat (nach Reset sind alle Pins Eingang). Die XIAO stellt nach einem eigenen Neustart nichts wieder her, was vor dem Neustart lief, ausser dem gespeicherten Kühlbox-Wunsch (an/aus, Soll) (O26). |
 | S2 | K1 und K2 nie gleichzeitig. Richtungswechsel nur nach 300 ms mit beiden aus. |
-| S3 | Dachrelais fällt ab, wenn 300 ms keine Laufmeldung (`hold`) kommt, der WebSocket abreisst oder 60 s Laufzeit pro Befehl erreicht sind (Wert im Profil). Gilt für beide Bedienarten: Halten und Antippen (`auto`). Beim Antippen sendet die Oberfläche die Laufmeldung selbst, bis STOPP, irgendeine Berührung, die Endlage oder eine Ablehnung; `camperd` stoppt zusätzlich selbst in der Endlage. Antippen nur mit gemessener Wahrheitstabelle und Relaisrichtung (`roof.tap_to_run`), sonst Halten. |
+| S3 | Dachrelais fällt ab, wenn 300 ms keine Laufmeldung (`hold`, per UART `roof`) kommt, der WebSocket oder die UART-Verbindung abreisst, der Pi herunterfährt oder 60 s Laufzeit pro Befehl erreicht sind (Wert im Profil). Gilt für beide Bedienarten: Halten und Antippen (`auto`). Beim Antippen sendet die Oberfläche die Laufmeldung selbst, bis STOPP, irgendeine Berührung, die Endlage oder eine Ablehnung; `camperd` stoppt zusätzlich selbst in der Endlage. Antippen nur mit gemessener Wahrheitstabelle und Relaisrichtung (`roof.tap_to_run`), sonst Halten. |
 | S4 | Öffnen des Dachs gesperrt, solange Geschwindigkeitsimpulse anliegen (Profil: `inputs.speed`). Schliessen bleibt erlaubt. Läuft ein Öffnen-Befehl, wenn die Fahrt beginnt: sofort stoppen. Wie beim Original-E153 fährt das Dach nur mit Zündung ein (`roof.require_ignition`); fällt die Zündung ab: sofort stoppen. |
 | S5 | Fällt der SM-I-009 aus (3 I²C-Fehler in Folge): DI-Werte `stale`, Dach gesperrt, Meldung. Schaltet ein Relais des SM-H-001 laut Rücklesen nicht: Fehler. |
 | S6 | Kühlbox: Mindestlaufzeit 2 min, Mindestpause 3 min (Profil). |
 | S7 | Heizungsstufe: H-Relais nur einzeln umschalten, 50 ms Abstand. Nie zwei gleichzeitig. |
-| S8 | Kein Shutdown, solange die Heizung im Nachlauf ist oder das Dach fährt bzw. die Pumpe nachläuft (`roof.pump_afterrun_s`). |
+| S8 | Die XIAO schaltet sich nie selbst ab. Der Pi fährt nicht herunter, solange das Dach fährt bzw. die Pumpe nachläuft (`roof.pump_afterrun_s`). Heizungsnachlauf und Kühlbox hängen nicht am Pi. |
 | S9 | Ausfall des Cerbo ändert nichts an Dach, Kühlbox und Heizung. |
-| S10 | Ein Watchdog im `camperd` (eigener Thread, weil ein asyncio-Task eine hängende Event-Loop nicht bemerkt) prüft den Hauptzyklus. Hängt er > 2 s: alle Relais aus, Prozess beenden, systemd startet neu. |
+| S10 | Task-Watchdog der XIAO prüft den Regelzyklus. Hängt er > 2 s: Neustart der XIAO, danach gilt S1. Ein hängender I²C-Bus wird mit 9 Takten freigemacht; gelingt das nicht: S5. |
+| S11 | Der Pi schaltet nie. Jeder Wunsch vom Pi ist ein Befehl an die XIAO, die ihn gegen alle Regeln und Freigaben prüft und mit `ack` beantwortet. Der Pi hat keinen Zugang zum Sequent-I²C. |
+| S12 | Weck-Berührung: Die XIAO quittiert sie sofort mit einem Ton. Die erste Berührung bei dunklem Display oder ausgeschaltetem Pi löst keine Bedienung aus. |
+| S13 | Keine Wiederholung alter Befehle: Befehle gehören zu einer Sitzung (Startkennung der XIAO und des Pi). Nach einem Neustart oder Verbindungsabbruch einer Seite verwirft die XIAO alles aus der alten Sitzung; IDs müssen streng steigen. Dachbefehle gelten nur mit laufender Bestätigung (S3). |
+| S14 | Regelung unabhängig vom Pi: Ist der Pi aus, hängt oder ist die UART-Verbindung weg, laufen Kühlbox-Thermostat und Heizung unverändert weiter. |
 
 Jede Regel hat mindestens einen Test in `tests/safety/`, benannt nach der Nummer (`test_s3_roof_hold_timeout.py`).
 
@@ -268,6 +311,8 @@ Jede Regel hat mindestens einen Test in `tests/safety/`, benannt nach der Nummer
 ---
 
 ## 7. Funktionsmodule
+
+Ab Version 2.0 in der XIAO-Firmware (`xiao/modules/`). Das Verhalten unten gilt unverändert; die Python-Module sind die Vorlage.
 
 ### 7.1 Dach (`roof`)
 
@@ -326,7 +371,7 @@ Bereitet die Cerbo-Werte für die Oberfläche auf (Kapitel 5), inkl. Nettoleistu
 
 ## 8. Messmodus (`measure`)
 
-Wird vor den Schaltfunktionen gebraucht (M3). Original-E153 bleibt angeschlossen, die Unit hört über einen Y-Abgriff mit. Relais bleiben gesperrt (Profil-Schalter `measure.outputs_locked: true`).
+Wird vor den Schaltfunktionen gebraucht (M3). Ab Version 2.0 liefert die XIAO die Rohwerte (`io`, schnell), `camperd` schreibt die CSV nach `/data`. Bis die Firmware steht, geht der Messmodus am Prüfstand auch direkt mit dem Pi (`--hal hw`). Original-E153 bleibt angeschlossen, die Unit hört über einen Y-Abgriff mit. Relais bleiben gesperrt (Profil-Schalter `measure.outputs_locked: true`).
 
 1. **Logger:** alle DI mit 1 ms Zeitstempel (Flanken), AI mit 10 Hz nach `/data/measure/<datum>.csv`. Marker per Tastendruck in der Oberfläche.
 2. **Wahrheitstabelle Dach:** geführter Ablauf («Jetzt am Original öffnen …»), schreibt `roof.truth_table` ins Profil.
@@ -358,37 +403,33 @@ Vorlage: `ui/reference/Camping_Unit_Oberflaeche_v2.html`. Layout, Farben, Naviga
 
 ---
 
-## 10. Power-Management und Wake-MCU
+## 10. Power-Management (XIAO)
 
-### 10.1 Zustände
+Die XIAO läuft immer und regelt. Sie schaltet nur den Pi und das Display.
+
+### 10.1 Zustände des Pi
 
 | Zustand | Eintritt | Display | Austritt |
 | --- | --- | --- | --- |
-| `drive` | 15a an | an | 15a aus → `afterrun` |
-| `afterrun` | 15a aus | an | 60 s ohne Bedienung → `standby` |
-| `standby` | – | aus | Touch → `afterrun`; 30 min ohne Bedienung und Shutdown-Bedingungen erfüllt → `shutdown` |
-| `shutdown` | – | aus | `SHUTDOWN` an MCU, `systemctl poweroff` |
+| `off` | – | aus (Lastschalter offen) | Berührung (Touch-IRQ), 86s an oder Zündung an → `booting` |
+| `booting` | DCDC-Enable an | an | `hello` vom Pi → `on`; 60 s ohne `hello` → Enable aus, Fehler im Log, nächster Versuch beim nächsten Weckgrund |
+| `on` | – | an; nach `settings.idle_min` ohne Berührung dunkel (Lastschalter aus) | Zündung aus und 20 min ohne Berührung → `shutting_down` |
+| `shutting_down` | `shutdown` an den Pi | aus | Pi meldet «heruntergefahren» (GPIO26) oder 60 s → Enable aus → `off` |
 
-Shutdown-Bedingungen: Kühlbox-Thermostat aus, Heizung `off`, Dach steht. Unterspannung (Cerbo-Spannung < Schwelle im Profil, 60 s) erzwingt Shutdown ausser bei Heizungsnachlauf. Ohne Cerbo-Spannung kein automatischer Unterspannungs-Shutdown, nur eine Warnung.
+- **Nachlauf:** 20 min nach der letzten Berührung; bei Zündung an bleibt der Pi an. Die XIAO misst die Berührungen selbst (Touch-IRQ), nicht über den Pi.
+- **Weck-Berührung (S12):** sofort ein Ton; die Berührung schaltet nur ein bzw. weckt das Display, sie bedient nichts.
+- Der Pi kann das Herunterfahren mit `busy` um je 60 s aufschieben (z. B. Update läuft), höchstens 10 min.
+- Kein `hb` vom Pi für 2 min im Zustand `on`: Pi hängt → Enable aus, 5 s, wieder an (Root-Dateisystem schreibgeschützt).
+- Dach fährt oder Pumpe läuft nach: kein Herunterfahren (S8).
+- **Unterspannung** (Batteriespannung vom Cerbo < Schwelle im Profil, 60 s; O11): Pi aus; Kühlbox-Anforderung aus; laufender Heizungsnachlauf bleibt (O26). Ohne Cerbo-Spannung nur Warnung.
 
-### 10.2 Protokoll Pi ↔ MCU
+### 10.2 Protokoll Pi ↔ XIAO
 
-UART 115200 8N1, ASCII-Zeilen mit `\n`:
+`docs/UART_PROTOCOL.md`: Snapshot beim Verbindungsaufbau, Befehle mit ID und Sitzung, keine Wiederholung alter Befehle nach Neustart, Dachbefehle nur mit laufender Bestätigung.
 
-| Pi → MCU | MCU → Pi |
-| --- | --- |
-| `HB` (alle 5 s) | `WAKE ignition` / `WAKE touch` / `WAKE watchdog` (auf `WAKE?`) |
-| `WAKE?` | `IGN 1` / `IGN 0` bei Änderung |
-| `SHUTDOWN` | `OK SHUTDOWN` |
-| `VER?` | `VER 1.0.0` |
+### 10.3 Ruhestrom
 
-### 10.3 MCU-Firmware (`wake-mcu/`)
-
-- Zündung an → DCDC-Enable an.
-- Touch-IRQ bei aus → DCDC-Enable an, Grund `touch`.
-- Nach `SHUTDOWN`: warten, bis Power-Good fällt, +5 s, dann DCDC-Enable aus.
-- Kein `HB` für 10 min bei Zündung aus → DCDC aus/an (Neustart). Bei Zündung an nie hart abschalten.
-- Ruhestrom im Aus-Zustand messen und dokumentieren (Ziel < 5 mA an 12 V).
+Ziel geparkt mit Regelung 0,5–1 W an 12 V (HARDWARE.md Kapitel 0). WLAN der XIAO im Modem-Schlaf zwischen den MQTT-Paketen; Regelzyklus 100 ms reicht für Thermostat und Heizung, 20 ms nur bei Zündung an (Dach, Fahrt). Messen in drei Zuständen: geparkt mit Regelung, Bedienung, alles aus.
 
 ---
 
@@ -396,14 +437,14 @@ UART 115200 8N1, ASCII-Zeilen mit `\n`:
 
 | M | Inhalt | Fertig, wenn |
 | --- | --- | --- |
-| M1 | Repo-Gerüst, Profil-Loader, `sim`-HAL, Modulgerüste, WebSocket-API, Oberfläche aus Prototyp an den Socket gebunden. **Plattform-Prüfung auf dem Pi:** Image-Skript, `cog --platform=drm` mit Viewe + Touch, Kaltstartzeit messen | `make dev` läuft auf dem Mac; auf dem Pi zeigt `cog` die Oberfläche, Touch geht, Startzeit gemessen und notiert |
-| M2 | Treiber `sm_h001`, `sm_i009`, `gpio_ladder`, `cerbo_mqtt` auf dem Tisch | Rohwerte in der Expertenansicht, Victron-Werte vom echten Cerbo |
-| M3 | Messmodus und Kalibrier-Assistent | Messfahrt mit Original-E153 möglich, CSV und Profil-Updates werden geschrieben |
-| M4 | (Daniel) Messungen am Fahrzeug, Profil füllen | keine `TODO_MEASURE` mehr in den Pflichtfeldern |
-| M5 | Lesende Module: Tanks, Temperaturen, Energie, Fahrzeug | Unit läuft im Auto parallel zum Original, ohne zu schalten |
-| M6 | Wake-MCU-Firmware und Power-Management | Wake, Nachlauf, Standby, Shutdown am Tisch geprüft, Ruhestrom gemessen |
-| M7 | Schaltfunktionen in der Reihenfolge Heizung, Kühlbox, Dach; alle S-Tests grün | jede Funktion einzeln am Fahrzeug freigegeben |
-| M8 | Feinschliff: Meldungen, Nachtmodus, Ereignislog, Updates über `/data/releases` | Einbau-Version 1.0 |
+| M1 | erledigt: Repo, Profil, Simulator, WebSocket-API, Oberfläche | `make dev` läuft |
+| M2 | erledigt: Treiber `sm_h001`, `sm_i009`, `cerbo_mqtt` in Python (ab 2.0 Referenz und Prüfstand) | Rohwerte in der Expertenansicht |
+| M3 | Messmodus und Kalibrier-Assistent (am Prüfstand mit dem Pi, später über die XIAO) | Messfahrt mit Original-E153 möglich |
+| M4 | (Daniel) Messungen am Fahrzeug, Profil füllen (HARDWARE.md 6, «nicht bauen, bevor gemessen») | keine `TODO_MEASURE` mehr in den Pflichtfeldern |
+| M5 | **XIAO-Grundgerüst:** ESP-IDF-Projekt, Treiber SM-H-001/SM-I-009/MCP23017, UART-Link, `camperd`-Bridge, Pi- und Display-Versorgung, Summer, Profil im NVS | Pi startet per Berührung, zeigt Rohwerte von der XIAO; Verbrauch in 3 Zuständen und Zeit Berührung → bedienbar (5 Läufe) gemessen |
+| M6 | Firmware: Victron-Client, lesende Module (Tanks, Temperaturen, Energie, Fahrzeug) | Unit läuft im Auto parallel zum Original, ohne zu schalten; Regelung läuft mit Pi aus |
+| M7 | Firmware: Schaltfunktionen Heizung, Kühlbox, Dach; alle S-Tests (Rechner) grün, Differenztest gegen Python grün | jede Funktion einzeln am Fahrzeug freigegeben |
+| M8 | Feinschliff: Meldungen, Nachtmodus, Ereignislog, Updates (Pi über `/data/releases`, XIAO per UART oder USB) | Einbau-Version 1.0 |
 
 ---
 
@@ -413,13 +454,13 @@ UART 115200 8N1, ASCII-Zeilen mit `\n`:
 | --- | --- | --- |
 | O1 | Läuft `cog` (DRM) auf Pi 5 mit Viewe und Touch? | M1 prüfen; Rückfall `cage` + `cog -P wl` |
 | O2 | Regelt J1029 selbst? | Thermostat im Pi |
-| O3 | Was tut der Watchdog des SM-H-001, wenn der Pi über den DCDC-USB gespeist wird? | HAT-Watchdog aus; Software-Watchdog S10 |
+| O3 | Was tut der Watchdog des SM-H-001 ohne Pi (abgesetzt, Standby-Speisung)? | HAT-Watchdog aus; Task-Watchdog der XIAO (S10) |
 | O4 | Belegt der SM-H-001 UART oder weitere GPIO? | erledigt: SM-H-001 und SM-I-009 nutzen nur I²C (GPIO2/3) |
 | O5 | Ist A11 noch eingebaut? | DI5 nur loggen |
 | O6 | Wahrheitstabelle Dach, Pegel aller Ein-/Ausgänge | aus Messmodus (M3/M4) |
 | O7 | Kennlinien G817, G249, G120, G126, Heizungs-Sollwert | `TODO_MEASURE`, Anzeige «nicht kalibriert» |
 | O8 | T32b/29 = Laderelais-Befehl J713 (Motor läuft), kein rohes D+ | nur loggen; Pegel messen |
-| O9 | Touch-Controller mit IRQ für Wake? | ohne IRQ: Wake nur über Zündung |
+| O9 | Touch-Controller mit IRQ für Wake, Ruhestrom an der Standby-Schiene? | ohne IRQ: Wake nur über 86s und Zündung |
 | O10 | Helligkeitssteuerung der Viewe-Treiberplatine | Regler ohne Wirkung, Hinweis in der Oberfläche |
 | O11 | Unterspannungsschwelle | 11,8 V für 60 s |
 | O12 | Belastung der Fahrzeugsignale durch Optokoppler im Messmodus | vor dem Anschliessen mit Multimeter prüfen (Daniel) |
@@ -432,3 +473,10 @@ UART 115200 8N1, ASCII-Zeilen mit `\n`:
 | O19 | **Blockierend:** Antwortet MQTT des Cerbo über dessen WLAN-AP? Adresse im AP-Netz (erwartet 172.24.24.1)? | `tools/cerbo_check.py`. Antwortet MQTT nicht: STOPP und melden; Rückfall unmanaged Switch (HARDWARE.md 5.3) |
 | O20 | Name des Ruuvi-Tags am Cerbo; meldet Venus einen verstummten Tag (Dienst verschwindet) oder publiziert er den letzten Wert weiter? | `custom_name: TODO_CHECK` → einziger Ruuvi-Tag; am Fahrzeug Batterie aus dem Tag nehmen und prüfen, ob die Anzeige nach `stale_s` auf «–» geht |
 | O21 | Füllt Venus 3.85 `system/0/Dc/Alternator/Power` für die Orion XS (in VRM als «Alternator»)? | erledigt (Daniel, 31.10.2026): ja, der Wert kommt |
+| O22 | Brauchen SM-H-001 und SM-I-009 am Header 3,3 V vom Pi, oder erzeugen sie sie selbst? | im Schema prüfen; sonst 3,3 V von der Standby-Schiene zuführen, nie vom Pi |
+| O23 | Touch-Schnittstelle zum Pi: I²C oder USB? | I²C über TCA9517 (Partial-Power-Down); bei USB entfällt der Puffer, Wake trotzdem über IRQ an die XIAO |
+| O24 | Pi-Versorgung, wenn die XIAO neu startet | Enable mit Pull-down: Pi aus (Root schreibgeschützt). Bei Zündung an kurz unterbrochen; prüfen, ob das stört |
+| O25 | Pi ganz ohne WLAN, alle Victron-Werte über die XIAO? | ja (`disable-wifi`); Datenrate der UART prüfen (O28) |
+| O26 | Verhalten nach XIAO-Neustart und bei Unterspannung | Kühlbox-Wunsch aus dem NVS wiederherstellen, alles andere aus; Unterspannung: Pi und Kühlbox aus, Heizungsnachlauf bleibt |
+| O27 | Keepalive 30 s mit `suppress-republish` und gezielten Leseanfragen | am Cerbo prüfen (5); Rückfall leerer Keepalive |
+| O28 | Reicht UART 115200 Bd für `state` + `victron` + `io`? | messen; sonst 460800 Bd |

@@ -10,7 +10,7 @@ DEST="/data/releases/$VERSION"
 rsync -a --delete \
   --exclude .git --exclude .venv --exclude var --exclude '__pycache__' \
   --exclude '.pytest_cache' --exclude '.mypy_cache' --exclude '.ruff_cache' \
-  --exclude 'wake-mcu' --exclude 'ui/reference' \
+  --exclude 'xiao' --exclude 'ui/reference' \
   "$ROOT/" "$PI:$DEST/"
 
 ssh "$PI" bash -s -- "$DEST" <<'REMOTE'

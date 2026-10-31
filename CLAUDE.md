@@ -1,18 +1,24 @@
 # CLAUDE.md – Cali Camping Unit
 
-Ersatz für das Camping-Bedienteil E153 im VW T6 California (MJ 2018, Ausstattung A8L/A8R). Ein Raspberry Pi 5 mit Relais- und Eingangskarten übernimmt die Bedienung von Dach, Kühlbox und Standheizung, zeigt Tanks, Temperaturen und Victron-Daten auf einem 1280 × 480-Touchdisplay an und verwaltet den Strom der Unit.
+Ersatz für das Camping-Bedienteil E153 im VW T6 California (MJ 2018, Ausstattung A8L/A8R).
+
+**Architektur (Entscheid 31.10.2026, SPEC 2.0): «XIAO regelt, Pi nur zur Bedienung».** Eine immer laufende XIAO ESP32-S3 ist der einzige Master für alle Ausgänge (Dach, Kühlbox, Standheizung), liest die Relais- und Eingangskarten über I²C und Victron über MQTT. Ein Raspberry Pi 5 mit 1280 × 480-Touchdisplay ist nur Bedienterminal, läuft nur bei Bedienung oder Zündung und schickt Wünsche per UART an die XIAO. Ziel: geparkt mit Regelung 0,5–1 W.
 
 ## Zuerst lesen
 
 1. `docs/SOFTWARE_SPEC.md` – was gebaut wird, Schnittstellen, Abnahmekriterien, Meilensteine
-2. `docs/HARDWARE.md` – Komponenten, Kanalbelegung, elektrische Randbedingungen
-3. `profiles/t6-california-a8l-2018.yaml` – Zuordnung VW-Pin → Kanal (Quelle der Wahrheit für die Verdrahtung)
-4. `ui/reference/Camping_Unit_Oberflaeche_v2.html` – abgenommenes Oberflächenkonzept (Klick-Prototyp mit Demo-Daten)
-5. Bei Fragen zu Pins: `docs/reference/E153_Pin_Check_Nr133.md` und `docs/reference/Recherche_Camping_Unit.md`
+2. `docs/HARDWARE.md` – Komponenten, Kanalbelegung, elektrische Randbedingungen (Kapitel 0: Architektur)
+3. `docs/UART_PROTOCOL.md` – Pi ↔ XIAO
+4. `profiles/t6-california-a8l-2018.yaml` – Zuordnung VW-Pin → Kanal (Quelle der Wahrheit für die Verdrahtung)
+5. `ui/reference/Camping_Unit_Oberflaeche_v2.html` – abgenommenes Oberflächenkonzept (Klick-Prototyp mit Demo-Daten)
+6. Bei Fragen zu Pins: `docs/reference/E153_Pin_Check_Nr133.md` und `docs/reference/Recherche_Camping_Unit.md`
 
 ## Regeln
 
 - **Sicherheit vor Funktion.** Dach (Hydraulik), Standheizung und Kühlbox sind echte Fahrzeuggeräte. Jede Schaltlogik braucht Unit-Tests für die Sicherheitsregeln in SPEC Kapitel 6, bevor sie auf Hardware läuft.
+- **Der Pi schaltet nie.** Alle Ausgänge und alle Sicherheitsregeln (SPEC 6) liegen in der XIAO-Firmware. Der Pi hat keinen Zugriff auf den Sequent-I²C (`dtparam=i2c_arm=off`) und kein MQTT zum Cerbo. Die Python-Logik in `camperd` (hal, signals, modules) ist Referenzmodell und Simulator für die Firmware.
+- **Nicht bauen, bevor gemessen:** Pegel und Polarität T32b/10/11/12 und T6ap/3, Wahrheitstabelle T32b/14/15, T2p je Heizstufe, Kennlinien G817/G249/G120/G126, T32b/29, MQTT über den AP des Cerbo (HARDWARE.md 6).
+- **Keine Rückspeisung in den ausgeschalteten Pi:** Signale zum Pi nur über Puffer mit Partial-Power-Down (HARDWARE.md 4.4).
 - **Simulator ist Standard.** `camperd` startet ohne Konfiguration mit dem `sim`-Treiber. Echte Hardware nur mit `--hal hw` oder `CAMPERD_HAL=hw`.
 - **Keine erfundenen Messwerte.** Alles, was im Profil mit `TODO_MEASURE` markiert ist, bleibt so. Code muss mit fehlenden Kennlinien umgehen («nicht kalibriert»), nicht mit Schätzwerten.
 - **Profil statt Code.** Pinbelegung, Polaritäten, Schwellen, Zeiten und Kennlinien stehen im YAML-Profil, nicht im Code.
@@ -23,12 +29,11 @@ Ersatz für das Camping-Bedienteil E153 im VW T6 California (MJ 2018, Ausstattun
 ## Stack (so schlank wie möglich)
 
 - **OS:** Raspberry Pi OS Lite 64 bit (Bookworm), ohne Desktop, ohne X11, ohne Compositor. Root-Dateisystem schreibgeschützt (overlayfs). Details SPEC Kapitel 2.
-- **Ein Dienst:** `camperd` (Python 3.11, asyncio) liest die Hardware, führt die Logik, liefert die Oberfläche als statische Dateien aus und spricht mit ihr per WebSocket (`aiohttp`). Kein lokaler MQTT-Broker.
-- **MQTT** nur als Client zum Victron Cerbo GX (`aiomqtt`).
+- **XIAO-Firmware** (`xiao/`): ESP-IDF über PlatformIO. Regel- und Sicherheitslogik in reinem C ohne ESP-IDF-Abhängigkeit, Uhr injiziert, Tests auf dem Rechner (`pio test -e native`, Unity). MQTT-Client zum Cerbo (esp-mqtt).
+- **Ein Dienst auf dem Pi:** `camperd` (Python 3.11, asyncio) liefert die Oberfläche als statische Dateien aus, spricht mit ihr per WebSocket (`aiohttp`) und mit der XIAO per UART (`docs/UART_PROTOCOL.md`). Kein lokaler MQTT-Broker.
 - **Oberfläche:** statisches HTML/CSS/JS ohne Build-Schritt und ohne Framework, angezeigt mit `cog` (WPE WebKit) auf der DRM-Plattform. Kein Chromium.
 - **Python-Abhängigkeiten** nur: `aiohttp`, `aiomqtt`, `smbus2`, `gpiod`, `pyserial-asyncio`, `pyyaml`. Jede weitere Abhängigkeit begründen.
-- **Wake-MCU:** Seeed XIAO ESP32-S3, Arduino-Framework über PlatformIO.
-- **Tests:** `pytest`, `pytest-asyncio`; Zeit in Zustandsmaschinen über eine injizierbare Uhr, damit Tests ohne Warten laufen.
+- **Tests:** `pytest`, `pytest-asyncio` auf dem Pi-/Python-Teil, Unity in der Firmware; Zeit in Zustandsmaschinen über eine injizierbare Uhr, damit Tests ohne Warten laufen.
 
 ## Befehle (Ziel, beim Aufsetzen anlegen)
 
@@ -44,11 +49,11 @@ make deploy     # rsync auf den Pi (Overlay kurz aus), Dienst neu starten
 ```
 camper-unit/
   CLAUDE.md
-  docs/            SOFTWARE_SPEC.md, HARDWARE.md, reference/
+  docs/            SOFTWARE_SPEC.md, HARDWARE.md, UART_PROTOCOL.md, reference/
   profiles/        t6-california-a8l-2018.yaml
-  camperd/         hal/ signals/ modules/ api/ power/ main.py
+  camperd/         api/ link/ profile/ net.py main.py; hal/ signals/ modules/ power/ = Referenzmodell + Simulator
   ui/              index.html, app.js, style.css, i18n/de.json, reference/
-  wake-mcu/        platformio.ini, src/
+  xiao/            Firmware (ESP-IDF, PlatformIO): components/ test/
   tools/           Messmodus-Auswertung, CSV-Plots
   tests/
   deploy/          image-Skript, systemd-Units, cog-Kiosk, config.txt, Netzwerk
@@ -56,4 +61,4 @@ camper-unit/
 
 ## Reihenfolge
 
-Meilensteine M1 bis M8 in SPEC Kapitel 11. Mit M1 beginnen. Erst wenn M1 lokal ohne Hardware läuft und die Tests grün sind, weiter.
+Meilensteine M1 bis M8 in SPEC Kapitel 11. M1 und M2 sind erledigt. Als Nächstes M3 (Messmodus) und M5 (XIAO-Grundgerüst). Schaltfunktionen (M7) erst nach den Messungen (M4).

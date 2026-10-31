@@ -1,20 +1,41 @@
 # Cali Camping Unit – Hardware
 
-Version 1.2 | 30. Oktober 2026 | Grundlage: Stückliste rev b (27.10.2026), Pin-Check Nr. 133, Recherche 30.10.2026, Software-Spezifikation 1.1
+Version 1.3 | 31. Oktober 2026 | Grundlage: Stückliste rev b (27.10.2026), Pin-Check Nr. 133, Recherche 30.10.2026, Entscheid «XIAO regelt, Pi nur zur Bedienung» (31.10.2026), Software-Spezifikation 2.0
+
+Änderungen gegenüber 1.2: neue Architektur (Kapitel 0). Die XIAO ESP32-S3 ist der einzige Master für alle Ausgänge; der Pi 5 ist nur noch Bedienterminal und läuft nur bei Bedienung oder Zündung. Beide Sequent-Karten abgesetzt an der Standby-Schiene, I²C von der XIAO. Standby-Wandler 2,5 A statt 0,6 A, Port-Expander MCP23017, Puffer gegen Rückspeisung in den ausgeschalteten Pi (Kapitel 3, 4.4, 4.5, 5).
 
 Änderungen gegenüber 1.0: Analogeingänge korrigiert (0–3,3 V, nicht 0–10 V; Kapitel 4.3, Pos. 43). Ausgangsstufen für Heizung, Kühlbox und Dach sind **«Messung ausstehend», nicht zum Bau freigegeben** (Kapitel 4.1). Sollwertleiter-Werte offen. Version 1.1 (zwei SM-H-001) ist verworfen: Die Opto-Eingänge des SM-H-001 belasten die Fahrzeugsignale mit 10–13 mA statt rund 5 mA, und die Sollwertleiter braucht Öffner mit getrennter COM.
 
 Preise sind Budgetwerte in CHF, keine Offerten. Status «Bestätigen/Anfragen/Prüfen» heisst: vor der Bestellung klären.
 
+## 0. Architektur (Entscheid 31.10.2026)
+
+**Ziel:** geparkt mit aktiver Regelung (Kühlbox-Thermostat, Heizung, Victron) etwa **0,5–1 W** an 12 V. Das Original-E153 braucht etwa 0,8 W. Mit dem Pi als Regler wären es 5–7 W gewesen.
+
+| Teil | Versorgung | Rolle |
+| --- | --- | --- |
+| **XIAO ESP32-S3** | Standby-5-V, immer an | **Einziger Master für alle Ausgänge:** Kühlbox-Thermostat (G817 → K3), Heizung (S+ an K4, Sollwertleiter H1–H4, Betriebsanzeige T6ap/2), Dach (K1/K2, Freigabe Zündung an und Stillstand über T32b/3). Liest SM-H-001 und SM-I-009 über I²C und Victron über WLAN/MQTT am Access Point des Cerbo. Schaltet den Pi ein und aus. |
+| **SM-H-001, SM-I-009** | Standby-5-V, abgesetzt | Ein-/Ausgänge, **nur** am I²C der XIAO. Nicht auf den Pi gesteckt (Rückspeisung über die 5-V-Pins des Headers). |
+| **Pi 5** | geschaltete 5-V-Schiene (DCDC-USB, Enable von der XIAO) | **Reines Bedienterminal:** Oberfläche und Konfiguration. Schickt Wünsche per UART an die XIAO, schaltet nie selbst. Kein Zugriff auf den Sequent-I²C (`dtparam=i2c_arm=off`). |
+| Display | geschaltet über Lastschalter | aus, sobald das Display schläft |
+| Touch-Controller | Standby-5-V | weckt über IRQ an die XIAO |
+
+**Pi-Start:** Berührung (Touch-IRQ → XIAO), Schlüssel 86s (T32b/28) oder Zündung (T32b/30). **Nachlauf:** 20 min nach der letzten Berührung, dauernd bei Zündung an. Danach Herunterfahren mit Handshake; erst dann trennt die XIAO den 5-V-Wandler des Pi (Enable). Die Regelung läuft mit ausgeschaltetem Pi unverändert weiter.
+
+**Abnahme am Prüfstand:** Regelung läuft mit ausgeschaltetem Pi weiter. 12-V-Verbrauch messen in drei Zuständen: geparkt mit Regelung, Bedienung (Pi an), alles aus. Zeit von Berührung bis bedienbar, 5 Durchläufe (Ziel < 12 s).
+
 ## 1. Übersicht
 
 ```
-               12 V Zweitbatterie ── 7,5 A ── Verpolschutz ── TVS ──┬── DCDC-USB 5,1 V (Enable) ── Pi 5 + SM-H-001 + SM-I-009 + H-Relais + Display
-                                                                    ├── Pololu 5 V (immer an) ── XIAO ESP32-S3 (Wake) + Touch-Controller
-                                                                    └── 2 A ── COM K1–K4
-Fahrzeug T32b/T6ap/T2p ── Breakout X1–X4 ── Patchkabel ── SM-H-001 (K1–K4, AI1–AI8) / SM-I-009 (DI1–DI16) / H1–H4
-Cerbo GX ── Ethernet ── Pi 5
-Viewe-Display ── HDMI ── Pi 5;  Touch ── I²C/USB ── Pi 5, IRQ ── XIAO
+12 V Zweitbatterie ── 7,5 A ── Verpolschutz ── TVS ──┬── Standby 5 V, 2,5 A (immer an) ── XIAO ESP32-S3, SM-H-001, SM-I-009,
+                                                     │                                    MCP23017, Purecrea H1–H4, Touch-Controller
+                                                     ├── DCDC-USB 5,1 V (Enable ← XIAO) ── Pi 5
+                                                     │        └── Lastschalter (← XIAO) ── Viewe-Display
+                                                     └── 2 A ── COM K1–K4
+Fahrzeug T32b/T6ap/T2p ── Breakout X1–X4 ── SM-H-001 (K1–K4, AI1–AI8) / SM-I-009 (DI1–DI16) / H1–H4
+XIAO ── I²C ── SM-H-001 (0x28), SM-I-009 (0x27), MCP23017 (0x20)
+XIAO ── WLAN ── AP des Cerbo GX (MQTT)          XIAO ── UART (Puffer) ── Pi 5
+Viewe-Display ── HDMI ── Pi 5;  Touch ── I²C-Puffer ── Pi 5, IRQ ── XIAO
 ```
 
 ## 2. Bereits im Fahrzeug (nicht kaufen)
@@ -43,11 +64,11 @@ Viewe-Display ── HDMI ── Pi 5;  Touch ── I²C/USB ── Pi 5, IRQ �
 | 6 | Anzeige | PCAP-Touch mit I²C + IRQ | Viewe, Anfrage | 1 | Anfragen | 45.00 | 45.00 | Bedienung und Touch-Wake | Controller, IRQ, Ruhestrom schriftlich bestätigen lassen (O9) |
 | 7 | Anzeige | Micro-HDMI auf HDMI, 0,2 m, gewinkelt | verriegelbar | 1 | Bestellen | 15.00 | 15.00 | Video |  |
 | 8 | Strom | DC/DC 6–34 V → 5,1 V mit Enable | Mini-Box DCDC-USB | 1 | Leistung prüfen | 105.00 | 105.00 | Hauptversorgung 5 V | ≥ 8 A Spitze nötig (Leistungsbudget), thermisch nachweisen |
-| 9 | Strom | 5-V-Standby-Wandler | Pololu D36V6F5 | 1 | Bestellen | 25.00 | 25.00 | Dauerversorgung Wake-MCU, Touch |  |
-| 10 | Wake | Always-on-MCU | Seeed XIAO ESP32-S3 | 1 | Bestellen | 12.00 | 12.00 | Zündung, Touch-IRQ, DCDC-Enable | Zündung nur über 12-V-Eingangsstufe |
-| 11 | I/O | Home Automation HAT | Sequent SM-H-001 | 1 | Geplant | 80.00 | 80.00 | K1–K4, AI1–AI8 | Relais-COM gemeinsam je Vierergruppe; K5–K8 frei |
-| 13 | I/O | 16 LV-Digitaleingänge | Sequent SM-I-009 | 1 | Geplant | 60.00 | 60.00 | DI1–DI16 (3–24 V) | abgesetzt über Pos. 41 |
-| 14 | Heizung | 4-fach-Relaismodul, getrennte COM/NC/NO | Purecrea 420053 | 1 | Geplant | 12.90 | 12.90 | H1–H4 Sollwertleiter | Einschaltpegel bei 3,3-V-Logik und Polarität prüfen (Kapitel 4.4); Mindestlast der Kontakte |
+| 9 | Strom | 5-V-Standby-Wandler 2,5 A, synchron, Enable | **Pololu D24V22F5** (neu, statt D36V6F5 0,6 A) | 1 | Bestellen | 20.00 | 20.00 | Standby-Schiene: XIAO, beide Sequent-Karten, MCP23017, H-Relais, Touch | Herstellerangabe: typ. 85–95 % Wirkungsgrad, Leerlaufstrom typ. ca. 1 mA, Eingang bis 36 V. Klemmspannung der TVS (Pos. 29) muss unter 36 V liegen. Alternative mit mehr Reserve: D36V28F5 (3,2 A, bis 50 V), Leerlaufstrom aus dem Diagramm des Herstellers ablesen. Ruhestrom und Wirkungsgrad bei 20–100 mA am Prüfstand messen |
+| 10 | Steuerung | Master-MCU, immer an | Seeed XIAO ESP32-S3 | 1 | Bestellen | 12.00 | 12.00 | Regelung aller Ausgänge, Victron, Pi-Versorgung | Pin-Budget Kapitel 4.5; Zündung nur über 12-V-Eingangsstufe |
+| 11 | I/O | Home Automation HAT | Sequent SM-H-001 | 1 | Geplant | 80.00 | 80.00 | K1–K4, AI1–AI8 | **abgesetzt, nicht auf den Pi stecken**; Speisung Standby-5-V, I²C von der XIAO (Pos. 41). Relais-COM gemeinsam je Vierergruppe; K5–K8 frei |
+| 13 | I/O | 16 LV-Digitaleingänge | Sequent SM-I-009 | 1 | Geplant | 60.00 | 60.00 | DI1–DI16 (3–24 V) | abgesetzt, Speisung Standby-5-V, I²C von der XIAO |
+| 14 | Heizung | 4-fach-Relaismodul, getrennte COM/NC/NO | Purecrea 420053 | 1 | Geplant | 12.90 | 12.90 | H1–H4 Sollwertleiter | angesteuert vom MCP23017 (Pos. 45); Einschaltpegel bei 3,3-V-Logik, Polarität und Zustand bei hochohmigem Eingang prüfen; Mindestlast der Kontakte |
 | 16 | Heizung | Präzisionswiderstand Basis R0 0,1 % | Metallfilm | 1 | Messung ausstehend | 4.00 | 4.00 | Basis der Sollwertleiter | Wert erst nach Messung T2p je Stufe; 1750 Ω unbestätigt |
 | 17 | Heizung | Präzisionswiderstände Segmente H1–H4 0,1 % | Metallfilm, je 1 | 1 | Messung ausstehend | 8.00 | 8.00 | Segmente H1–H4 | Werte nach Messung; 27,4 / 54,9 / 110 / 237 Ω unbestätigt |
 | 18 | Fahrzeug | Gegenstecker T32b | VW, Codierung am E153 ablesen | 1 | Bestätigen | 35.00 | 35.00 | Originalkabelbaum | Teilenummer nach Gehäusefoto |
@@ -64,15 +85,20 @@ Viewe-Display ── HDMI ── Pi 5;  Touch ── I²C/USB ── Pi 5, IRQ �
 | 29 | Strom | Lastabwurf-TVS | Littelfuse SLD15-018 | 1 | Abstimmen | 22.00 | 22.00 | 12-V-Eingang | Klemmspannung mit Wandler abstimmen |
 | 30 | Strom | Verpolschutz 10 A | Ideal-Diode-Modul | 1 | Bestätigen | 35.00 | 35.00 | 12-V-Eingang |  |
 | 36 | Service | Panel-USB-C-Verlängerung | mit Kappe | 1 | Bestellen | 18.00 | 18.00 | Service |  |
-| 41 | I/O | Abgesetzte I²C-Leitung SM-I-009 | LiYCY 4×0,25 mm² + 2×20-Adapter | 1 | Bestätigen | 15.00 | 15.00 | SM-I-009 neben dem Stack | max. ca. 30 cm; I²C-Adressen prüfen |
+| 41 | I/O | I²C- und 5-V-Verteilung zu beiden Sequent-Karten | LiYCY 4×0,25 mm² + 2× 2×20-Buchsenleiste/Adapter | 2 | Bestätigen | 15.00 | 30.00 | XIAO → SM-H-001, SM-I-009, MCP23017 | max. ca. 30 cm; Pull-ups nur einmal (3,3 V); im Schema prüfen, ob die Karten 3,3 V vom Header brauchen (O22) |
 | 42 | Netz | Patchkabel Cat 6, flach, Länge nach Einbau | – | 1 | Bestellen | 8.00 | 8.00 | Pi ↔ LAN-Port Camper-Router | Cerbo über dessen WLAN-AP (Kapitel 5.3) |
 | 43 | Messung | Messnetzwerk: Pull-ups 0805, Teiler 47 k / 10 k, Serienwiderstände, Klemmdioden BAT54S | Metallfilm 0,1 % + BAT54S | 1 | Bestellen | 18.00 | 18.00 | AI1–AI8 (Kapitel 4.3) | SM-H-001 hat keinen Eingangsschutz |
 | 44 | Strom | ATO-Sicherungshalter + 2 A | Inline | 1 | Bestellen | 6.00 | 6.00 | +12 V an Relais-COM K1–K4 | neu |
+| 45 | Steuerung | I²C-Port-Expander 16 bit | Microchip MCP23017 (Modul oder SOIC auf Lochraster) | 1 | Bestellen | 6.00 | 6.00 | H1–H4, Display-Lastschalter, Reserve | Adresse 0x20 (SM-I-009 Stack 0 = 0x27); nach Reset alle Pins Eingang → H-Relais müssen dabei abfallen (prüfen) |
+| 46 | Strom | Lastschalter 5 V für das Display | z. B. TI TPS22918 (5,5 V, 2 A) auf Adapter | 1 | Prüfen | 8.00 | 8.00 | Display-5-V aus, wenn das Display schläft | Strom des Viewe-Treibers inkl. Einschaltspitze messen |
+| 47 | Steuerung | UART-Puffer mit Partial-Power-Down + Serienwiderstände | TI SN74LVC1G125 (V<sub>CC</sub> vom Pi 3,3 V), 1 kΩ | 1 | Bestellen | 5.00 | 5.00 | XIAO-TX → Pi-RX ohne Rückspeisung; Pi-TX → XIAO-RX über 1 kΩ | Kapitel 4.4 |
+| 48 | Anzeige | I²C-Puffer für den Touch zum Pi | TI TCA9517 (Partial-Power-Down) | 1 | Prüfen | 6.00 | 6.00 | Touch-Controller an der Standby-Schiene, Pi-Seite spannungslos | nur nötig, wenn der Touch per I²C an den Pi geht; bei USB-Touch entfällt er (O9, O23) |
+| 49 | Bedienung | Summer 3,3 V mit Treibertransistor | Piezo, z. B. CUI CMT-8540S oder ähnlich | 1 | Bestellen | 4.00 | 4.00 | Quittungston der Weck-Berührung | an XIAO-Pin, nicht am Pi |
 | | | **Zwischensumme** | | | | | **1'059.50** | | |
 | | | Reserve 15 % | | | | | 158.92 | | |
 | | | **Planungsbudget** | | | | | **1'218.42** | | |
 
-Entfallen gegenüber rev b: Pos. 12 USB-RS485 (I²C reicht), Pos. 15 VE.Direct-USB (Daten kommen vom Cerbo).
+Entfallen gegenüber rev b: Pos. 12 USB-RS485 (I²C reicht), Pos. 15 VE.Direct-USB (Daten kommen vom Cerbo). Version 1.3: Pos. 9 neu (D24V22F5), Pos. 41 doppelt, Pos. 45–49 neu; die Summen oben sind noch die von Version 1.2 und werden mit der nächsten Bestellrunde nachgerechnet (+ ca. CHF 50).
 
 Noch nicht budgetiert (Menge erst nach Bauraumaufnahme): Pos. 31 Aluträger, 32 Gehäuse, 33 Frontblende für den E153-Ausschnitt, 34 Abstandshalter, 35 EPDM-Dichtung, 37 Testbuchsen, 38 Kabelschutz, 39 Lötstützpunkte, 40 MQS-Crimpwerkzeug. Richtwert zusammen rund CHF 400.
 
@@ -99,9 +125,11 @@ Quelle der Wahrheit für die Software ist `profiles/t6-california-a8l-2018.yaml`
 | K3 | SM-H-001 Relais 3 | T32b/10 (ge 0,5 → T6bj/3) | J698/J1029 Kühlanforderung | +12 V (Annahme) | Pegel und Strom messen; Typenschild entscheidet J698 oder J1029 |
 | K4 | SM-H-001 Relais 4 | T6ap/3 (ws/ge 0,35 → J604 T10ba/9) | J604 S+ | +12 V (Annahme) | Funktion S+ bestätigt; Spannung und Strom messen |
 | K5–K8 | SM-H-001 Relais 5–8 | – | frei | – | nicht für Sollwertleiter (gemeinsame COM) |
-| H1–H4 | Purecrea Relais 1–4, GPIO17/27/22/23 | T2p/1 (rt/ws → T10ba/7), T2p/2 (br/ws → T10ba/10) | Sollwertleiter Segmente | NC überbrückt | Relais an = Segment wirksam; Werte offen |
+| H1–H4 | Purecrea Relais 1–4, MCP23017 GPA0–GPA3 (XIAO) | T2p/1 (rt/ws → T10ba/7), T2p/2 (br/ws → T10ba/10) | Sollwertleiter Segmente | NC überbrückt | Relais an = Segment wirksam; Werte offen |
 
 **COM K1–K4:** Die vier Relais teilen sich eine COM. Annahme: alle schalten +12 V über die 2-A-Sicherung (Pos. 44). Zeigt die Messung, dass ein Eingang nach Masse geschaltet werden muss, braucht dieser Kanal ein Relais aus der zweiten Gruppe (K5–K8) mit COM auf Masse. E153 überwacht seine Ausgänge auf Kurzschluss und Unterbrechung (Fehlercodes 1100–3101); ob J768/J604/J1029 einen Relaiskontakt ohne Fehlermeldung akzeptieren, zeigt erst der Test.
+
+**K3/K4 erst nach der Pegelmessung festlegen:** Schalten die VW-Eingänge T32b/10 bzw. T6ap/3 nach Masse, nehmen K3/K4 einen der vier Open-Drain-Ausgänge des SM-H-001 statt eines Relais. Ein angezogenes Relais braucht dauernd etwa 0,4 W; die Kühlanforderung ist geparkt oft an. Bis dahin bleibt die Tabelle oben die Annahme.
 
 **Sollwertleiter:** T2p/1 → R0 → Segment H1 → H2 → H3 → H4 → T2p/2. Jedes Segment hat einen NC-Kontakt parallel. Stromlos sind alle Segmente überbrückt: R0. Das Original hat **10 Stufen** (bestätigt; SSP 329: +10 bis +30 °C); die vier Relais bilden Stufe 0–9 binär ab. Nicht veröffentlicht: der Widerstand je Stufe und ob mehr Widerstand wärmer oder kälter bedeutet. **R0 und die Segmentwerte erst nach der Messung bestellen.** Ist die Stufe mit grösserem Widerstand die wärmere, ist R0 die kälteste Stufe; sonst R0 und die Abbildung Stufe → Bits umkehren.
 
@@ -153,18 +181,40 @@ Welche 58d-/15a-Kontakte belegt sind, hängt von der Ausstattung ab. PR-Codes vo
 
 **Achtung Messmodus:** Der 15-kΩ-Pull-up sitzt auf der Karte und lässt sich mit den Patchsteckern nicht abtrennen. Parallel zum Original-E153 würden AI1–AI4 die Geberleitungen belasten und die Messung des E153 verfälschen. Für die Aufzeichnung am Original deshalb Multimeter oder Logikanalysator am Breakout verwenden, nicht die Karte.
 
-### 4.4 Pi-5-Header
+### 4.4 Pi-5-Header (nur Bedienung)
+
+Der Pi hat keine Verbindung zum Sequent-I²C und keine Ausgänge zum Fahrzeug. `dtparam=i2c_arm=off`.
 
 | GPIO | Funktion | Bemerkung |
 | --- | --- | --- |
-| 2 / 3 | I²C SDA/SCL → SM-H-001 (0x28), SM-I-009 (0x27), (Touch) | beide Karten nutzen laut Sequent nur I²C (O4 erledigt) |
-| 4 / 5 | UART2 TX/RX ↔ XIAO ESP32-S3 | `dtoverlay=uart2-pi5` |
-| 17, 27, 22, 23 | H1–H4 (Purecrea) | Polarität `outputs.heater_ladder.gpio_active` prüfen |
-| 26 | `ALIVE` → XIAO (high, solange `camperd` läuft) | Power-Good-Ersatz, zusätzlich zur 3,3-V-Schiene |
+| 4 / 5 | UART2 TX/RX ↔ XIAO | `dtoverlay=uart2-pi5`. Pi-TX → 1 kΩ → XIAO-RX. XIAO-TX → SN74LVC1G125 (V<sub>CC</sub> = 3,3 V vom Pi, OE fest aktiv) → Pi-RX |
+| 26 | «Pi heruntergefahren» → XIAO | `dtoverlay=gpio-poweroff,gpiopin=26` setzt den Pin nach dem Herunterfahren; an der XIAO mit Pull-down. Ersetzt `ALIVE` |
+| 2 / 3 | nur falls der Touch per I²C kommt: über TCA9517 (Pos. 48) | sonst frei |
 
-**Bootzustand H1–H4:** GPIO17/27/22/23 sind nach dem Einschalten Eingänge mit Pull-down. Zieht das Purecrea-Modul bei Low an (typisch für solche Module), würden die Relais bis zum Start von `camperd` anziehen. Deshalb in `config.txt` den Ruhepegel festlegen, z. B. `gpio=17,22,23,27=op,dh` bei Low-aktiv (`=op,dl` bei High-aktiv). Bis die Polarität geprüft ist, steuert `camperd` H1–H4 nicht an.
+**Keine Rückspeisung in den ausgeschalteten Pi:** Kein Signal der Standby-Seite darf einen Pi-Pin treiben, solange der Pi stromlos ist. Deshalb XIAO-TX nur über den vom Pi versorgten Puffer (Partial-Power-Down: Ausgang hochohmig ohne V<sub>CC</sub>), Touch-I²C nur über TCA9517, und die XIAO setzt ihren TX auf Eingang, solange der Pi aus ist.
 
-### 4.5 Steckerlage (VW Einbauseite 805/3, Blick auf die Rückseite von E153)
+### 4.5 Pin-Budget XIAO ESP32-S3
+
+Die XIAO hat 11 nutzbare Pins (D0–D10). Gebraucht werden 14; deshalb H1–H4 und der Display-Lastschalter am MCP23017.
+
+| XIAO | GPIO | Funktion | Bemerkung |
+| --- | --- | --- | --- |
+| D0 | 1 | Zündung 15a (T32b/30) über 12-V-Eingangsstufe | Optokoppler oder Teiler + Klemmdiode; RTC-Pin, weckt aus dem Schlaf |
+| D1 | 2 | Touch-IRQ | RTC-Pin; Weck-Berührung |
+| D2 | 3 | Summer | Bootstrap-Pin: nur Ausgang nach dem Start, Treiber mit Pull-down |
+| D3 | 4 | Enable DCDC-USB (Pi) | externer Pull-down: XIAO im Reset → Pi aus (Rootfs schreibgeschützt; O24) |
+| D4 / D5 | 5 / 6 | I²C SDA/SCL | SM-H-001 0x28, SM-I-009 0x27, MCP23017 0x20 |
+| D6 / D7 | 43 / 44 | UART TX/RX ↔ Pi | über Pos. 47 |
+| D8 | 7 | «Pi heruntergefahren» (Pi GPIO26) | Pull-down |
+| D9 | 8 | RESET MCP23017 | XIAO kann alle H-Relais und den Display-Schalter sofort lösen |
+| D10 | 9 | Reserve | z. B. Geschwindigkeit T32b/3 über Optokoppler, falls der Zähler des SM-I-009 nicht reicht (O14) |
+| MCP GPA0–3 | – | H1–H4 | nach Reset Eingang: Purecrea muss dann abfallen (prüfen, Pos. 14) |
+| MCP GPA4 | – | Display-Lastschalter | aus = Display stromlos |
+| MCP GPA5–7, GPB0–7 | – | Reserve | |
+
+Schlüssel 86s (DI8) und Zündung (DI10) liest die XIAO zusätzlich über den SM-I-009. 86s braucht keinen eigenen Pin, weil die XIAO immer läuft.
+
+### 4.6 Steckerlage (VW Einbauseite 805/3, Blick auf die Rückseite von E153)
 
 - T32b: Pin 1 oben links, 16 oben rechts, 17 unten links, 32 unten rechts.
 - T6ap: Pin 1 oben links, 3 oben rechts, 4 unten links, 6 unten rechts.
@@ -174,42 +224,53 @@ Bestellnummern der Gehäuse sind daraus nicht ableitbar: Herstellermarkierungen 
 
 ## 5. Stromversorgung
 
-### 5.1 Leistungsbudget 5 V
+### 5.1 Leistungsbudget
 
-| Verbraucher | typ. A | Spitze A | typ. W | Spitze W |
-| --- | --- | --- | --- | --- |
-| Raspberry Pi 5 + Kühler | 3,20 | 5,00 | 16,3 | 25,5 |
-| Display + HDMI-Treiber | 0,26 | 0,45 | 1,3 | 2,3 |
-| PCAP-Touch | 0,08 | 0,15 | 0,4 | 0,8 |
-| Wake-MCU | 0,03 | 0,10 | 0,2 | 0,5 |
-| SM-H-001, SM-I-009, 4 Zusatzrelais | 0,45 | 1,05 | 2,3 | 5,3 |
-| Reserve | 0,35 | 0,70 | 1,8 | 3,5 |
-| **Gesamt** | **4,37** | **7,45** | **22,2** | **37,8** |
+**Geparkt, Pi aus (Ziel 0,5–1 W an 12 V):** XIAO mit WLAN am AP des Cerbo, SM-H-001, SM-I-009, MCP23017, Touch-Controller im Ruhezustand, Standby-Wandler. Dazu je nach Regelung: K3 (Kühlanforderung) und K4 (S+), wenn sie als Relais bleiben, je etwa 0,4 W. Keine Herstellerangaben für den Ruhestrom der Sequent-Karten: **am Prüfstand messen**, je Teil einzeln.
 
-Mit `cog` statt Chromium dürfte der typische Wert für den Pi tiefer liegen. In M1 messen.
+**Bedienung, Pi an:**
+
+| Verbraucher | Schiene | typ. A | Spitze A | typ. W | Spitze W |
+| --- | --- | --- | --- | --- | --- |
+| Raspberry Pi 5 + Kühler | DCDC-USB | 3,20 | 5,00 | 16,3 | 25,5 |
+| Display + HDMI-Treiber | DCDC-USB über Lastschalter | 0,26 | 0,45 | 1,3 | 2,3 |
+| PCAP-Touch | Standby | 0,08 | 0,15 | 0,4 | 0,8 |
+| XIAO ESP32-S3 mit WLAN | Standby | 0,10 | 0,35 | 0,5 | 1,8 |
+| SM-H-001, SM-I-009, MCP23017, 4 Zusatzrelais | Standby | 0,45 | 1,05 | 2,3 | 5,3 |
+| Reserve | | 0,35 | 0,70 | 1,8 | 3,5 |
+
+Standby-Schiene Spitze etwa 1,6 A → D24V22F5 (2,5 A) mit Reserve. Mit `cog` statt Chromium dürfte der Pi tiefer liegen. Alle Werte am Prüfstand messen (Abnahme Kapitel 0).
 
 ### 5.2 Regeln
 
 - Eigene 12-V-Zuleitung mit 7,5 A (Pos. 28). T32b/32 (über SH21, 5 A, 0,5 mm²) nur als Messpunkt, nicht als Speisung.
-- Zündung und alle 12-V-Signale nie direkt an einen MCU- oder Pi-GPIO. Zündung zur Wake-MCU über Eingangsstufe (Teiler + Klemmdiode oder Optokoppler).
+- Zündung und alle 12-V-Signale nie direkt an einen MCU- oder Pi-GPIO. Zündung zur XIAO über Eingangsstufe (Teiler + Klemmdiode oder Optokoppler).
+- **Keine Rückspeisung:** Sequent-Karten nie auf den Pi-Header (5-V-Pins verbinden Pi- und Standby-Schiene). Signale zum Pi nur über Puffer mit Partial-Power-Down (Kapitel 4.4).
+- Analogeingänge des SM-H-001: max. 3,0 V, keine Schutzdioden auf der Karte. Pull-ups nur von 3,3 V, Teiler für 12-V-Signale auf ≤ 3,0 V, Serienwiderstand und Klemmdiode (BAT54S). Platinenversion und eingebauten 15-kΩ-Pull-up vor der Auslegung prüfen (Kapitel 4.3).
 - Masse der Unit an T32b/31 bzw. T6ap/5 und an die Zuleitungsmasse, sternförmig.
 
-### 5.3 Netzwerk Pi 5 ↔ Cerbo GX
+### 5.3 Netzwerk XIAO / Pi 5 ↔ Cerbo GX
 
 ```
 Cerbo GX ── Ethernet ── Camper-Router (unverändert: VRM, Remote Console)
-Cerbo GX ── WLAN-AP «venus-…» (immer an) ── Pi 5 wlan0   (MQTT 1883, nur dieser Weg für Victron-Daten)
+Cerbo GX ── WLAN-AP «venus-…» (immer an) ── XIAO   (MQTT 1883, einziger Victron-Client der Unit)
+XIAO ── UART ── Pi 5   (Victron-Werte für die Oberfläche kommen von der XIAO)
 Pi 5 eth0 ── LAN-Port Camper-Router (Router nur zeitweise an: SSH, Fernzugriff)
 ```
 
+- Der Pi braucht kein WLAN mehr: `dtoverlay=disable-wifi` spart Strom und Startzeit (O25). SSID und Passwort des Cerbo-AP stellt man weiter in der Expertenansicht ein; der Pi gibt sie per UART an die XIAO, die sie speichert.
+- Keepalive der XIAO an `R/<portalId>/keepalive` mindestens alle 30 s; ob Venus dann alle nötigen Werte frisch hält, prüfen (SPEC 5, O19).
+
 - Cerbo (Daniel, von Hand): Einstellungen → WLAN → «Access Point erstellen» = EIN; Einstellungen → Dienste → «MQTT im LAN» = EIN (unverschlüsselt 1883 genügt im abgeschlossenen AP-Netz).
-- Pi, erstes Mal: `sudo deploy/network/setup-network.sh "<venus-SSID>" "<Passwort vom Etikett>"` (NetworkManager; WLAN nie Standardroute, Ethernet DHCP mit Metrik 100). Prüfen: `python3 tools/cerbo_check.py`. Danach am Gerät änderbar: Expertenansicht → Netzwerk.
+- Bis die XIAO-Firmware steht, prüft der Pi den AP mit `sudo deploy/network/setup-network.sh "<venus-SSID>" "<Passwort vom Etikett>"` und `python3 tools/cerbo_check.py` (Prüfstand, O19).
 - Der Cerbo bridgt/routet nicht zwischen WLAN und Ethernet (Venus-OS-Kernel ohne Bridge). Kein Versuch.
 - Keine Steuerfunktion hängt am Router-Netz.
 - Firewall auf `wlan0`: keine neuen eingehenden Verbindungen (`deploy/network/nftables.conf`).
 - **Rückfall, falls MQTT über den AP nicht antwortet (O19):** kleiner unmanaged Switch, Cerbo + Router + Pi in einem Subnetz, feste Adressen Router .1, Cerbo .10, Pi .20. Etwa 0,5–1,5 W zusätzlich. Erst nach Rückmeldung umbauen.
 
 ## 6. Vor dem Einbau messen (Daniel)
+
+**Nicht bauen, bevor gemessen (Entscheid 31.10.2026):** Pegel und Polarität T32b/10, /11, /12 und T6ap/3; Wahrheitstabelle T32b/14, /15; T2p je Heizstufe; Kennlinien G817, G249, G120, G126; T32b/29 (D+?); MQTT über den Access Point des Cerbo (O19).
 
 1. **J604:** Widerstand T2p je Anzeigestufe (E153-Seite, T2p abgezogen); T6ap/2 und /3 Spannung, Strom und Zeitverlauf (Start, Heizen, Nachlauf)
 2. **Kühlbox:** T32b/9 und /10 Spannung, Strom, Zeitverlauf; Kennlinie G817; beide Typenschilder (Kompressor, Elektronik)
