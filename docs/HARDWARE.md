@@ -22,6 +22,8 @@ Preise sind Budgetwerte in CHF, keine Offerten. Status «Bestätigen/Anfragen/Pr
 
 **Pi-Start:** Berührung (Touch-IRQ → XIAO), Schlüssel 86s (T32b/28) oder Zündung (T32b/30). **Nachlauf:** 20 min nach der letzten Berührung, dauernd bei Zündung an. Danach Herunterfahren mit Handshake; erst dann trennt die XIAO den 5-V-Wandler des Pi (Enable). Die Regelung läuft mit ausgeschaltetem Pi unverändert weiter.
 
+**Plan A / Plan B (Entscheid nach der Prüfstandsmessung `docs/PRUEFSTAND_STROM.md`, O29):** Plan A wie oben, beide Sequent-Karten an der Standby-Schiene. Ziehen sie zusammen mehr als etwa 60 mA an 5 V, ist das Ziel damit nicht erreichbar: Plan B legt die Sequent-Karten auf die geschaltete Schiene (nur an, wenn der Pi läuft oder die Zündung an ist), und die XIAO bekommt für die Dauerfunktionen eigene sparsame Ein- und Ausgänge: G817 an ihren ADC (Pull-up 3,3 V), Kühlbox-Diagnose, Betriebsanzeige T6ap/2, Zündung und Geschwindigkeit über Optokoppler, K3/K4 als Halbleiterschalter, H1–H4 am MCP23017. Plan B erst nach der Messung ausarbeiten.
+
 **Abnahme am Prüfstand:** Regelung läuft mit ausgeschaltetem Pi weiter. 12-V-Verbrauch messen in drei Zuständen: geparkt mit Regelung, Bedienung (Pi an), alles aus. Zeit von Berührung bis bedienbar, 5 Durchläufe (Ziel < 12 s).
 
 ## 1. Übersicht
@@ -129,7 +131,7 @@ Quelle der Wahrheit für die Software ist `profiles/t6-california-a8l-2018.yaml`
 
 **COM K1–K4:** Die vier Relais teilen sich eine COM. Annahme: alle schalten +12 V über die 2-A-Sicherung (Pos. 44). Zeigt die Messung, dass ein Eingang nach Masse geschaltet werden muss, braucht dieser Kanal ein Relais aus der zweiten Gruppe (K5–K8) mit COM auf Masse. E153 überwacht seine Ausgänge auf Kurzschluss und Unterbrechung (Fehlercodes 1100–3101); ob J768/J604/J1029 einen Relaiskontakt ohne Fehlermeldung akzeptieren, zeigt erst der Test.
 
-**K3/K4 erst nach der Pegelmessung festlegen:** Schalten die VW-Eingänge T32b/10 bzw. T6ap/3 nach Masse, nehmen K3/K4 einen der vier Open-Drain-Ausgänge des SM-H-001 statt eines Relais. Ein angezogenes Relais braucht dauernd etwa 0,4 W; die Kühlanforderung ist geparkt oft an. Bis dahin bleibt die Tabelle oben die Annahme.
+**K3/K4 erst nach der Pegelmessung festlegen, möglichst ohne Relais:** Ein angezogenes Relais braucht dauernd etwa 0,4 W; die Kühlanforderung ist geparkt oft an. Schalten die VW-Eingänge T32b/10 bzw. T6ap/3 nach Masse: einer der vier Open-Drain-Ausgänge des SM-H-001. Brauchen sie +12 V: ein kleiner High-Side-Schalter mit Diagnose (z. B. Infineon BTS-Familie oder P-MOSFET mit Treiber), angesteuert vom MCP23017. Bis dahin bleibt die Tabelle oben die Annahme.
 
 **Sollwertleiter:** T2p/1 → R0 → Segment H1 → H2 → H3 → H4 → T2p/2. Jedes Segment hat einen NC-Kontakt parallel. Stromlos sind alle Segmente überbrückt: R0. Das Original hat **10 Stufen** (bestätigt; SSP 329: +10 bis +30 °C); die vier Relais bilden Stufe 0–9 binär ab. Nicht veröffentlicht: der Widerstand je Stufe und ob mehr Widerstand wärmer oder kälter bedeutet. **R0 und die Segmentwerte erst nach der Messung bestellen.** Ist die Stufe mit grösserem Widerstand die wärmere, ist R0 die kälteste Stufe; sonst R0 und die Abbildung Stufe → Bits umkehren.
 

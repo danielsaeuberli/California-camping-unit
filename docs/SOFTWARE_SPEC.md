@@ -67,7 +67,7 @@ python3-venv
 libgpiod2
 ```
 
-Python-Pakete im venv unter `/opt/camperd/venv`: `aiohttp`, `aiomqtt`, `pyserial-asyncio`, `pyyaml`. Mit Hash-Pinning (`requirements.lock`). `smbus2` und `gpiod` braucht der Pi im Betrieb nicht mehr; sie bleiben für Prüfstand und Referenzmodell (3.3), bis die Firmware die Karten liest.
+Python-Pakete im venv unter `/opt/camperd/venv`: `aiohttp`, `aiomqtt`, `pyserial-asyncio`, `pyyaml`. Mit Hash-Pinning (`requirements.lock`). `smbus2` und `gpiod` braucht der Pi im Betrieb nicht mehr; sie bleiben für Prüfstand und Referenzmodell (3.4), bis die Firmware die Karten liest.
 
 ### 2.4 Entfernen bzw. deaktivieren
 
@@ -165,13 +165,32 @@ Touch-IRQ, Zündung, 86s ──┐    │          │
 
 Die XIAO entscheidet über jeden Ausgang. Der Pi schickt nur Wünsche; jede Regel aus Kapitel 6 prüft die XIAO selbst, egal was der Pi schickt. Fällt der Pi aus oder ist er aus, läuft die Regelung unverändert weiter (das Dach stoppt, weil keine Laufmeldungen mehr kommen).
 
-### 3.2 Firmware `xiao/`
+### 3.2 Aufteilung: nur die Regelung in die XIAO
+
+In die Firmware kommt nur, was ohne Pi laufen oder ohne Pi sicher sein muss. Alles, was nur angezeigt wird, rechnet der Pi aus Rohwerten der XIAO, mit dem bestehenden, getesteten Python-Code. Das hält die Portierung nach C klein; die Oberfläche bleibt unverändert.
+
+| Funktion | Ort | Begründung |
+| --- | --- | --- |
+| Kühlbox-Thermostat (G817, K3, Diagnose T32b/9) | **XIAO** | regelt geparkt dauernd |
+| Standheizung (S+ K4, Stufe H1–H4, Betriebsanzeige T6ap/2, Nachlauf) | **XIAO** | läuft ohne Pi weiter |
+| Dach (K1/K2, Rückmeldungen, Sperren Zündung und Geschwindigkeit) | **XIAO** | Sicherheitsregeln S2–S4 |
+| Unterspannung (AI8), Pi- und Display-Versorgung, Summer, Weck-Berührung | **XIAO** | Pi ist dabei aus |
+| Sicherheitsregeln S1–S14, Freigaben je Funktion | **XIAO** | Master für alle Ausgänge |
+| Tanks (G120, G126) | Pi | nur Anzeige |
+| Aussentemperatur (G249), Innentemperatur (Ruuvi über Cerbo) | Pi | nur Anzeige |
+| Fahrzeuganzeige (58d Nachtmodus, 86s, D+, Fahrt) | Pi | nur Anzeige; die Sperren dazu prüft die XIAO selbst |
+| Victron (Anzeige, MultiPlus-Bedienung) | Pi | Kapitel 5 |
+| Messmodus, Kalibrier-Assistent, CSV | Pi | aus schnellen Rohwerten der XIAO (`io`) |
+
+Die XIAO schickt dazu laufend die Rohwerte (`raw`: DI, AI-Spannungen, 3,3-V-Schiene, Zähler; UART-Protokoll 4.2). Profilwerte, die nur der Anzeige dienen (Tank- und G249-Kennlinien, 58d-Fenster), bleiben auf dem Pi; an die XIAO geht nur der Regelteil des Profils.
+
+### 3.3 Firmware `xiao/`
 
 | Komponente | Aufgabe |
 | --- | --- |
 | `io/` | Treiber SM-H-001 (Relais mit Rücklesen, AI, 3,3-V-Schiene), SM-I-009 (DI, Zähler), MCP23017 (H1–H4, Display-Schalter). I²C-Fehlerzähler (S5). |
-| `signals/` | Entprellen, Median, Pulszähler, Qualität `ok/stale/open/short/implausible/uncalibrated` (wie heute in Python). |
-| `modules/` | `roof`, `fridge`, `heater`, `tanks`, `climate`, `vehicle`, `energy`. **Reines C ohne ESP-IDF-Abhängigkeit,** Uhr als Parameter → auf dem Rechner testbar. |
+| `signals/` | Entprellen, Pulszähler (Geschwindigkeit, Kühlbox-Code), NTC G817, Qualität `ok/stale/open/short/implausible/uncalibrated`, soweit die Regelung sie braucht. |
+| `modules/` | `roof`, `fridge`, `heater`, `undervoltage`. **Reines C ohne ESP-IDF-Abhängigkeit,** Uhr als Parameter → auf dem Rechner testbar. Keine Anzeigemodule (3.2). |
 | `safety/` | Freigaben je Funktion, Regeln S1–S14, Task-Watchdog. |
 | `power/` | Pi-Versorgung, Display-Schalter, Summer, Nachlauf, Unterspannung über AI8 (Kapitel 10). WLAN und Bluetooth der XIAO bleiben aus. |
 | `link/` | UART-Protokoll zum Pi (`docs/UART_PROTOCOL.md`). |
@@ -179,7 +198,7 @@ Die XIAO entscheidet über jeden Ausgang. Der Pi schickt nur Wünsche; jede Rege
 
 Tests: `pio test -e native` führt die Modul- und Sicherheitstests auf dem Rechner aus (Unity), ohne Hardware und ohne Warten (Uhr injiziert). Je Regel S1–S14 mindestens ein Test, benannt nach der Nummer.
 
-### 3.3 `camperd` auf dem Pi und das Python-Referenzmodell
+### 3.4 `camperd` auf dem Pi und das Python-Referenzmodell
 
 | Paket | Aufgabe ab Version 2.0 |
 | --- | --- |
@@ -188,7 +207,8 @@ Tests: `pio test -e native` führt die Modul- und Sicherheitstests auf dem Rechn
 | `profile/` | lädt und prüft das YAML-Profil und überträgt es an die XIAO (`profile`). |
 | `net.py` | Ethernet und WLAN am Pi (wie bisher). |
 | `hal/cerbo_mqtt.py`, `modules/energy.py`, `modules/victron_control.py` | bleiben im Betrieb: Victron-Anzeige und MultiPlus-Bedienung (Kapitel 5). |
-| `hal/`, `signals/`, `modules/`, `power/` | **Referenzmodell und Simulator.** Die heutige Python-Logik mit ihren Tests (`tests/safety/`) ist die ausführbare Vorlage für die Firmware. `make dev` läuft weiter damit. Im Fahrzeug wird `--hal hw` nicht mehr benutzt; der Treiber `hw` bleibt nur für den Prüfstand, bis die Firmware die Karten liest (M5). |
+| `modules/sensors.py` (Tanks, Thermometer G249, Fahrzeug), `signals/` | bleiben im Betrieb: Anzeigewerte aus den Rohwerten der XIAO (3.2). |
+| `modules/roof.py`, `fridge.py`, `heater.py`, `power/`, `hal/` | **Referenzmodell und Simulator** für die Firmware. Die heutige Python-Logik mit ihren Tests (`tests/safety/`) ist die ausführbare Vorlage für die Firmware. `make dev` läuft weiter damit. Im Fahrzeug wird `--hal hw` nicht mehr benutzt; der Treiber `hw` bleibt nur für den Prüfstand, bis die Firmware die Karten liest (M5). |
 
 Dieselben Szenarien laufen gegen Python und gegen die Firmware-Module (Differenztest), bis die Firmware die Funktion übernommen hat.
 
@@ -309,9 +329,11 @@ Jede Regel hat mindestens einen Test in `tests/safety/`, benannt nach der Nummer
 
 ## 7. Funktionsmodule
 
-Ab Version 2.0 in der XIAO-Firmware (`xiao/modules/`). Das Verhalten unten gilt unverändert; die Python-Module sind die Vorlage.
+Ab Version 2.0 laufen die regelnden Module in der XIAO-Firmware, die anzeigenden auf dem Pi (Aufteilung 3.2). Das Verhalten unten gilt unverändert; die Python-Module sind die Vorlage.
 
 ### 7.1 Dach (`roof`)
+
+*Ort: XIAO (3.2).*
 
 - Eingänge: DI1 (T32b/15), DI2 (T32b/14), Geschwindigkeit DI6. Ausgänge: K1 (T32b/11), K2 (T32b/12).
 - Welche Richtung K1/K2 bedeutet und wie DI1/DI2 die Stellung kodieren, kommt aus der Wahrheitstabelle im Profil (`roof.truth_table`, `TODO_MEASURE`). Ohne Tabelle: Stellung `unknown`, Bedienung trotzdem möglich (Hold-to-run).
@@ -325,6 +347,8 @@ Ab Version 2.0 in der XIAO-Firmware (`xiao/modules/`). Das Verhalten unten gilt 
 
 ### 7.2 Kühlbox (`fridge`)
 
+*Ort: XIAO (3.2).*
+
 - Thermostat auf G817 (AI1): Anforderung an bei `temp ≥ target + 1.5`, aus bei `temp ≤ target − 1.0` (Profil). Soll 1–10 °C.
 - Diagnose an DI3 (T32b/9): low-aktive Pulse 0,25 s, Sequenz alle 4 s. Code erst nach zwei gleichen Sequenzen melden. BD35F-Standard: Codes 1–5. Code 6 wird angezeigt, aber als «Bedeutung unbestätigt» (VW-Auslegung, testen).
 - G817 `open`/`short`/`uncalibrated` → Thermostat aus, Meldung. Option `fallback_duty` im Profil (Standard aus).
@@ -333,6 +357,8 @@ Ab Version 2.0 in der XIAO-Firmware (`xiao/modules/`). Das Verhalten unten gilt 
 **Abnahme:** S6 als Test; Pulsdecoder-Test mit aufgezeichneten Pulsfolgen für Codes 1–6 und mit Störpulsen.
 
 ### 7.3 Standheizung (`heater`)
+
+*Ort: XIAO (3.2).*
 
 - K4 = S+ (T6ap/3, bestätigt). DI4 = Betriebsanzeige (T6ap/2).
 - Stufe → H1–H4 binär (H1 = Bit 0 … H4 = Bit 3). Relais an = NC offen = Segment wirksam. Widerstand = R0 + Σ Segmente. R0 und Segmente `TODO_MEASURE` (1750 / 27,4 / 54,9 / 110 / 237 Ω unbestätigt); bis dahin bleibt die Leiter stromlos und die Stufe ist nicht einstellbar.
@@ -344,11 +370,15 @@ Ab Version 2.0 in der XIAO-Firmware (`xiao/modules/`). Das Verhalten unten gilt 
 
 ### 7.4 Tanks (`tanks`)
 
+*Ort: Pi, aus Rohwerten der XIAO (3.2).*
+
 - AI2 (G120) → Widerstand → Stufe 0–3 über Schwellen im Profil. Median 5 s, bei Fahrt 30 s. Neue Stufe erst nach 10 s stabil.
 - AI3 (G126) → voll / nicht voll.
 - Nie Prozent anzeigen.
 
 ### 7.5 Temperaturen (`climate`)
+
+*Ort: G817 in der XIAO (Thermostat), G249 auf dem Pi (3.2).*
 
 - G817 und G249 als NTC, Steinhart-Hart aus drei Kalibrierpunkten im Profil. Fehlen sie: `uncalibrated`.
 - Aussentemperatur-Quelle im Profil: `g249` (Standard) oder `cerbo`.
@@ -356,11 +386,15 @@ Ab Version 2.0 in der XIAO-Firmware (`xiao/modules/`). Das Verhalten unten gilt 
 
 ### 7.6 Fahrzeug (`vehicle`)
 
+*Ort: Sperren in der XIAO, Anzeige auf dem Pi (3.2).*
+
 15a (DI10), 86s (DI8, bestätigt über B518), Laderelais-Befehl J713 / Motor läuft (DI9, T32b/29 über B478 an J519 T73a/3 und Spule J713; kein rohes D+; nur loggen), 58d (DI7, Nachtmodus; evtl. PWM, deshalb «hoch innerhalb `inputs.dim_58d.window_ms`» = an), Landstrom A11 (DI5, nur loggen, bis geklärt ist, ob A11 noch eingebaut ist).
 
 Geschwindigkeit (DI6): nur «fährt / steht», nicht km/h. Der Flankenzähler des SM-I-009 (nur Hardware V3, beide Flanken) liefert die Flanken im Fenster von 1 s; ab `inputs.speed.moving_min_edges` gilt «fährt». Auf V2-Karten zählt die Software Pegelwechsel bei 20-ms-Abfrage.
 
 ### 7.7 Energie (`energy`)
+
+*Ort: Pi (3.2).*
 
 Bereitet die Cerbo-Werte für die Oberfläche auf (Kapitel 5), inkl. Nettoleistung, Ladephase aus `vebus/State`, Auslastung = `Ac/Out/L1/S` / 1600 VA.
 
@@ -438,6 +472,7 @@ Ziel geparkt mit Regelung 0,5–1 W an 12 V (HARDWARE.md Kapitel 0). WLAN und Bl
 | M2 | erledigt: Treiber `sm_h001`, `sm_i009`, `cerbo_mqtt` in Python (ab 2.0 Referenz und Prüfstand) | Rohwerte in der Expertenansicht |
 | M3 | Messmodus und Kalibrier-Assistent (am Prüfstand mit dem Pi, später über die XIAO) | Messfahrt mit Original-E153 möglich |
 | M4 | (Daniel) Messungen am Fahrzeug, Profil füllen (HARDWARE.md 6, «nicht bauen, bevor gemessen») | keine `TODO_MEASURE` mehr in den Pflichtfeldern |
+| M5a | **Prüfstand messen** (`docs/PRUEFSTAND_STROM.md`): Ruhestrom der Sequent-Karten, Wandler, XIAO; 3,3 V vom Header nötig? (O22) | Entscheid, ob die Sequent-Karten an der Standby-Schiene bleiben (Plan A) oder geschaltet werden (Plan B, HARDWARE.md 0) |
 | M5 | **XIAO-Grundgerüst:** ESP-IDF-Projekt, Treiber SM-H-001/SM-I-009/MCP23017, UART-Link, `camperd`-Bridge, Pi- und Display-Versorgung, Summer, Profil im NVS | Pi startet per Berührung, zeigt Rohwerte von der XIAO; Verbrauch in 3 Zuständen und Zeit Berührung → bedienbar (5 Läufe) gemessen |
 | M6 | Firmware: Unterspannung über AI8, lesende Module (Tanks, Temperaturen, Energie, Fahrzeug) | Unit läuft im Auto parallel zum Original, ohne zu schalten; Regelung läuft mit Pi aus |
 | M7 | Firmware: Schaltfunktionen Heizung, Kühlbox, Dach; alle S-Tests (Rechner) grün, Differenztest gegen Python grün | jede Funktion einzeln am Fahrzeug freigegeben |
@@ -477,3 +512,4 @@ Ziel geparkt mit Regelung 0,5–1 W an 12 V (HARDWARE.md Kapitel 0). WLAN und Bl
 | O26 | Verhalten nach XIAO-Neustart und bei Unterspannung | Kühlbox-Wunsch aus dem NVS wiederherstellen, alles andere aus; Unterspannung: Pi und Kühlbox aus, Heizungsnachlauf bleibt |
 | O27 | entfällt (XIAO ohne MQTT) | – |
 | O28 | Reicht UART 115200 Bd für `state` + `io` (Messmodus)? | messen; sonst 460800 Bd |
+| O29 | Ruhestrom SM-H-001 + SM-I-009 an 5 V | Prüfstand M5a. ≤ 60 mA zusammen: Plan A; darüber: Plan B (HARDWARE.md 0) |

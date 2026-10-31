@@ -51,8 +51,8 @@ XIAO → {"t":"snapshot","state":{…},"settings":{…},"power":{…}}
 | `cmd` | `id`, `xiao`, `pi`, `target`, `set` | wie `cmd` im WebSocket (SPEC 4): `fridge`, `heater`. Antwort `ack`. MultiPlus-Befehle (`victron`) gehen nicht über die UART: Der Pi schreibt sie selbst an den Cerbo (SPEC 5.1) |
 | `roof` | `id`, `xiao`, `pi`, `dir` (`open`/`close`/`stop`), `seq`, `auto` | Laufmeldung alle 100 ms, solange das Dach fahren soll. `seq` steigt streng. Die XIAO stoppt nach 300 ms ohne `roof` (S3), bei `stop`, in der Endlage oder bei jeder Sperre. Nie gepuffert: Eine Laufmeldung, die älter als der letzte Stopp ist (`seq` kleiner), gilt nicht |
 | `settings` | `id`, `xiao`, `pi`, `set` | Helligkeit, Darstellung, `idle_min`, Sprache |
-| `subscribe` | `topics` (`["io"]`) | Rohwerte schnell senden (Expertenansicht, Messmodus) |
-| `profile` | `id`, `xiao`, `pi`, `sha256`, `part`, `of`, `data` | Profil als JSON in Teilen ≤ 700 Byte. Die XIAO prüft Hash und Schema, speichert erst vollständig. Änderungen an `release.*` gelten erst nach einer Bestätigung am Gerät (zweimal tippen) |
+| `subscribe` | `topics` (`["io"]`) | Rohwerte schnell senden (Expertenansicht, Messmodus); ohne `subscribe` kommt `raw` mit 2 Hz |
+| `profile` | `id`, `xiao`, `pi`, `sha256`, `part`, `of`, `data` | Regelteil des Profils (Ausgänge, Eingänge der Regelung, `roof`, `fridge`, `heater`, `power`, `release`, G817, AI8) als JSON in Teilen ≤ 700 Byte. Die XIAO prüft Hash und Schema, speichert erst vollständig. Änderungen an `release.*` gelten erst nach einer Bestätigung am Gerät (zweimal tippen) |
 | `shutdown_ok` | – | Antwort auf `shutdown`: der Pi fährt jetzt herunter |
 | `busy` | `s` (≤ 60) | Herunterfahren aufschieben (Update läuft), höchstens 10 min insgesamt |
 
@@ -62,8 +62,9 @@ XIAO → {"t":"snapshot","state":{…},"settings":{…},"power":{…}}
 | --- | --- | --- |
 | `welcome` | `proto`, `xiao`, `pi`, `fw`, `profile` | Sitzung angenommen |
 | `snapshot` | `state`, `settings`, `power` | vollständiger Zustand, nach `welcome` und auf Wunsch |
-| `state` | wie `state.data` im WebSocket | bei Änderung, spätestens jede Sekunde |
-| `io` | `di`, `k`, `h`, `ai_v`, `rail_v`, `ts_ms` | nur nach `subscribe`, 10 Hz (DI-Flanken mit Zeitstempel im Messmodus) |
+| `state` | Regelteil von `state.data` im WebSocket: `roof`, `fridge`, `heater`, `power`, `release`, `alerts` der XIAO | bei Änderung, spätestens jede Sekunde. `camperd` ergänzt Tanks, Temperaturen, Fahrzeug und Victron selbst |
+| `raw` | `di`, `ai_v`, `rail_v`, `cnt` (Zählerstände), `ts_ms` | immer 2 Hz. Daraus rechnet der Pi Tanks, Aussentemperatur und Fahrzeuganzeige (SPEC 3.2) |
+| `io` | `di`, `k`, `h`, `ai_v`, `rail_v`, `cnt`, `ts_ms` | nur nach `subscribe`, 10 Hz (DI-Flanken mit Zeitstempel im Messmodus) |
 | `ack` | `id`, `ok`, `reason` | Antwort auf jeden Befehl mit `id`. Gründe wie im WebSocket (`not_released`, `blocked_moving`, …) plus `stale_session`, `duplicate` |
 | `power` | `mode` (`booting`/`on`/`shutting_down`), `display` (`on`/`dark`), `wake` (`touch`/`86s`/`ignition`) | bei Änderung |
 | `touch_wake` | – | die letzte Berührung war eine Weck-Berührung: die Oberfläche ignoriert sie (S12) |
