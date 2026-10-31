@@ -208,6 +208,7 @@
         <button type="button" data-v="pins" data-t="x.tab.pins"></button>
         <button type="button" data-v="ac" data-t="x.tab.ac"></button>
         <button type="button" data-v="conn" data-t="x.tab.conn"></button>
+        <button type="button" data-v="net" data-t="x.tab.net"></button>
         <button type="button" data-v="measure" data-t="x.tab.measure"></button>
       </div>
       <div class="xbody">
@@ -246,12 +247,41 @@
             <div class="rows" id="x-conn-unit"></div>
           </div>
         </div>
+        <div data-x="net" class="netcfg" hidden>
+          <div class="panel">
+            <span class="label" data-t="x.net.eth"></span>
+            <div class="seg" id="x-eth-mode">
+              <button type="button" data-v="dhcp" data-t="x.net.dhcp"></button><button type="button" data-v="static" data-t="x.net.static"></button>
+            </div>
+            <div class="rows">
+              <div class="row"><span data-t="x.net.address"></span><button type="button" class="fld num" data-f="eth.address" data-kb="ip">–</button></div>
+              <div class="row"><span data-t="x.net.gateway"></span><button type="button" class="fld num" data-f="eth.gateway" data-kb="ip">–</button></div>
+              <div class="row"><span data-t="x.net.dns"></span><button type="button" class="fld num" data-f="eth.dns" data-kb="ip">–</button></div>
+              <div class="row"><span data-t="x.net.now"></span><strong class="num" id="x-eth-now">–</strong></div>
+            </div>
+          </div>
+          <div class="panel">
+            <span class="label" data-t="x.net.wifi"></span>
+            <div class="rows">
+              <div class="row"><span data-t="x.net.ssid"></span><button type="button" class="fld" data-f="wifi.ssid" data-kb="text">–</button></div>
+              <div class="row"><span data-t="x.net.psk"></span><button type="button" class="fld" data-f="wifi.psk" data-kb="text">–</button></div>
+              <div class="row"><span data-t="x.net.cerbo_host"></span><button type="button" class="fld num" data-f="cerbo.host" data-kb="ip">–</button></div>
+              <div class="row"><span data-t="x.net.wlan_now"></span><strong class="num" id="x-wlan-now">–</strong></div>
+            </div>
+            <div class="net-actions"><span class="note" id="x-net-note"></span><button type="button" class="btn sm" id="x-net-apply"></button></div>
+          </div>
+        </div>
         <div data-x="measure" class="measure" hidden>
           <div class="panel"><span class="label" data-t="x.measure.title"></span><span class="note" style="margin-top:12px" data-t="x.measure.note"></span></div>
         </div>
       </div>
     </section>
 
+    <!-- On-screen keyboard for the network fields (no physical keyboard in the van) -->
+    <div class="kb" id="kb" hidden>
+      <div class="kb-head"><span class="label" id="kb-label"></span><span class="kb-val num" id="kb-val"></span></div>
+      <div class="kb-keys" id="kb-keys"></div>
+    </div>
     <div class="toast" id="toast"></div>
   </main>
 </div>

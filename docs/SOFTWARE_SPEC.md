@@ -104,6 +104,7 @@ Entscheid (HARDWARE.md 5.3), NetworkManager (`deploy/network/setup-network.sh`):
 - **Keine Steuerfunktion hängt am Router-Netz.** `camperd` braucht für Dach, Kühlbox und Heizung gar kein Netz; Victron-Daten kommen nur über den AP.
 - Firewall (`deploy/network/nftables.conf`): auf `wlan0` keine neuen eingehenden Verbindungen (der AP ist mit dem Etikett-Passwort für jeden offen). `sshd` nur mit Schlüssel, erreichbar über `eth0`.
 - `config.txt`: `dtoverlay=disable-bt`, WLAN bleibt an.
+- **Einstellen am Gerät:** Expertenansicht → Netzwerk (Ethernet DHCP/statisch mit Adresse/Präfix, Gateway, DNS; WLAN-SSID und -Passwort zum Cerbo-AP; Cerbo-Adresse). Eingabe über eine Bildschirmtastatur. `camperd` prüft die Werte und speichert sie in `/data/network.json` (Rechte 600; das Passwort geht nie an die Oberfläche und nie ins Ereignislog). Der Root-Dienst `camper-network` wendet sie mit `nmcli` an, bei jedem Start (Root-Dateisystem schreibgeschützt) und auf Anforderung; `camperd` darf per polkit nur diesen einen Dienst starten. Eine neue Cerbo-Adresse übernimmt der MQTT-Client ohne Neustart. Erstinbetriebnahme ohne Bildschirm: `deploy/network/setup-network.sh`.
 
 ### 2.8 Oberfläche anzeigen
 
@@ -332,7 +333,7 @@ Wird vor den Schaltfunktionen gebraucht (M3). Original-E153 bleibt angeschlossen
 Vorlage: `ui/reference/Camping_Unit_Oberflaeche_v2.html`. Layout, Farben, Navigation und Texte von dort übernehmen. Die Demo-Logik und die Demo-Steuerung unter dem Bildschirm entfallen und werden durch den WebSocket ersetzt.
 
 - Feste Leinwand 1280 × 480: Kopfzeile 64 px, Inhalt 416 px.
-- **Navigation:** Übersicht (5 Kacheln: «Batterie und Strom» doppelt breit, Kühlbox, Heizung, Wasser, Dach) → Detailseite → «‹ Übersicht». Zahnrad → Einstellungen → «Expertenansicht» → Reiter Signale / Stecker T32b / MultiPlus / Verbindung / Messmodus. Keine weiteren Menüpunkte.
+- **Navigation:** Übersicht (5 Kacheln: «Batterie und Strom» doppelt breit, Kühlbox, Heizung, Wasser, Dach) → Detailseite → «‹ Übersicht». Zahnrad → Einstellungen → «Expertenansicht» → Reiter Signale / Stecker T32b / MultiPlus / Verbindung / Netzwerk / Messmodus. Keine weiteren Menüpunkte.
 - **Rückkehr zur Übersicht** nach 1/2/5 min ohne Bedienung (Einstellung, Standard 2 min), nie während das Dach fährt.
 - **Tastengrössen:** Plus/Minus 112 px, Ein/Aus 88 px hoch, Dachtasten volle Höhe, sonst mindestens 52 px.
 - **Farben:** eine Akzentfarbe; Grün/Gelb/Rot nur für Zustände. Tag- und Nachtschema, Automatik über 58d.

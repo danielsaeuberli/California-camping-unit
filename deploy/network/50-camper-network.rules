@@ -1,0 +1,10 @@
+// /etc/polkit-1/rules.d/50-camper-network.rules
+// camperd (user camper) may start exactly one unit: applying the stored network settings.
+polkit.addRule(function(action, subject) {
+  if (action.id == "org.freedesktop.systemd1.manage-units" &&
+      action.lookup("unit") == "camper-network.service" &&
+      action.lookup("verb") == "start" &&
+      subject.user == "camper") {
+    return polkit.Result.YES;
+  }
+});

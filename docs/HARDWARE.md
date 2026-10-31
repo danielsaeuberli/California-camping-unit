@@ -200,7 +200,7 @@ Pi 5 eth0 ── LAN-Port Camper-Router (Router nur zeitweise an: SSH, Fernzugri
 ```
 
 - Cerbo (Daniel, von Hand): Einstellungen → WLAN → «Access Point erstellen» = EIN; Einstellungen → Dienste → «MQTT im LAN» = EIN (unverschlüsselt 1883 genügt im abgeschlossenen AP-Netz).
-- Pi: `sudo deploy/network/setup-network.sh "<venus-SSID>" "<Passwort vom Etikett>"` (NetworkManager; WLAN nie Standardroute, Ethernet DHCP mit Metrik 100). Prüfen: `python3 tools/cerbo_check.py`.
+- Pi, erstes Mal: `sudo deploy/network/setup-network.sh "<venus-SSID>" "<Passwort vom Etikett>"` (NetworkManager; WLAN nie Standardroute, Ethernet DHCP mit Metrik 100). Prüfen: `python3 tools/cerbo_check.py`. Danach am Gerät änderbar: Expertenansicht → Netzwerk.
 - Der Cerbo bridgt/routet nicht zwischen WLAN und Ethernet (Venus-OS-Kernel ohne Bridge). Kein Versuch.
 - Keine Steuerfunktion hängt am Router-Netz.
 - Firewall auf `wlan0`: keine neuen eingehenden Verbindungen (`deploy/network/nftables.conf`).
