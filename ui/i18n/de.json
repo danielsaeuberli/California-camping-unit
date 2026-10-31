@@ -115,7 +115,7 @@
   "heat.note_afterrun": "Die Standheizung kühlt sich ab. Die Unit bleibt bis zum Ende des Nachlaufs eingeschaltet.",
   "heat.note_fault": "Die Standheizung hat nach dem Einschalten keine Betriebsanzeige gemeldet. Ausschalten und erneut versuchen.",
   "water.fresh": "Frischwasser",
-  "water.fresh_short": "Frisch {level}",
+  "water.fresh_short": "Wasser {level}",
   "water.waste": "Abwasser",
   "water.level.0": "Leer",
   "water.level.1": "1/3",
