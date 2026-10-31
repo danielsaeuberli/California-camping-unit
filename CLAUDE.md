@@ -2,7 +2,7 @@
 
 Ersatz für das Camping-Bedienteil E153 im VW T6 California (MJ 2018, Ausstattung A8L/A8R).
 
-**Architektur (Entscheid 31.10.2026, SPEC 2.0): «XIAO regelt, Pi nur zur Bedienung».** Eine immer laufende XIAO ESP32-S3 ist der einzige Master für alle Ausgänge (Dach, Kühlbox, Standheizung), liest die Relais- und Eingangskarten über I²C und Victron über MQTT. Ein Raspberry Pi 5 mit 1280 × 480-Touchdisplay ist nur Bedienterminal, läuft nur bei Bedienung oder Zündung und schickt Wünsche per UART an die XIAO. Ziel: geparkt mit Regelung 0,5–1 W.
+**Architektur (Entscheid 31.10.2026, SPEC 2.0): «XIAO regelt, Pi nur zur Bedienung».** Eine immer laufende XIAO ESP32-S3 ist der einzige Master für alle Ausgänge (Dach, Kühlbox, Standheizung), liest die Relais- und Eingangskarten über I²C und die Victron-Werte für die Regelung über MQTT. Ein Raspberry Pi 5 mit 1280 × 480-Touchdisplay ist nur Bedienterminal, läuft nur bei Bedienung oder Zündung, schickt Wünsche per UART an die XIAO und holt die Victron-Anzeige selbst über das WLAN des Cerbo. Ziel: geparkt mit Regelung 0,5–1 W.
 
 ## Zuerst lesen
 
@@ -16,7 +16,7 @@ Ersatz für das Camping-Bedienteil E153 im VW T6 California (MJ 2018, Ausstattun
 ## Regeln
 
 - **Sicherheit vor Funktion.** Dach (Hydraulik), Standheizung und Kühlbox sind echte Fahrzeuggeräte. Jede Schaltlogik braucht Unit-Tests für die Sicherheitsregeln in SPEC Kapitel 6, bevor sie auf Hardware läuft.
-- **Der Pi schaltet nie.** Alle Ausgänge und alle Sicherheitsregeln (SPEC 6) liegen in der XIAO-Firmware. Der Pi hat keinen Zugriff auf den Sequent-I²C (`dtparam=i2c_arm=off`) und kein MQTT zum Cerbo. Die Python-Logik in `camperd` (hal, signals, modules) ist Referenzmodell und Simulator für die Firmware.
+- **Der Pi schaltet nie.** Alle Ausgänge und alle Sicherheitsregeln (SPEC 6) liegen in der XIAO-Firmware. Der Pi hat keinen Zugriff auf den Sequent-I²C (`dtparam=i2c_arm=off`). Victron: Der Pi liest für die Anzeige und bedient den MultiPlus (SPEC 5.1); die XIAO liest nur Regelwerte und schreibt nichts. Die Python-Logik in `camperd` (hal, signals, modules) ist Referenzmodell und Simulator für die Firmware.
 - **Nicht bauen, bevor gemessen:** Pegel und Polarität T32b/10/11/12 und T6ap/3, Wahrheitstabelle T32b/14/15, T2p je Heizstufe, Kennlinien G817/G249/G120/G126, T32b/29, MQTT über den AP des Cerbo (HARDWARE.md 6).
 - **Keine Rückspeisung in den ausgeschalteten Pi:** Signale zum Pi nur über Puffer mit Partial-Power-Down (HARDWARE.md 4.4).
 - **Simulator ist Standard.** `camperd` startet ohne Konfiguration mit dem `sim`-Treiber. Echte Hardware nur mit `--hal hw` oder `CAMPERD_HAL=hw`.
@@ -30,7 +30,7 @@ Ersatz für das Camping-Bedienteil E153 im VW T6 California (MJ 2018, Ausstattun
 
 - **OS:** Raspberry Pi OS Lite 64 bit (Bookworm), ohne Desktop, ohne X11, ohne Compositor. Root-Dateisystem schreibgeschützt (overlayfs). Details SPEC Kapitel 2.
 - **XIAO-Firmware** (`xiao/`): ESP-IDF über PlatformIO. Regel- und Sicherheitslogik in reinem C ohne ESP-IDF-Abhängigkeit, Uhr injiziert, Tests auf dem Rechner (`pio test -e native`, Unity). MQTT-Client zum Cerbo (esp-mqtt).
-- **Ein Dienst auf dem Pi:** `camperd` (Python 3.11, asyncio) liefert die Oberfläche als statische Dateien aus, spricht mit ihr per WebSocket (`aiohttp`) und mit der XIAO per UART (`docs/UART_PROTOCOL.md`). Kein lokaler MQTT-Broker.
+- **Ein Dienst auf dem Pi:** `camperd` (Python 3.11, asyncio) liefert die Oberfläche als statische Dateien aus, spricht mit ihr per WebSocket (`aiohttp`), mit der XIAO per UART (`docs/UART_PROTOCOL.md`) und mit dem Cerbo per MQTT (`aiomqtt`, Anzeige und MultiPlus). Kein lokaler MQTT-Broker.
 - **Oberfläche:** statisches HTML/CSS/JS ohne Build-Schritt und ohne Framework, angezeigt mit `cog` (WPE WebKit) auf der DRM-Plattform. Kein Chromium.
 - **Python-Abhängigkeiten** nur: `aiohttp`, `aiomqtt`, `smbus2`, `gpiod`, `pyserial-asyncio`, `pyyaml`. Jede weitere Abhängigkeit begründen.
 - **Tests:** `pytest`, `pytest-asyncio` auf dem Pi-/Python-Teil, Unity in der Firmware; Zeit in Zustandsmaschinen über eine injizierbare Uhr, damit Tests ohne Warten laufen.

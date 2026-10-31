@@ -14,9 +14,9 @@ Preise sind Budgetwerte in CHF, keine Offerten. Status «Bestätigen/Anfragen/Pr
 
 | Teil | Versorgung | Rolle |
 | --- | --- | --- |
-| **XIAO ESP32-S3** | Standby-5-V, immer an | **Einziger Master für alle Ausgänge:** Kühlbox-Thermostat (G817 → K3), Heizung (S+ an K4, Sollwertleiter H1–H4, Betriebsanzeige T6ap/2), Dach (K1/K2, Freigabe Zündung an und Stillstand über T32b/3). Liest SM-H-001 und SM-I-009 über I²C und Victron über WLAN/MQTT am Access Point des Cerbo. Schaltet den Pi ein und aus. |
+| **XIAO ESP32-S3** | Standby-5-V, immer an | **Einziger Master für alle Ausgänge:** Kühlbox-Thermostat (G817 → K3), Heizung (S+ an K4, Sollwertleiter H1–H4, Betriebsanzeige T6ap/2), Dach (K1/K2, Freigabe Zündung an und Stillstand über T32b/3). Liest SM-H-001 und SM-I-009 über I²C und die wenigen Victron-Werte, die die Regelung braucht (Batteriespannung, SoC für Unterspannung), über WLAN/MQTT am Access Point des Cerbo. Schaltet den Pi ein und aus. |
 | **SM-H-001, SM-I-009** | Standby-5-V, abgesetzt | Ein-/Ausgänge, **nur** am I²C der XIAO. Nicht auf den Pi gesteckt (Rückspeisung über die 5-V-Pins des Headers). |
-| **Pi 5** | geschaltete 5-V-Schiene (DCDC-USB, Enable von der XIAO) | **Reines Bedienterminal:** Oberfläche und Konfiguration. Schickt Wünsche per UART an die XIAO, schaltet nie selbst. Kein Zugriff auf den Sequent-I²C (`dtparam=i2c_arm=off`). |
+| **Pi 5** | geschaltete 5-V-Schiene (DCDC-USB, Enable von der XIAO) | **Reines Bedienterminal:** Oberfläche und Konfiguration. Schickt Wünsche per UART an die XIAO, schaltet nie selbst. Holt die Victron-Werte für die Anzeige selbst über das WLAN des Cerbo und bedient den MultiPlus (SPEC 5.1). Kein Zugriff auf den Sequent-I²C (`dtparam=i2c_arm=off`). |
 | Display | geschaltet über Lastschalter | aus, sobald das Display schläft |
 | Touch-Controller | Standby-5-V | weckt über IRQ an die XIAO |
 
@@ -253,12 +253,12 @@ Standby-Schiene Spitze etwa 1,6 A → D24V22F5 (2,5 A) mit Reserve. Mit `cog` st
 
 ```
 Cerbo GX ── Ethernet ── Camper-Router (unverändert: VRM, Remote Console)
-Cerbo GX ── WLAN-AP «venus-…» (immer an) ── XIAO   (MQTT 1883, einziger Victron-Client der Unit)
-XIAO ── UART ── Pi 5   (Victron-Werte für die Oberfläche kommen von der XIAO)
+Cerbo GX ── WLAN-AP «venus-…» (immer an) ─┬─ XIAO    (MQTT 1883, nur Werte für die Regelung, immer)
+                                          └─ Pi 5 wlan0 (MQTT 1883, Anzeige und MultiPlus-Bedienung, nur wenn der Pi läuft)
 Pi 5 eth0 ── LAN-Port Camper-Router (Router nur zeitweise an: SSH, Fernzugriff)
 ```
 
-- Der Pi braucht kein WLAN mehr: `dtoverlay=disable-wifi` spart Strom und Startzeit (O25). SSID und Passwort des Cerbo-AP stellt man weiter in der Expertenansicht ein; der Pi gibt sie per UART an die XIAO, die sie speichert.
+- **Victron über den Pi (Entscheid 31.10.2026):** Der Pi hängt wie bisher selbst am AP des Cerbo und holt alle Werte für die Anzeige; die UART trägt keine Victron-Daten. Die XIAO liest nur, was die Regelung braucht. SSID und Passwort stellt man in der Expertenansicht ein; der Pi wendet sie für sich an (NetworkManager) und gibt sie per UART an die XIAO weiter.
 - Keepalive der XIAO an `R/<portalId>/keepalive` mindestens alle 30 s; ob Venus dann alle nötigen Werte frisch hält, prüfen (SPEC 5, O19).
 
 - Cerbo (Daniel, von Hand): Einstellungen → WLAN → «Access Point erstellen» = EIN; Einstellungen → Dienste → «MQTT im LAN» = EIN (unverschlüsselt 1883 genügt im abgeschlossenen AP-Netz).
