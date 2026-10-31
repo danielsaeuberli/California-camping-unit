@@ -428,12 +428,14 @@ function renderEnergy() {
   $('ov-batt').classList.toggle('charging', !!st?.charging);
   text('ov-bat-status', st ? t('bat.status.' + (st.key === 'inverter' ? 'discharging' : st.key)) : has ? '–' : t('common.no_victron'));
   set('ov-bat-sub', !has || bw == null ? '' : ttgText ? t('ov.sub_ttg', {w: fmt(bw, 'W', 0, true), t: ttgText}) : `${fmt(bw, 'W', 0, true)} · ${fmt(v, 'V', 1)}`);
+  // Chips: plain "240 W" (no small unit style); on shore power one chip says it all
+  const plain = (x, unit, d = 0) => x == null ? '–' : `${fmt(x, '', d)} ${unit}`;
   const chips = [];
   if (has) {
-    if (pv > 0) chips.push(['ok', t('ov.chip_solar', {w: fmt(pv, 'W')})]);
+    if (pv > 0) chips.push(['ok', t('ov.chip_solar', {w: plain(pv, 'W')})]);
     const limit = vic('vebus.current_limit');
-    if (shore) chips.push(['ok', limit != null ? t('ov.chip_shore_lim', {v: fmt(vic('vebus.in_v'), 'V'), a: fmt(limit, 'A', 0)}) : t('ov.chip_shore', {v: fmt(vic('vebus.in_v'), 'V')})]);
-    chips.push(inverterOn() ? ['accent', t('ov.chip_ac_inv')] : shore ? ['ok', t('ov.chip_ac_shore')] : ['', t('ov.chip_ac_off')]);
+    if (shore) chips.push(['ok', limit != null ? t('ov.chip_shore_lim', {v: plain(vic('vebus.in_v'), 'V'), a: plain(limit, 'A')}) : t('ov.chip_shore', {v: plain(vic('vebus.in_v'), 'V')})]);
+    else chips.push(inverterOn() ? ['accent', t('ov.chip_ac_inv')] : ['', t('ov.chip_ac_off')]);
   }
   $('ov-chips').innerHTML = chips.map(([c, x]) => `<span class="chip ${c}">${x}</span>`).join('');
   set('en-soc', fmt(soc, '%'));

@@ -377,6 +377,5 @@
   "ov.chip_shore": "Landstrom {v}",
   "ov.chip_shore_lim": "Landstrom {v} · max {a}",
   "ov.chip_ac_inv": "230 V: Wechselrichter",
-  "ov.chip_ac_shore": "230 V: Landstrom",
   "ov.chip_ac_off": "230 V: aus"
 }

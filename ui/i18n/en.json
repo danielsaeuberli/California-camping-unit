@@ -377,6 +377,5 @@
   "ov.chip_shore": "Shore {v}",
   "ov.chip_shore_lim": "Shore {v} · max {a}",
   "ov.chip_ac_inv": "230 V: inverter",
-  "ov.chip_ac_shore": "230 V: shore power",
   "ov.chip_ac_off": "230 V: off"
 }

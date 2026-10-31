@@ -98,9 +98,9 @@ main>section{height:384px}
 .batt.charging .batt-bolt{display:block}
 .wide-info{display:flex;flex-direction:column;gap:8px;min-width:0}
 .wide-info .big{font-size:34px;margin:0}
-.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips{display:flex;flex-wrap:nowrap;gap:8px;overflow:hidden}
+.chips .chip{white-space:nowrap}
 .chips .chip{margin:0}
-.chip .unit{font-size:.9em;margin-left:2px;color:inherit}
 .tile .tile-foot{margin-top:auto;display:flex;align-items:center;justify-content:space-between;gap:12px}
 .tile .tile-foot .chip{margin-top:0}
 
