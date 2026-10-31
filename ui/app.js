@@ -197,7 +197,7 @@ function armOrSend(key, value) {
   }
   render();
 }
-$('x-mode').querySelectorAll('button').forEach(b => b.addEventListener('click', () => armOrSend('mode', +b.dataset.v)));
+$('en-mode').querySelectorAll('button').forEach(b => b.addEventListener('click', () => armOrSend('mode', +b.dataset.v)));
 const limStep = d => {
   const c = S.st?.victron_control; if (!c || c.limit_min_a == null) return;
   const cur = S.limDraft ?? vic('vebus.current_limit') ?? c.limit_min_a;
@@ -345,6 +345,25 @@ function renderOfflineValues() {
     chip(id, t('common.no_data'), 'warn');
 }
 
+/* What the battery is actually doing, from the Victron values (null = no data). */
+function batteryStatus() {
+  if (!(S.vic && S.vic.connected)) return null;
+  const bw = vic('battery_w'), pv = vic('pv_w'), state = vic('vebus.state'), mode = vic('vebus.mode');
+  const active = vic('vebus.active_input'), shore = active != null && active !== 240;
+  if (bw == null) return null;
+  let key;
+  if (shore && [3, 4, 6, 7].includes(state)) key = 'charging_shore';
+  else if (shore && state === 5) key = 'full_shore';
+  else if (shore && [8, 11].includes(state) && Math.abs(bw) < 10) key = 'passthru';
+  else if (bw > 5 && pv > 0) key = 'charging_solar';
+  else if (bw > 5) key = 'charging';
+  else if (bw < -5 && !shore && [9, 1].includes(state)) key = 'inverter';
+  else if (bw < -5) key = 'discharging';
+  else key = 'idle';
+  const status = t('bat.status.' + key);
+  return {key, charging: bw > 5, text: mode === 4 ? t('bat.status.mp_off', {status}) : status};
+}
+
 function renderEnergy() {
   const has = S.vic && S.vic.connected;
   const soc = vic('soc'), v = vic('battery_v'), a = vic('battery_a'), bw = vic('battery_w');
@@ -353,32 +372,63 @@ function renderEnergy() {
   const shore = active != null && active !== 240;
   const inv = active === 240 ? outP : 0;
   const socCls = soc == null ? '' : soc < 15 ? 'err' : soc < 30 ? 'warn' : 'ok';
+  const st = batteryStatus();
+  const stCls = !st ? 'warn' : st.charging ? 'ok' : socCls || 'accent';
+
+  // Overview tile and battery panel
   set('ov-soc', fmt(soc, '%'));
   set('ov-bat-sub', has ? `${fmt(v, 'V', 1)} · ${fmt(bw, 'W', 0, true)}` : t('common.no_victron'));
-  chip('ov-bat-chip', !has || bw == null ? t('common.no_data') : bw >= 0 ? t('bat.charging') : t('bat.discharging'), !has ? 'warn' : socCls);
+  chip('ov-bat-chip', st ? st.text : t('common.no_data'), stCls);
   set('en-soc', fmt(soc, '%'));
-  text('en-soc-sub', bw == null ? t('common.no_data') : bw >= 0 ? t('bat.charging_lc') : t('bat.discharging_lc'));
+  text('en-soc-sub', !st ? t('common.no_data') : st.charging ? t('bat.charging_lc') : bw < -5 ? t('bat.discharging_lc') : t('bat.status.idle'));
   $('ring-val').setAttribute('stroke-dasharray', `${soc != null ? soc / 100 * 270 : 0} 360`);
   $('ring-val').setAttribute('stroke', socCls === 'err' ? 'var(--err)' : socCls === 'warn' ? 'var(--warn)' : 'var(--accent)');
-  set('en-v', fmt(v, 'V', 1)); set('en-a', fmt(a, 'A', 1, true));
+  set('en-v', fmt(v, 'V', 1)); set('en-a', fmt(a, 'A', 1, true)); set('en-dc', fmt(dc, 'W'));
+
+  // Charging sources
   set('en-in', pv != null && charger != null ? fmt(pv + charger, 'W') : '–');
   set('en-solar', fmt(pv, 'W')); set('en-charger', fmt(charger, 'W')); set('en-alt', '–');
-  text('en-phase', state == null ? '–' : shore ? t('vebus.' + state) : t('en.no_shore'));
-  set('en-out', dc != null && inv != null ? fmt(dc + inv, 'W') : '–'); set('en-dc', fmt(dc, 'W')); set('en-inv', fmt(inv, 'W'));
-  const outS = vic('vebus.out_s'), load = S.vic?.load_pct ?? null, overload = vic('vebus.alarm_overload');
+  text('en-phase', state == null ? '–' : shore ? t('vebus.desc.' + state) : t('en.no_shore'));
+
+  // MultiPlus: what it does now, switch, 230 V side
+  const overload = vic('vebus.alarm_overload');
+  chip('en-mp-chip', state == null ? t('common.no_data') : overload === 2 ? t('en.alarm_overload') : t('mp.chip.' + state),
+    state == null ? 'warn' : overload === 2 || state === 2 ? 'err' : state === 0 ? '' : 'ok');
+  text('en-mp-state', state == null ? (has ? '–' : t('common.no_victron')) : t('vebus.desc.' + state));
+  renderModeSwitch();
+  set('en-inv', fmt(inv, 'W'));
+  const outS = vic('vebus.out_s'), load = S.vic?.load_pct ?? null;
   set('en-load', load != null ? `${fmt(load, '%')} · ${fmt(outS, 'VA')}` : '–');
   $('en-load-bar').className = 'bar' + (overload === 2 ? ' err' : load > 80 ? ' warn' : '');
   $('en-load-bar').firstElementChild.style.width = (overload === 2 ? 100 : load || 0) + '%';
   set('en-alarm', overload == null ? '–' : overload === 2 ? `<span style="color:var(--err)">${t('en.alarm_overload')}</span>` : t('en.alarm_none'));
 
+  // Shore tile
   if (!has || active == null) { set('ov-shore', '–'); text('ov-shore-sub', t('common.no_victron')); chip('ov-shore-chip', t('common.no_data'), 'warn'); }
   else if (!shore) {
     text('ov-shore', t('shore.disconnected')); set('ov-shore-sub', t('shore.inverter_sub', {w: fmt(outP, 'W')}));
-    chip('ov-shore-chip', overload === 2 ? t('shore.overload') : t('shore.inverter'), overload === 2 ? 'err' : 'accent');
+    chip('ov-shore-chip', overload === 2 ? t('shore.overload') : state != null ? t('mp.chip.' + state) : '–', overload === 2 ? 'err' : 'accent');
   } else {
     set('ov-shore', fmt(vic('vebus.in_v'), 'V')); set('ov-shore-sub', t('shore.charging_sub', {w: fmt(charger, 'W')}));
-    chip('ov-shore-chip', state != null ? t('vebus.' + state) : '–', overload === 2 ? 'err' : 'ok');
+    chip('ov-shore-chip', state != null ? t('mp.chip.' + state) : '–', overload === 2 ? 'err' : 'ok');
   }
+}
+
+/* MultiPlus mode switch on the battery page: Nur Laden / Ein / Aus, two taps to confirm */
+function renderModeSwitch() {
+  const c = S.st?.victron_control || {enabled: false, modes: []};
+  const online = !!(S.vic && S.vic.connected) && S.online;
+  const curMode = vic('vebus.mode');
+  $('en-mode').querySelectorAll('button').forEach(b => {
+    const v = +b.dataset.v, isArmed = !!arm && arm.key === 'mode' && arm.value === v && Date.now() < arm.until;
+    b.hidden = !c.modes.includes(v);
+    b.disabled = !c.enabled || !online;
+    b.textContent = isArmed ? t('x.confirm') : t('x.mode.' + v);
+    b.classList.toggle('armed', isArmed);
+    b.setAttribute('aria-pressed', String(curMode === v && !isArmed));
+  });
+  text('en-mode-note', !c.enabled ? t('mp.mode_disabled') : !online ? t('x.ctl.offline')
+    : c.unconfirmed === 'mode' ? t('x.ctl.unconfirmed') : c.pending?.includes('mode') ? t('x.ctl.pending') : t('mp.mode_hint'));
 }
 
 function renderExpert() {
@@ -420,15 +470,6 @@ function renderExpert() {
   const c = S.st?.victron_control || {enabled: false, modes: []};
   const online = !!(S.vic && S.vic.connected) && S.online;
   const armed = k => arm && arm.key === k.key && arm.value === k.value && Date.now() < arm.until;
-  const curMode = vic('vebus.mode');
-  $('x-mode').querySelectorAll('button').forEach(b => {
-    const v = +b.dataset.v, isArmed = armed({key: 'mode', value: v});
-    b.hidden = !c.modes.includes(v);
-    b.disabled = !c.enabled || !online;
-    b.textContent = isArmed ? t('x.confirm') : t('x.mode.' + v);
-    b.classList.toggle('armed', isArmed);
-    b.setAttribute('aria-pressed', String(curMode === v && !isArmed));
-  });
   if (S.limDraft != null && !arm && vic('vebus.current_limit') === S.limDraft) S.limDraft = null;
   const limOk = c.enabled && online && c.limit_min_a != null;
   const limShown = S.limDraft ?? vic('vebus.current_limit');

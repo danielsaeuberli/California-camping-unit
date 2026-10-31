@@ -73,6 +73,7 @@
         <div class="rows">
           <div class="row"><span data-t="bat.voltage"></span><strong class="num" id="en-v">–</strong></div>
           <div class="row"><span data-t="bat.current"></span><strong class="num" id="en-a">–</strong></div>
+          <div class="row"><span data-t="en.dc"></span><strong class="num" id="en-dc">–</strong></div>
         </div>
       </div>
       <div class="panel">
@@ -84,10 +85,14 @@
           <div class="row"><span data-t="en.alt"></span><strong class="num" id="en-alt">–</strong></div>
         </div>
       </div>
-      <div class="panel">
-        <div class="headline"><span class="label" data-t="en.out"></span><span class="big num" id="en-out">–</span></div>
+      <div class="panel mp">
+        <div class="headline"><span class="label" data-t="en.mp"></span><span class="chip" id="en-mp-chip">–</span></div>
+        <span class="sub" id="en-mp-state">–</span>
+        <div class="seg" id="en-mode">
+          <button type="button" data-v="1" data-act></button><button type="button" data-v="3" data-act></button><button type="button" data-v="4" data-act></button>
+        </div>
+        <span class="note" id="en-mode-note"></span>
         <div class="rows">
-          <div class="row"><span data-t="en.dc"></span><strong class="num" id="en-dc">–</strong></div>
           <div class="row"><span data-t="en.inv"></span><strong class="num" id="en-inv">–</strong></div>
           <div class="row" style="border-bottom:0"><span data-t="en.load"></span><strong class="num" id="en-load">–</strong></div>
           <div class="bar" id="en-load-bar"><span></span></div>
@@ -212,11 +217,7 @@
           <div class="panel"><span class="label" data-t="x.ac_out"></span><div class="rows" id="x-ac-out"></div></div>
           <div class="panel"><span class="label" data-t="x.ac_dev"></span><div class="rows" id="x-ac-dev"></div></div>
           <div class="panel ctl">
-            <span class="label" data-t="x.ac_ctl"></span>
-            <div class="seg" id="x-mode">
-              <button type="button" data-v="1" data-act></button><button type="button" data-v="3" data-act></button><button type="button" data-v="4" data-act></button>
-            </div>
-            <span class="sub" data-t="x.lim"></span>
+            <span class="label" data-t="x.lim"></span>
             <div class="limit">
               <button type="button" class="step sm" id="x-lim-minus" data-act>−</button>
               <span class="big num" id="x-lim">–</span>
