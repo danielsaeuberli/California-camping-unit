@@ -18,7 +18,7 @@ Ersatz für das Camping-Bedienteil E153 im VW T6 California (MJ 2018, Ausstattun
 - **Profil statt Code.** Pinbelegung, Polaritäten, Schwellen, Zeiten und Kennlinien stehen im YAML-Profil, nicht im Code.
 - **Cerbo: lesen, schreiben nur eng begrenzt.** `W/…` nur für `vebus/<inst>/Mode` (1/3/4) und `vebus/<inst>/Ac/In/1/CurrentLimit`, nur auf Bedienung, nur mit `victron.control: true` im Profil (SPEC 5.1). Keine anderen `W/…`-Themen.
 - **Offene Punkte nicht still entscheiden.** SPEC Kapitel 12 listet sie. Wenn eine Umsetzung davon abhängt: Standardwert aus der SPEC nehmen, im Code als `# OPEN:` markieren und im PR erwähnen.
-- Bezeichner, Code-Kommentare und Commit-Messages auf Englisch. Texte der Oberfläche auf Deutsch (Schweizer Orthografie, kein «ß») über eine Sprachdatei.
+- Bezeichner, Code-Kommentare und Commit-Messages auf Englisch. Texte der Oberfläche über Sprachdateien: Deutsch (Standard, Schweizer Orthografie, kein «ß») in `ui/i18n/de.json`, Englisch in `ui/i18n/en.json`. Jeder neue Text in beide Dateien (Test prüft gleiche Schlüssel).
 
 ## Stack (so schlank wie möglich)
 

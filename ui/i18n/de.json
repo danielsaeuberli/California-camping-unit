@@ -212,7 +212,7 @@
   "x.conn.online": "verbunden",
   "x.conn.offline": "getrennt",
   "x.conn.portal": "Portal-ID",
-  "x.conn.note": "Nur lesend. Keepalive alle 30 s. Dach, Kühlbox und Heizung hängen nicht an dieser Verbindung.",
+  "x.conn.note": "Liest Victron-Daten; schreibt nur MultiPlus-Modus und Landstrom-Begrenzung. Keepalive alle 5 s. Dach, Kühlbox und Heizung hängen nicht an dieser Verbindung.",
   "x.conn.unit": "Unit",
   "x.conn.version": "Version camperd",
   "x.conn.hal": "Treiber",
@@ -293,7 +293,7 @@
     "26": "Shunt N162 D1 · nur Breakout, Batteriedaten vom Cerbo",
     "27": "Beleuchtung 58d · DI7",
     "28": "Klemme 86s (B518) · DI8 · Pegel messen",
-    "29": "J519 T73a/3 · DI9 · Hypothese D+, messen",
+    "29": "J519 T73a/3 + J713 Laderelais · DI9 · Pegel messen",
     "30": "Zündung 15a · DI10 und Wake",
     "31": "Masse",
     "32": "+12 V über SH21 · nur Durchführung, nicht Unit-Speisung"
@@ -361,5 +361,8 @@
   "vebus.desc.10": "Unterstützt schwachen Landstrom aus der Batterie",
   "vebus.desc.11": "Versorgt 12 V aus Landstrom",
   "mp.mode_hint": "«Aus» trennt 230 V und das Laden. Zweimal tippen.",
-  "mp.mode_disabled": "Umschalten im Profil ausgeschaltet (victron.control)."
+  "mp.mode_disabled": "Umschalten im Profil ausgeschaltet (victron.control).",
+  "set.language": "Sprache",
+  "set.lang.de": "Deutsch",
+  "set.lang.en": "English"
 }

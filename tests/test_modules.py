@@ -113,3 +113,12 @@ async def test_58d_pwm_counts_as_on(rig):
         await rig.run_for(0.02)
         states.add(rig.ctrl.vehicle.dim58)
     assert states == {True}
+
+
+def test_heater_has_ten_levels(profile, sim_profile, clock):
+    from camperd.modules.heater import Heater, HeaterConfig
+
+    assert HeaterConfig.from_profile(profile).levels == 10
+    h = Heater(HeaterConfig.from_profile(sim_profile), clock)
+    assert h.set(level=9) is None
+    assert h.set(level=10) == "out_of_range"

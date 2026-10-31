@@ -22,8 +22,8 @@ const W = {
 const M = {
   roof: {pos: 0, cmd: null, energized: null, lastDir: null, offSince: -1e9, lastHold: -1e9, pressStart: 0, block: 'none', latched: false},
   fridge: {on: false, target: 5, temp: 4.8, request: false, changed: -1e9},
-  heater: {on: false, level: 8, phase: 'off', since: 0, running: false, runT: 0},
-  settings: {brightness: 80, theme: 'auto', idle_min: 2, backlight_control: 'none'},
+  heater: {on: false, level: 5, phase: 'off', since: 0, running: false, runT: 0},
+  settings: {brightness: 80, theme: 'auto', idle_min: 2, language: 'de', backlight_control: 'none'},
   power: 'afterrun',
 };
 
@@ -82,7 +82,7 @@ function enter(phase) { M.heater.phase = phase; M.heater.since = now(); }
 
 function heaterSet(on, level) {
   const h = M.heater;
-  if (level != null) { if (level < 0 || level > 15) return 'out_of_range'; h.level = level; }
+  if (level != null) { if (level < 0 || level > 9) return 'out_of_range'; h.level = level; }
   if (on != null && on !== h.on) {
     h.on = on;
     if (on) enter('start');
@@ -125,7 +125,7 @@ function stateMsg() {
     power: {mode: M.power, ignition: W.ignition || W.moving},
     roof: {pos: roofPos(), cmd: r.cmd || 'none', block: r.block, direction_verified: true, require_ignition: true},
     fridge: {on: f.on, target_c: f.target, temp_c: Math.round(f.temp * 10) / 10, temp_q: 'ok', request: f.request, fault: W.fridgeFault},
-    heater: {on: h.on, level: h.level, phase: h.phase, afterrun_s: afterrun, level_c: null, level_ok: true, levels: 16},
+    heater: {on: h.on, level: h.level, phase: h.phase, afterrun_s: afterrun, level_c: null, level_ok: true, levels: 10},
     tanks: {fresh_step: W.fresh, fresh_q: 'ok', waste_full: W.wasteFull, waste_q: 'ok'},
     outside_c: W.outside, outside_q: 'ok',
     vehicle: {moving: W.moving, d_plus: W.moving, t86s: true, dim58: W.dim58},
