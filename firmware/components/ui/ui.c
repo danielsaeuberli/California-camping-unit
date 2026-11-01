@@ -571,6 +571,19 @@ static void update_battery(batt_t *g, const cu_state_t *s, bool charging)
     }
 }
 
+/* The whole tile opens the detail page: no child may catch the press (LVGL objects
+ * are clickable by default), presses on children go to the tile. */
+static void tile_pass_clicks(lv_obj_t *obj)
+{
+    uint32_t n = lv_obj_get_child_count(obj);
+    for (uint32_t i = 0; i < n; i++) {
+        lv_obj_t *c = lv_obj_get_child(obj, (int32_t)i);
+        lv_obj_remove_flag(c, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_add_flag(c, LV_OBJ_FLAG_EVENT_BUBBLE);
+        tile_pass_clicks(c);
+    }
+}
+
 static void build_overview(lv_obj_t *page)
 {
     /* Row 1: "Batterie und Strom" over two columns, fridge. Row 2: heater, water, roof. */
@@ -600,6 +613,11 @@ static void build_overview(lv_obj_t *page)
     U.tiles[2] = make_tile(page, 0, 1, TX_TILE_HEAT, UI_PAGE_HEAT, false);
     U.tiles[3] = make_tile(page, 1, 1, TX_TILE_WATER, UI_PAGE_WATER, true);
     U.tiles[4] = make_tile(page, 2, 1, TX_TILE_ROOF, UI_PAGE_ROOF, false);
+
+    tile_pass_clicks(en);
+    for (int i = 1; i < 5; i++) {
+        tile_pass_clicks(U.tiles[i].obj);
+    }
 }
 
 /* ---------- roof page ---------- */
