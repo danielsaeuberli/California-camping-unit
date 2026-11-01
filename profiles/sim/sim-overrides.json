@@ -1,0 +1,123 @@
+{
+  "_comment": "Simulator and tests only (make sim). Invented, provisional values so every function can be shown. Never load on the device; not vehicle data.",
+  "outputs": {
+    "roof_a": {
+      "meaning": "open",
+      "drive": "relay_plus"
+    },
+    "roof_b": {
+      "meaning": "close",
+      "drive": "relay_plus"
+    },
+    "fridge": {
+      "drive": "relay_plus"
+    },
+    "heater": {
+      "drive": "relay_plus"
+    }
+  },
+  "analog": {
+    "fridge_temp": {
+      "pullup_ohm": 10000
+    },
+    "fresh": {
+      "pullup_ohm": 1000
+    },
+    "waste": {
+      "pullup_ohm": 1000
+    },
+    "outside": {
+      "pullup_ohm": 10000
+    },
+    "battery": {
+      "divider": 5.7
+    },
+    "ref_3v3": {
+      "divider": 1.2
+    }
+  },
+  "curves": {
+    "g817": [
+      [
+        -10,
+        55300
+      ],
+      [
+        5,
+        25400
+      ],
+      [
+        25,
+        10000
+      ]
+    ],
+    "g249": [
+      [
+        -10,
+        55300
+      ],
+      [
+        5,
+        25400
+      ],
+      [
+        25,
+        10000
+      ]
+    ],
+    "g120_steps_ohm": [
+      800,
+      500,
+      250
+    ],
+    "g126_full_below_ohm": 400
+  },
+  "roof": {
+    "truth_table": {
+      "closed": [
+        0,
+        1
+      ],
+      "open": [
+        1,
+        0
+      ],
+      "between": [
+        0,
+        0
+      ]
+    },
+    "pump_afterrun_s": 2
+  },
+  "speed": {
+    "moving_min_edges": 3
+  },
+  "heater": {
+    "level_bits": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9
+    ]
+  },
+  "release": {
+    "roof": true,
+    "fridge": true,
+    "heater": true
+  },
+  "fridge": {
+    "target_default_c": 5,
+    "target_min_c": 1,
+    "target_max_c": 10,
+    "on_above_c": 1.5,
+    "off_below_c": 1.0,
+    "diag_polarity": "low",
+    "diag_decoder": "secop_hypothesis"
+  }
+}

@@ -1,28 +1,34 @@
-PY ?= .venv/bin/python
-PI ?= camper@192.168.77.2
-VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+# Camping Unit (SPEC 11): host tests and simulator, device build via ESP-IDF.
+BUILD ?= build/host
+JOBS ?= $(shell nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
 
-.PHONY: venv dev dev-uncal test lint deploy clean
+.PHONY: test sim sim-shot build flash fonts clean
 
-venv:
-	python3 -m venv .venv
-	.venv/bin/pip install -r requirements-dev.txt
+$(BUILD)/build.ninja:
+	cmake -S host -B $(BUILD) -G Ninja -DCMAKE_BUILD_TYPE=Debug
 
-dev:  ## camperd with the sim HAL, UI on http://localhost:8080 (simulator controls on /sim)
-	$(PY) -m camperd --hal sim --no-watchdog
+test: $(BUILD)/build.ninja
+	cmake --build $(BUILD) -j $(JOBS)
+	ctest --test-dir $(BUILD) --output-on-failure
 
-dev-uncal:  ## simulator without the invented sim calibration
-	$(PY) -m camperd --hal sim --no-watchdog --sim-uncalibrated
+sim: $(BUILD)/build.ninja
+	cmake --build $(BUILD) -j $(JOBS) --target camping_sim
+	$(BUILD)/camping_sim
 
-test:
-	$(PY) -m pytest -q
+# Headless screenshots for review (SDL dummy driver).
+sim-shot: $(BUILD)/build.ninja
+	cmake --build $(BUILD) -j $(JOBS) --target camping_sim
+	SDL_VIDEODRIVER=dummy $(BUILD)/camping_sim --shot build/sim-overview.bmp --page overview
+	SDL_VIDEODRIVER=dummy $(BUILD)/camping_sim --shot build/sim-roof.bmp --page roof
 
-lint:
-	$(PY) -m ruff check camperd tests tools
-	$(PY) -m mypy
+build:
+	cd firmware && idf.py build
 
-deploy:  ## versioned release on /data/releases, symlink switch, restart (SPEC 2.9)
-	deploy/deploy.sh $(PI) $(VERSION)
+flash:
+	cd firmware && idf.py flash monitor
+
+fonts:
+	tools/gen_fonts.sh
 
 clean:
-	rm -rf var .pytest_cache .mypy_cache .ruff_cache
+	rm -rf build

@@ -1,0 +1,176 @@
+{
+  "schema": 1,
+  "vehicle": "VW T6 California 2.0 TDI 4Motion, MJ 2018, A8L/A8R",
+  "outputs": {
+    "roof_a": {
+      "channel": "K1",
+      "pin": "T32b/11",
+      "meaning": "TODO_MEASURE",
+      "drive": "TODO_MEASURE"
+    },
+    "roof_b": {
+      "channel": "K2",
+      "pin": "T32b/12",
+      "meaning": "TODO_MEASURE",
+      "drive": "TODO_MEASURE"
+    },
+    "fridge": {
+      "channel": "K3",
+      "pin": "T32b/10",
+      "drive": "TODO_MEASURE"
+    },
+    "heater": {
+      "channel": "K4",
+      "pin": "T6ap/3",
+      "drive": "TODO_MEASURE"
+    }
+  },
+  "inputs": {
+    "roof_fb_a": {
+      "channel": "DI1",
+      "pin": "T32b/15"
+    },
+    "roof_fb_b": {
+      "channel": "DI2",
+      "pin": "T32b/14"
+    },
+    "fridge_diag": {
+      "channel": "DI3",
+      "pin": "T32b/9"
+    },
+    "heater_run": {
+      "channel": "DI4",
+      "pin": "T6ap/2"
+    },
+    "charger_a11": {
+      "channel": "DI5",
+      "pin": "T32b/22"
+    },
+    "speed": {
+      "channel": "DI6",
+      "pin": "T32b/3"
+    },
+    "dim58": {
+      "channel": "DI7",
+      "pin": "T32b/27"
+    },
+    "key86s": {
+      "channel": "DI8",
+      "pin": "T32b/28"
+    },
+    "dplus": {
+      "channel": "DI9",
+      "pin": "T32b/29"
+    },
+    "ignition": {
+      "channel": "DI10",
+      "pin": "T32b/30"
+    }
+  },
+  "analog": {
+    "fridge_temp": {
+      "channel": "AI1",
+      "pin": "T32b/7+8",
+      "pullup_ohm": "TODO_MEASURE"
+    },
+    "fresh": {
+      "channel": "AI2",
+      "pin": "T32b/20+21",
+      "pullup_ohm": "TODO_MEASURE"
+    },
+    "waste": {
+      "channel": "AI3",
+      "pin": "T32b/18+19",
+      "pullup_ohm": "TODO_MEASURE"
+    },
+    "outside": {
+      "channel": "AI4",
+      "pin": "T32b/16+17",
+      "pullup_ohm": "TODO_MEASURE"
+    },
+    "ref_3v3": {
+      "channel": "AI5",
+      "pin": "-",
+      "divider": "TODO_MEASURE"
+    },
+    "battery": {
+      "channel": "AI8",
+      "pin": "T32b/32",
+      "divider": "TODO_MEASURE"
+    }
+  },
+  "curves": {
+    "g817": "TODO_MEASURE",
+    "g249": "TODO_MEASURE",
+    "g120_steps_ohm": "TODO_MEASURE",
+    "g126_full_below_ohm": "TODO_MEASURE"
+  },
+  "roof": {
+    "hold_timeout_ms": 300,
+    "max_run_s": 60,
+    "reverse_gap_ms": 300,
+    "require_ignition": true,
+    "tap_to_run": true,
+    "pump_afterrun_s": "TODO_MEASURE",
+    "truth_table": "TODO_MEASURE"
+  },
+  "speed": {
+    "window_ms": 1000,
+    "moving_min_edges": "TODO_MEASURE"
+  },
+  "fridge": {
+    "target_default_c": "TODO_MEASURE",
+    "target_min_c": "TODO_MEASURE",
+    "target_max_c": "TODO_MEASURE",
+    "on_above_c": "TODO_MEASURE",
+    "off_below_c": "TODO_MEASURE",
+    "min_run_s": 120,
+    "min_pause_s": 180,
+    "diag_polarity": "TODO_MEASURE",
+    "diag_decoder": "none"
+  },
+  "heater": {
+    "levels": 10,
+    "level_default": 5,
+    "start_timeout_s": 120,
+    "ladder_gap_ms": 50,
+    "level_ohm": [
+      333,
+      "TODO_MEASURE",
+      "TODO_MEASURE",
+      "TODO_MEASURE",
+      839,
+      "TODO_MEASURE",
+      "TODO_MEASURE",
+      "TODO_MEASURE",
+      "TODO_MEASURE",
+      1993
+    ],
+    "level_bits": "TODO_MEASURE",
+    "level_to_c": "TODO_MEASURE"
+  },
+  "power": {
+    "idle_s": 60,
+    "undervoltage_v": 11.8,
+    "undervoltage_s": 60
+  },
+  "cerbo": {
+    "ssid": "",
+    "password": "",
+    "broker": "172.24.24.1",
+    "port": 1883,
+    "keepalive_s": 30,
+    "stale_s": 10
+  },
+  "measure": {
+    "outputs_locked": false
+  },
+  "ui": {
+    "return_to_overview_min": 2
+  },
+  "release": {
+    "roof": false,
+    "fridge": false,
+    "heater": false
+  }
+}

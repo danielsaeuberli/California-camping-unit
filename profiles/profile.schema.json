@@ -1,0 +1,1077 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/danielsaeuberli/California-camping-unit/profiles/profile.schema.json",
+  "title": "Camping Unit vehicle profile",
+  "description": "Pin mapping and calibration. \"TODO_MEASURE\" marks a value that still has to be measured; the firmware treats it as uncalibrated.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "const": 1
+    },
+    "vehicle": {
+      "type": "string"
+    },
+    "outputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "roof_a": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "channel": {
+              "type": "string",
+              "pattern": "^K[1-8]$"
+            },
+            "pin": {
+              "type": "string"
+            },
+            "meaning": {
+              "oneOf": [
+                {
+                  "enum": [
+                    "open",
+                    "close"
+                  ]
+                },
+                {
+                  "const": "TODO_MEASURE"
+                }
+              ]
+            },
+            "drive": {
+              "oneOf": [
+                {
+                  "enum": [
+                    "relay_plus",
+                    "relay_ground",
+                    "open_drain",
+                    "dry_contact"
+                  ],
+                  "description": "Output stage. relay_plus switches +12 V, relay_ground switches to ground, open_drain = SM-H-001 open-drain output, dry_contact = potential-free contact. Unknown: the output is never driven."
+                },
+                {
+                  "const": "TODO_MEASURE"
+                }
+              ]
+            }
+          },
+          "required": [
+            "channel",
+            "pin",
+            "meaning",
+            "drive"
+          ]
+        },
+        "roof_b": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "channel": {
+              "type": "string",
+              "pattern": "^K[1-8]$"
+            },
+            "pin": {
+              "type": "string"
+            },
+            "meaning": {
+              "oneOf": [
+                {
+                  "enum": [
+                    "open",
+                    "close"
+                  ]
+                },
+                {
+                  "const": "TODO_MEASURE"
+                }
+              ]
+            },
+            "drive": {
+              "oneOf": [
+                {
+                  "enum": [
+                    "relay_plus",
+                    "relay_ground",
+                    "open_drain",
+                    "dry_contact"
+                  ],
+                  "description": "Output stage. relay_plus switches +12 V, relay_ground switches to ground, open_drain = SM-H-001 open-drain output, dry_contact = potential-free contact. Unknown: the output is never driven."
+                },
+                {
+                  "const": "TODO_MEASURE"
+                }
+              ]
+            }
+          },
+          "required": [
+            "channel",
+            "pin",
+            "meaning",
+            "drive"
+          ]
+        },
+        "fridge": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "channel": {
+              "type": "string",
+              "pattern": "^K[1-8]$"
+            },
+            "pin": {
+              "type": "string"
+            },
+            "drive": {
+              "oneOf": [
+                {
+                  "enum": [
+                    "relay_plus",
+                    "relay_ground",
+                    "open_drain",
+                    "dry_contact"
+                  ],
+                  "description": "Output stage. relay_plus switches +12 V, relay_ground switches to ground, open_drain = SM-H-001 open-drain output, dry_contact = potential-free contact. Unknown: the output is never driven."
+                },
+                {
+                  "const": "TODO_MEASURE"
+                }
+              ]
+            }
+          },
+          "required": [
+            "channel",
+            "pin",
+            "drive"
+          ]
+        },
+        "heater": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "channel": {
+              "type": "string",
+              "pattern": "^K[1-8]$"
+            },
+            "pin": {
+              "type": "string"
+            },
+            "drive": {
+              "oneOf": [
+                {
+                  "enum": [
+                    "relay_plus",
+                    "relay_ground",
+                    "open_drain",
+                    "dry_contact"
+                  ],
+                  "description": "Output stage. relay_plus switches +12 V, relay_ground switches to ground, open_drain = SM-H-001 open-drain output, dry_contact = potential-free contact. Unknown: the output is never driven."
+                },
+                {
+                  "const": "TODO_MEASURE"
+                }
+              ]
+            }
+          },
+          "required": [
+            "channel",
+            "pin",
+            "drive"
+          ]
+        }
+      },
+      "required": [
+        "roof_a",
+        "roof_b",
+        "fridge",
+        "heater"
+      ]
+    },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "roof_fb_a": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "channel": {
+              "type": "string",
+              "pattern": "^DI([1-9]|1[0-6])$"
+            },
+            "pin": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "channel",
+            "pin"
+          ]
+        },
+        "roof_fb_b": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "channel": {
+              "type": "string",
+              "pattern": "^DI([1-9]|1[0-6])$"
+            },
+            "pin": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "channel",
+            "pin"
+          ]
+        },
+        "fridge_diag": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "channel": {
+              "type": "string",
+              "pattern": "^DI([1-9]|1[0-6])$"
+            },
+            "pin": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "channel",
+            "pin"
+          ]
+        },
+        "heater_run": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "channel": {
+              "type": "string",
+              "pattern": "^DI([1-9]|1[0-6])$"
+            },
+            "pin": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "channel",
+            "pin"
+          ]
+        },
+        "charger_a11": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "channel": {
+              "type": "string",
+              "pattern": "^DI([1-9]|1[0-6])$"
+            },
+            "pin": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "channel",
+            "pin"
+          ]
+        },
+        "speed": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "channel": {
+              "type": "string",
+              "pattern": "^DI([1-9]|1[0-6])$"
+            },
+            "pin": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "channel",
+            "pin"
+          ]
+        },
+        "dim58": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "channel": {
+              "type": "string",
+              "pattern": "^DI([1-9]|1[0-6])$"
+            },
+            "pin": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "channel",
+            "pin"
+          ]
+        },
+        "key86s": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "channel": {
+              "type": "string",
+              "pattern": "^DI([1-9]|1[0-6])$"
+            },
+            "pin": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "channel",
+            "pin"
+          ]
+        },
+        "dplus": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "channel": {
+              "type": "string",
+              "pattern": "^DI([1-9]|1[0-6])$"
+            },
+            "pin": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "channel",
+            "pin"
+          ]
+        },
+        "ignition": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "channel": {
+              "type": "string",
+              "pattern": "^DI([1-9]|1[0-6])$"
+            },
+            "pin": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "channel",
+            "pin"
+          ]
+        }
+      },
+      "required": [
+        "roof_fb_a",
+        "roof_fb_b",
+        "fridge_diag",
+        "heater_run",
+        "charger_a11",
+        "speed",
+        "dim58",
+        "key86s",
+        "dplus",
+        "ignition"
+      ]
+    },
+    "analog": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "fridge_temp": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "channel": {
+              "type": "string",
+              "pattern": "^AI[1-8]$"
+            },
+            "pin": {
+              "type": "string"
+            },
+            "pullup_ohm": {
+              "oneOf": [
+                {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                {
+                  "const": "TODO_MEASURE"
+                }
+              ]
+            }
+          },
+          "required": [
+            "channel",
+            "pin",
+            "pullup_ohm"
+          ]
+        },
+        "fresh": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "channel": {
+              "type": "string",
+              "pattern": "^AI[1-8]$"
+            },
+            "pin": {
+              "type": "string"
+            },
+            "pullup_ohm": {
+              "oneOf": [
+                {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                {
+                  "const": "TODO_MEASURE"
+                }
+              ]
+            }
+          },
+          "required": [
+            "channel",
+            "pin",
+            "pullup_ohm"
+          ]
+        },
+        "waste": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "channel": {
+              "type": "string",
+              "pattern": "^AI[1-8]$"
+            },
+            "pin": {
+              "type": "string"
+            },
+            "pullup_ohm": {
+              "oneOf": [
+                {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                {
+                  "const": "TODO_MEASURE"
+                }
+              ]
+            }
+          },
+          "required": [
+            "channel",
+            "pin",
+            "pullup_ohm"
+          ]
+        },
+        "outside": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "channel": {
+              "type": "string",
+              "pattern": "^AI[1-8]$"
+            },
+            "pin": {
+              "type": "string"
+            },
+            "pullup_ohm": {
+              "oneOf": [
+                {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                {
+                  "const": "TODO_MEASURE"
+                }
+              ]
+            }
+          },
+          "required": [
+            "channel",
+            "pin",
+            "pullup_ohm"
+          ]
+        },
+        "ref_3v3": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "channel": {
+              "type": "string",
+              "pattern": "^AI[1-8]$"
+            },
+            "pin": {
+              "type": "string"
+            },
+            "divider": {
+              "oneOf": [
+                {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                {
+                  "const": "TODO_MEASURE"
+                }
+              ]
+            }
+          },
+          "required": [
+            "channel",
+            "pin",
+            "divider"
+          ]
+        },
+        "battery": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "channel": {
+              "type": "string",
+              "pattern": "^AI[1-8]$"
+            },
+            "pin": {
+              "type": "string"
+            },
+            "divider": {
+              "oneOf": [
+                {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                {
+                  "const": "TODO_MEASURE"
+                }
+              ]
+            }
+          },
+          "required": [
+            "channel",
+            "pin",
+            "divider"
+          ]
+        }
+      },
+      "required": [
+        "fridge_temp",
+        "fresh",
+        "waste",
+        "outside",
+        "ref_3v3",
+        "battery"
+      ]
+    },
+    "curves": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "g817": {
+          "oneOf": [
+            {
+              "type": "array",
+              "minItems": 3,
+              "maxItems": 3,
+              "items": {
+                "type": "array",
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  }
+                ],
+                "minItems": 2,
+                "maxItems": 2
+              }
+            },
+            {
+              "const": "TODO_MEASURE"
+            }
+          ]
+        },
+        "g249": {
+          "oneOf": [
+            {
+              "type": "array",
+              "minItems": 3,
+              "maxItems": 3,
+              "items": {
+                "type": "array",
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  }
+                ],
+                "minItems": 2,
+                "maxItems": 2
+              }
+            },
+            {
+              "const": "TODO_MEASURE"
+            }
+          ]
+        },
+        "g120_steps_ohm": {
+          "oneOf": [
+            {
+              "type": "array",
+              "minItems": 3,
+              "maxItems": 3,
+              "items": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              }
+            },
+            {
+              "const": "TODO_MEASURE"
+            }
+          ]
+        },
+        "g126_full_below_ohm": {
+          "oneOf": [
+            {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            {
+              "const": "TODO_MEASURE"
+            }
+          ]
+        }
+      },
+      "required": [
+        "g817",
+        "g249",
+        "g120_steps_ohm",
+        "g126_full_below_ohm"
+      ]
+    },
+    "roof": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "hold_timeout_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_run_s": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reverse_gap_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "require_ignition": {
+          "type": "boolean"
+        },
+        "truth_table": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "closed": {
+                  "type": "array",
+                  "items": {
+                    "enum": [
+                      0,
+                      1
+                    ]
+                  },
+                  "minItems": 2,
+                  "maxItems": 2
+                },
+                "open": {
+                  "type": "array",
+                  "items": {
+                    "enum": [
+                      0,
+                      1
+                    ]
+                  },
+                  "minItems": 2,
+                  "maxItems": 2
+                },
+                "between": {
+                  "type": "array",
+                  "items": {
+                    "enum": [
+                      0,
+                      1
+                    ]
+                  },
+                  "minItems": 2,
+                  "maxItems": 2
+                }
+              },
+              "required": [
+                "closed",
+                "open",
+                "between"
+              ]
+            },
+            {
+              "const": "TODO_MEASURE"
+            }
+          ]
+        },
+        "tap_to_run": {
+          "type": "boolean"
+        },
+        "pump_afterrun_s": {
+          "oneOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "const": "TODO_MEASURE"
+            }
+          ]
+        }
+      },
+      "required": [
+        "hold_timeout_ms",
+        "max_run_s",
+        "reverse_gap_ms",
+        "require_ignition",
+        "truth_table",
+        "tap_to_run",
+        "pump_afterrun_s"
+      ]
+    },
+    "speed": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "window_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "moving_min_edges": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "const": "TODO_MEASURE"
+            }
+          ]
+        }
+      },
+      "required": [
+        "window_ms",
+        "moving_min_edges"
+      ]
+    },
+    "fridge": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "target_default_c": {
+          "oneOf": [
+            {
+              "type": "number"
+            },
+            {
+              "const": "TODO_MEASURE"
+            }
+          ]
+        },
+        "target_min_c": {
+          "oneOf": [
+            {
+              "type": "number"
+            },
+            {
+              "const": "TODO_MEASURE"
+            }
+          ]
+        },
+        "target_max_c": {
+          "oneOf": [
+            {
+              "type": "number"
+            },
+            {
+              "const": "TODO_MEASURE"
+            }
+          ]
+        },
+        "on_above_c": {
+          "oneOf": [
+            {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            {
+              "const": "TODO_MEASURE"
+            }
+          ]
+        },
+        "off_below_c": {
+          "oneOf": [
+            {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            {
+              "const": "TODO_MEASURE"
+            }
+          ]
+        },
+        "min_run_s": {
+          "type": "number",
+          "minimum": 0
+        },
+        "min_pause_s": {
+          "type": "number",
+          "minimum": 0
+        },
+        "diag_polarity": {
+          "oneOf": [
+            {
+              "enum": [
+                "low",
+                "high"
+              ]
+            },
+            {
+              "const": "TODO_MEASURE"
+            }
+          ]
+        },
+        "diag_decoder": {
+          "enum": [
+            "none",
+            "secop_hypothesis"
+          ],
+          "description": "none = record raw pulses only. secop_hypothesis = generic Secop LED-code hypothesis (not confirmed for this vehicle); only with an identified electronic unit."
+        }
+      },
+      "required": [
+        "target_default_c",
+        "target_min_c",
+        "target_max_c",
+        "on_above_c",
+        "off_below_c",
+        "min_run_s",
+        "min_pause_s",
+        "diag_polarity",
+        "diag_decoder"
+      ]
+    },
+    "heater": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "levels": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16
+        },
+        "level_default": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "start_timeout_s": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ladder_gap_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "level_ohm": {
+          "description": "Target resistance T2p/1-T2p/2 per level (1 = coldest). Source values: levels 1, 5, 10 from forum.pekaway.de (thread 1897); the rest must be measured.",
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {
+            "oneOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              {
+                "const": "TODO_MEASURE"
+              }
+            ]
+          }
+        },
+        "level_bits": {
+          "oneOf": [
+            {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 16,
+              "items": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 15
+              }
+            },
+            {
+              "const": "TODO_MEASURE"
+            }
+          ]
+        },
+        "level_to_c": {
+          "oneOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "number"
+              }
+            },
+            {
+              "const": "TODO_MEASURE"
+            }
+          ]
+        }
+      },
+      "required": [
+        "levels",
+        "level_default",
+        "start_timeout_s",
+        "ladder_gap_ms",
+        "level_ohm",
+        "level_bits",
+        "level_to_c"
+      ]
+    },
+    "power": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "idle_s": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "undervoltage_v": {
+          "type": "number"
+        },
+        "undervoltage_s": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "idle_s",
+        "undervoltage_v",
+        "undervoltage_s"
+      ]
+    },
+    "cerbo": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ssid": {
+          "type": "string"
+        },
+        "password": {
+          "type": "string"
+        },
+        "broker": {
+          "type": "string"
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "keepalive_s": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stale_s": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "ssid",
+        "password",
+        "broker",
+        "port",
+        "keepalive_s",
+        "stale_s"
+      ]
+    },
+    "measure": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "outputs_locked": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "outputs_locked"
+      ]
+    },
+    "ui": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "return_to_overview_min": {
+          "enum": [
+            1,
+            2,
+            5
+          ]
+        }
+      },
+      "required": [
+        "return_to_overview_min"
+      ]
+    },
+    "release": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "roof": {
+          "type": "boolean"
+        },
+        "fridge": {
+          "type": "boolean"
+        },
+        "heater": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "roof",
+        "fridge",
+        "heater"
+      ]
+    }
+  },
+  "required": [
+    "schema",
+    "vehicle",
+    "outputs",
+    "inputs",
+    "analog",
+    "curves",
+    "roof",
+    "speed",
+    "fridge",
+    "heater",
+    "power",
+    "cerbo",
+    "measure",
+    "ui",
+    "release"
+  ]
+}
