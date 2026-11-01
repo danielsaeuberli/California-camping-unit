@@ -38,8 +38,10 @@ in docs/ nachführen und im Commit erwähnen.
 - Vorlage ist die aktuelle Weboberfläche aus v1: ui/reference/web_v1/ (Entscheid
   Daniel 1.11.2026). Layout, Farben, Navigation und Texte übernehmen.
   ui/reference/Camping_Unit_Oberflaeche_v2.html ist der ältere Prototyp.
-- Texte nur aus ui/i18n/de.json (Basis: Sprachdatei der v1-Weboberfläche), Schweizer
-  Rechtschreibung (ss statt ß). tools/i18n_gen.py erzeugt die C-Tabelle.
+- Texte nur aus ui/i18n/de.json und ui/i18n/en.json (Basis: Sprachdateien der
+  v1-Weboberfläche). Jeder neue Text in beide Dateien mit gleichen Platzhaltern; Deutsch in
+  Schweizer Rechtschreibung (ss statt ß). tools/i18n_gen.py erzeugt die C-Tabellen und prüft
+  Schlüssel, Platzhalter und dass jedes Zeichen in den Schriften (tools/gen_fonts.sh) ist.
 
 ## Ablauf
 - make test vor jedem Commit. Kleine Commits mit klarer Nachricht.

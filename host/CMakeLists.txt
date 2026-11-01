@@ -62,11 +62,11 @@ set(I18N_C ${CMAKE_CURRENT_BINARY_DIR}/i18n/i18n_de.c)
 set(I18N_H ${CMAKE_CURRENT_BINARY_DIR}/i18n/i18n.h)
 add_custom_command(
   OUTPUT ${I18N_C} ${I18N_H}
-  COMMAND python3 ${ROOT}/tools/i18n_gen.py ${ROOT}/ui/i18n/de.json ${CMAKE_CURRENT_BINARY_DIR}/i18n
-  DEPENDS ${ROOT}/tools/i18n_gen.py ${ROOT}/ui/i18n/de.json)
+  COMMAND python3 ${ROOT}/tools/i18n_gen.py ${ROOT}/ui/i18n/de.json ${ROOT}/ui/i18n/en.json ${CMAKE_CURRENT_BINARY_DIR}/i18n
+  DEPENDS ${ROOT}/tools/i18n_gen.py ${ROOT}/ui/i18n/de.json ${ROOT}/ui/i18n/en.json)
 add_library(cu_i18n STATIC ${I18N_C})
 target_include_directories(cu_i18n PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/i18n)
-add_test(NAME i18n_keys COMMAND python3 ${ROOT}/tools/i18n_gen.py --check ${ROOT}/ui/i18n/de.json ${ROOT}/firmware/components/ui)
+add_test(NAME i18n_keys COMMAND python3 ${ROOT}/tools/i18n_gen.py --check ${ROOT}/ui/i18n/de.json ${ROOT}/ui/i18n/en.json ${ROOT}/firmware/components/ui)
 
 if(CU_SIM)
   find_package(PkgConfig REQUIRED)

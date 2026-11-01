@@ -6,7 +6,7 @@ idf_component_register(SRCS "ui.c" ${FONTS} ${I18N_DIR}/i18n_de.c
                        INCLUDE_DIRS "include" ${I18N_DIR}
                        REQUIRES lvgl state_bus modules)
 add_custom_command(OUTPUT ${I18N_DIR}/i18n_de.c ${I18N_DIR}/i18n.h
-                   COMMAND python3 ${ROOT}/tools/i18n_gen.py ${ROOT}/ui/i18n/de.json ${I18N_DIR}
-                   DEPENDS ${ROOT}/tools/i18n_gen.py ${ROOT}/ui/i18n/de.json)
+                   COMMAND python3 ${ROOT}/tools/i18n_gen.py ${ROOT}/ui/i18n/de.json ${ROOT}/ui/i18n/en.json ${I18N_DIR}
+                   DEPENDS ${ROOT}/tools/i18n_gen.py ${ROOT}/ui/i18n/de.json ${ROOT}/ui/i18n/en.json)
 add_custom_target(ui_i18n DEPENDS ${I18N_DIR}/i18n_de.c)
 add_dependencies(${COMPONENT_LIB} ui_i18n)

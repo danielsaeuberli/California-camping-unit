@@ -101,7 +101,7 @@ static struct {
     lv_obj_t *wa_fresh, *wa_steps[3], *wa_waste;
     chip_t wa_chip;
     /* settings page */
-    lv_obj_t *st_bright_val, *st_slider, *st_theme[3], *st_idle[3];
+    lv_obj_t *st_bright_val, *st_slider, *st_theme[3], *st_idle[3], *st_lang[2];
     /* expert view */
     xtab_t xtab;
     lv_obj_t *x_tab_btn[X_COUNT], *x_body[X_COUNT];
@@ -201,8 +201,8 @@ static const char *num(char *buf, size_t len, float v, int decimals, const char 
     }
     snprintf(buf, len, "%.*f%s%s", decimals, (double)v, unit[0] ? " " : "", unit);
     char *dot = strchr(buf, '.');
-    if (dot) {
-        *dot = ',';
+    if (dot && i18n_lang() == LANG_DE) {
+        *dot = ','; /* decimal comma in German, point in English (as the web UI) */
     }
     char *minus = strchr(buf, '-');
     if (minus == buf) { /* typographic minus */
@@ -1471,6 +1471,15 @@ static void idle_cb(lv_event_t *e)
     seg_set(U.st_idle, 3, i);
 }
 
+static void lang_cb(lv_event_t *e)
+{
+    lang_t l = (lang_t)(intptr_t)lv_event_get_user_data(e);
+    if (l != i18n_lang()) {
+        i18n_set_lang(l); /* TODO(M4): store in LittleFS */
+        rebuild();        /* every text is set when the pages are built */
+    }
+}
+
 static void bright_cb(lv_event_t *e)
 {
     U.brightness = (uint8_t)lv_slider_get_value(lv_event_get_target(e));
@@ -1520,6 +1529,12 @@ static void build_settings(lv_obj_t *page)
     static const tx_t il[3] = {TX_SET_IDLE_1, TX_SET_IDLE_2, TX_SET_IDLE_5};
     seg(q, 3, il, idle_cb, U.st_idle, NULL, 52);
     seg_set(U.st_idle, 3, U.cfg.return_min == 1 ? 0 : U.cfg.return_min == 5 ? 2 : 1);
+    lv_obj_t *sp2 = box(q, 0, 0, 1, 6, C_SURFACE, 0);
+    transparent(sp2);
+    text(q, &font_18, C_MUTED, tr(TX_SET_LANGUAGE));
+    static const tx_t ll[2] = {TX_SET_LANG_DE, TX_SET_LANG_EN};
+    seg(q, 2, ll, lang_cb, U.st_lang, NULL, 52);
+    seg_set(U.st_lang, 2, i18n_lang() == LANG_EN ? 1 : 0);
     filler(q);
     lv_obj_t *lab;
     lv_obj_t *b = big_btn(q, 76, go_cb, (void *)(intptr_t)UI_PAGE_EXPERT, &lab);

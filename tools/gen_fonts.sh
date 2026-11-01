@@ -8,7 +8,7 @@ INTER_DIR="${INTER_DIR:-/usr/share/fonts/opentype/inter}"
 OUT="$ROOT/ui/fonts"
 mkdir -p "$OUT"
 # Basic Latin, Latin-1 (umlauts, degree, middle dot), en dash, single guillemets, ellipsis, minus.
-RANGE="0x20-0x7E,0xA0-0xFF,0x2013,0x2026,0x2039,0x203A,0x2212"
+RANGE="0x20-0x7E,0xA0-0xFF,0x2013,0x2018-0x201E,0x2022,0x2026,0x2039,0x203A,0x2192,0x2194,0x2212"
 gen() { # name file size (RANGE may be overridden per call)
   npx -y lv_font_conv@1.5.3 --bpp 4 --size "$3" --no-compress --format lvgl \
     --font "$INTER_DIR/$2" -r "$RANGE" --lv-include lvgl.h -o "$OUT/$1.c" --force-fast-kern-format

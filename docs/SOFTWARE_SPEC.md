@@ -257,7 +257,7 @@ Wie Version 1.0, Kapitel 8, mit diesen Änderungen:
 Vorlage: die aktuelle Weboberfläche aus v1, abgelegt in `ui/reference/web_v1/` (Demo https://danielsaeuberli.github.io/California-camping-unit/). Layout, Farben, Navigation und Texte von dort übernehmen und in LVGL nachbauen; `ui/reference/Camping_Unit_Oberflaeche_v2.html` ist der ältere Klick-Prototyp. Keine Webtechnik auf dem Gerät.
 
 - Übersicht wie v1: oben die breite Kachel «Batterie und Strom» (Batteriegrafik, Status je Situation, Ladequellen- und 230-V-Chip) und Kühlbox; unten Heizung, Wasser, Dach.
-- Seiten wie v1: Batterie und Strom (Batterie, Laden je Gerät, MultiPlus mit Umschalter), Kühlbox, Heizung, Wasser, Dach, Einstellungen (Helligkeit, Tag/Nacht/Automatisch, Rückkehrzeit), Expertenansicht mit Signale, Stecker T32b, MultiPlus, Verbindung, Netzwerk (Bildschirmtastatur), Messmodus. Die Sprachwahl der v1-Weboberfläche entfällt (Texte nur Deutsch).
+- Seiten wie v1: Batterie und Strom (Batterie, Laden je Gerät, MultiPlus mit Umschalter), Kühlbox, Heizung, Wasser, Dach, Einstellungen (Helligkeit, Tag/Nacht/Automatisch, Rückkehrzeit), Expertenansicht mit Signale, Stecker T32b, MultiPlus, Verbindung, Netzwerk (Bildschirmtastatur), Messmodus. Sprache Deutsch/Englisch in den Einstellungen wie in v1 (Texte aus `ui/i18n/de.json` und `en.json`; Dezimalkomma deutsch, Dezimalpunkt englisch).
 - Tag/Nacht: Farben der v1-Weboberfläche; «Automatisch» = Nacht bei eingeschalteter Armaturenbeleuchtung (58d).
 
 - Leinwand 1280 × 480 quer: Kopfzeile 64 px, Inhalt 416 px.
@@ -265,7 +265,7 @@ Vorlage: die aktuelle Weboberfläche aus v1, abgelegt in `ui/reference/web_v1/` 
 - Rückkehr zur Übersicht nach 1/2/5 min ohne Bedienung (Standard 2 min), nie während das Dach fährt.
 - Tastengrössen: Plus/Minus 112 px, Ein/Aus 88 px hoch, Dachtasten volle Höhe, sonst mindestens 52 px.
 - Eine Akzentfarbe; Grün/Gelb/Rot nur für Zustände. Tag- und Nachtschema, Automatik über 58d.
-- Texte aus `ui/i18n/de.json`, beim Build in eine C-Tabelle übersetzt. Keine Texte im C-Code.
+- Texte aus `ui/i18n/de.json` und `en.json`, beim Build in C-Tabellen übersetzt. Keine Texte im C-Code.
 - Schrift: mit `lv_font_conv` erzeugen, inkl. ä ö ü Ä Ö Ü ° – ‹ und Ziffern mit fester Breite.
 - Dachtasten: Antippen startet die Fahrt, die Oberfläche sendet die Laufmeldung im 100-ms-Takt bis Endlage, STOPP oder Berührung; im Rückfall Halten nur solange der Finger liegt (Grundlage für S3).
 - Erste Berührung nach dem Aufwecken: Summer, Display an, keine Bedienung.
@@ -302,7 +302,7 @@ camping-unit/
   firmware/        ESP-IDF-Projekt: main/, components/, sdkconfig.defaults, partitions.csv
   host/            Simulator und Tests (CMake), hal_sim, display_sdl
   tests/           unit/, safety/
-  ui/              reference/Camping_Unit_Oberflaeche_v2.html, i18n/de.json, fonts/
+  ui/              reference/Camping_Unit_Oberflaeche_v2.html, i18n/de.json + en.json, fonts/
   tools/           plot_measure.py, i18n_gen.py
 ```
 

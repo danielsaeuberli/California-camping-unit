@@ -14,6 +14,7 @@
 #include "lvgl.h"
 #include "profile.h"
 #include "state_bus.h"
+#include "i18n.h"
 #include "ui.h"
 
 #define DEV_W 1280
@@ -387,6 +388,8 @@ int main(int argc, char **argv)
             tab = atoi(argv[++i]);
         } else if (!strcmp(argv[i], "--mp-off")) {
             mp_off = 1;
+        } else if (!strcmp(argv[i], "--en")) {
+            i18n_set_lang(LANG_EN);
         } else if (!strcmp(argv[i], "--night")) {
             night = true;
         } else if (!strcmp(argv[i], "--shore")) {
