@@ -3,7 +3,11 @@
 Replacement for the camping control panel E153 in a VW T6 California (MY 2018).
 **v2:** one ESP32-P4 board (Viewe ESP32-P4-Pi-VIEWE) controls roof, fridge and heater and
 shows the 1280 × 480 touch UI in LVGL. The previous Raspberry Pi/XIAO design is on branch
-[`v1`](../../tree/v1) (its web demo: https://danielsaeuberli.github.io/California-camping-unit/).
+[`v1`](../../tree/v1).
+
+**Demonstrator:** https://danielsaeuberli.github.io/California-camping-unit/ – the firmware UI
+compiled to WebAssembly with the simulator panel (simulated values). The old v1 web UI:
+https://danielsaeuberli.github.io/California-camping-unit/v1/
 
 Start with `CLAUDE.md`, `docs/SOFTWARE_SPEC.md`, `docs/HARDWARE.md`. Open work: `docs/TODO.md`.
 

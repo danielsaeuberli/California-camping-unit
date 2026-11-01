@@ -17,6 +17,15 @@
 #include "i18n.h"
 #include "ui.h"
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+
+static void web_loop(void)
+{
+    lv_timer_handler();
+}
+#endif
+
 #define DEV_W 1280
 #define DEV_H 480
 #define PANEL_H 300
@@ -474,6 +483,9 @@ int main(int argc, char **argv)
         }
         return write_bmp(shot, shot_all ? scr : ui_root());
     }
+#ifdef __EMSCRIPTEN__
+    emscripten_set_main_loop(web_loop, 0, 1); /* the browser drives the loop */
+#endif
     while (1) {
         uint32_t wait = lv_timer_handler();
         if (wait > 10) {

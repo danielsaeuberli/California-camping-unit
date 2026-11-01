@@ -8,6 +8,10 @@ set(ROOT ${CMAKE_CURRENT_LIST_DIR}/..)
 set(COMP ${ROOT}/firmware/components)
 
 option(CU_SIM "Build the LVGL/SDL simulator" ON)
+option(CU_TESTS "Build the host tests" ON)
+if(EMSCRIPTEN)
+  set(CU_TESTS OFF) # web demonstrator: simulator only
+endif()
 
 include(FetchContent)
 # Pinned versions (keep in step with firmware/main/idf_component.yml).
@@ -40,6 +44,7 @@ target_link_libraries(cu_logic PUBLIC cjson m)
 target_compile_options(cu_logic PRIVATE -Wall -Wextra -Werror -Wno-unused-parameter)
 
 # Tests (tests/unit, tests/safety), one executable per file.
+if(CU_TESTS)
 enable_testing()
 add_library(unity STATIC ${unity_SOURCE_DIR}/src/unity.c)
 target_include_directories(unity PUBLIC ${unity_SOURCE_DIR}/src)
@@ -56,6 +61,8 @@ foreach(f ${TEST_FILES})
   target_compile_options(${name} PRIVATE -Wall -Wextra -Werror -Wno-unused-parameter)
   add_test(NAME ${name} COMMAND ${name})
 endforeach()
+add_test(NAME i18n_keys COMMAND python3 ${ROOT}/tools/i18n_gen.py --check ${ROOT}/ui/i18n/de.json ${ROOT}/ui/i18n/en.json ${ROOT}/firmware/components/ui)
+endif()
 
 # i18n: ui/i18n/de.json -> C table (no texts in C code, SPEC 9).
 set(I18N_C ${CMAKE_CURRENT_BINARY_DIR}/i18n/i18n_de.c)
@@ -66,11 +73,15 @@ add_custom_command(
   DEPENDS ${ROOT}/tools/i18n_gen.py ${ROOT}/ui/i18n/de.json ${ROOT}/ui/i18n/en.json)
 add_library(cu_i18n STATIC ${I18N_C})
 target_include_directories(cu_i18n PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/i18n)
-add_test(NAME i18n_keys COMMAND python3 ${ROOT}/tools/i18n_gen.py --check ${ROOT}/ui/i18n/de.json ${ROOT}/ui/i18n/en.json ${ROOT}/firmware/components/ui)
 
 if(CU_SIM)
-  find_package(PkgConfig REQUIRED)
-  pkg_check_modules(SDL2 REQUIRED sdl2)
+  if(EMSCRIPTEN)
+    set(SDL2_INCLUDE_DIRS "")
+    set(SDL2_LIBRARIES "")
+  else()
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(SDL2 REQUIRED sdl2)
+  endif()
   FetchContent_Declare(lvgl GIT_REPOSITORY https://github.com/lvgl/lvgl.git GIT_TAG v9.2.2 GIT_SHALLOW TRUE)
   set(LV_CONF_PATH ${CMAKE_CURRENT_LIST_DIR}/sim/lv_conf.h CACHE STRING "" FORCE)
   set(LV_CONF_BUILD_DISABLE_EXAMPLES ON CACHE BOOL "" FORCE)
@@ -83,5 +94,15 @@ if(CU_SIM)
   add_executable(camping_sim ${CMAKE_CURRENT_LIST_DIR}/sim/sim_main.c ${UI_SRC})
   target_include_directories(camping_sim PRIVATE ${COMP}/ui/include ${ROOT}/ui/fonts)
   target_link_libraries(camping_sim cu_logic cu_i18n lvgl ${SDL2_LIBRARIES} m)
-  target_compile_definitions(camping_sim PRIVATE CU_PROFILE_DIR="${ROOT}/profiles")
+  if(EMSCRIPTEN)
+    # Web demonstrator (GitHub Pages): SDL2 port of Emscripten, profiles embedded.
+    target_compile_options(lvgl PUBLIC -sUSE_SDL=2)
+    target_compile_options(camping_sim PRIVATE -sUSE_SDL=2)
+    target_compile_definitions(camping_sim PRIVATE CU_PROFILE_DIR="/profiles")
+    target_link_options(camping_sim PRIVATE -sUSE_SDL=2 -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=67108864
+                        --embed-file ${ROOT}/profiles@/profiles --shell-file ${CMAKE_CURRENT_LIST_DIR}/web/shell.html)
+    set_target_properties(camping_sim PROPERTIES SUFFIX ".html")
+  else()
+    target_compile_definitions(camping_sim PRIVATE CU_PROFILE_DIR="${ROOT}/profiles")
+  endif()
 endif()
