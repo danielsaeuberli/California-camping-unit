@@ -18,8 +18,9 @@ sim: $(BUILD)/build.ninja
 # Headless screenshots for review (SDL dummy driver).
 sim-shot: $(BUILD)/build.ninja
 	cmake --build $(BUILD) -j $(JOBS) --target camping_sim
-	SDL_VIDEODRIVER=dummy $(BUILD)/camping_sim --shot build/sim-overview.bmp --page overview
-	SDL_VIDEODRIVER=dummy $(BUILD)/camping_sim --shot build/sim-roof.bmp --page roof
+	for p in overview energy fridge heat water roof settings expert; do \
+	  $(BUILD)/camping_sim --shot build/sim-$$p.bmp --page $$p || exit 1; done
+	$(BUILD)/camping_sim --shot build/sim-overview-night.bmp --night
 
 build:
 	cd firmware && idf.py build

@@ -5,7 +5,7 @@
 | Meilenstein | Inhalt | Stand |
 | --- | --- | --- |
 | M1 | Repo, Profil + Schema, signals/modules/safety/state_bus/control, Host-Tests, Simulator mit Übersicht und Dach | **fertig** (dazu Kühlbox-Seite); `make test` grün |
-| M2 | ganze Oberfläche im Simulator nach `ui/reference/web_v1`: Batterie und Strom, Heizung, Wasser, Einstellungen, Expertenansicht; Tag/Nacht; Rückkehr zur Übersicht | offen |
+| M2 | ganze Oberfläche im Simulator nach `ui/reference/web_v1`, Tag/Nacht; MultiPlus-Umschaltung (Logik + Oberfläche) | **fertig** |
 | M3 | Gerät: Board, Display, Touch, Hintergrundbeleuchtung | wartet auf Hardware und Viewe-Antwort (O15, O16) |
 | M4 | Treiber SM-I-009, SM-H-001, Sollwertleiter; Cerbo-MQTT | wartet auf Hardware auf dem Tisch |
 | M5 | Messmodus, SD-Logger, Kalibrier-Assistent, Webui | offen |
@@ -18,7 +18,9 @@ Kleinere Punkte:
 - Einstellungen (Kühlbox an/aus, Soll, Heizstufe) in LittleFS speichern; Verhalten nach Neustart festlegen.
 - Uhrzeit: RTC/SNTP (die Kopfzeile zeigt bis dahin die Laufzeit).
 - S8 (kein Display-Aus während Dach/Pumpe) mit dem Power-Modul umsetzen und testen; S9, S10 auf dem Gerät.
-- Energie-Seite: Ladephasen je Gerät (MPPT, Orion XS, MultiPlus) wie in v1 lesen (SPEC 5 erweitern).
+- Einstellungen (Helligkeit, Darstellung, Rückkehrzeit) und Netzwerk speichern (LittleFS) und auf dem Gerät anwenden (M4).
+- Portal-ID in der Expertenansicht anzeigen (cerbo-Komponente, M4).
+- MultiPlus: Mindestwert der Landstrom-Begrenzung eintragen (VEConfigure), dann `victron.control` bewusst einschalten.
 - Firmware-Build in CI, sobald ESP-IDF mit P4 im Container verfügbar ist.
 
 ## Hardware-Blocker (Messungen, Unterlagen)

@@ -1,6 +1,8 @@
 # Cali Camping Unit – Software-Spezifikation
 
-Version 2.1 | 1. November 2026 | Fahrzeug: VW T6 California 2.0 TDI 4Motion, MJ 2018, Campingausrüstung A8L/A8R
+Version 2.2 | 1. November 2026 | Fahrzeug: VW T6 California 2.0 TDI 4Motion, MJ 2018, Campingausrüstung A8L/A8R
+
+Version 2.2 (M2): MultiPlus-Umschaltung wieder im Umfang (5.1, Entscheid Daniel 1.11.2026), alle Seiten der Weboberfläche im Simulator, Tag/Nacht (9).
 
 Version 2.1 (Umsetzung M1): Dach per Antippen mit STOPP (7.1, S3), Kühlbox nach Evidenz getrennt (7.2, `docs/KUEHLBOX.md`), Ausgangsart je Kanal und Freigabe je Funktion im Profil (6), Heizungs-Sollwert nach Quellenwert/Schätzung getrennt (7.3), Vorlage der Oberfläche ist die aktuelle Weboberfläche aus v1 (9), Lichtmaschinen-Leistung gelesen (5).
 
@@ -21,10 +23,10 @@ Die Unit ersetzt das Bedienteil E153. Die Original-Steuergeräte bleiben im Fahr
 | Standheizung | J604, Eberspächer Airtronic | Ein/Aus über S+ (K4), Sollwert über Widerstandsleiter (H1–H4), Betriebsanzeige lesen |
 | Tanks | G120 Frisch, G126 Abwasser | Stufen anzeigen |
 | Temperaturfühler | G817 Kühlbox, G249 aussen | anzeigen |
-| Victron | Cerbo GX, MultiPlus Compact 12/1600 | Batterie, Laden, 230 V anzeigen (nur lesen) |
+| Victron | Cerbo GX, MultiPlus Compact 12/1600/70-16 | Batterie, Laden, 230 V anzeigen; MultiPlus-Modus und Landstrom-Begrenzung umschalten (5.1) |
 | Fahrzeug | 15a, 86s, D+, 58d, Geschwindigkeit | Betriebszustände, Fahrsperre, Nachtmodus |
 
-**Nicht im Umfang v2:** CAN/LIN zum Fahrzeug, Zugriff aus dem Internet, Schreiben auf den Cerbo, Licht-Dimmer, Batterie-Management.
+**Nicht im Umfang v2:** CAN/LIN zum Fahrzeug, Zugriff aus dem Internet, Schreiben auf den Cerbo ausser MultiPlus-Modus und Landstrom-Begrenzung (5.1), Licht-Dimmer, Batterie-Management.
 
 ---
 
@@ -160,7 +162,7 @@ H1–H4 über GPIO, stromlos = alle Segmente überbrückt = Basiswiderstand. Wel
 
 ---
 
-## 5. Victron Cerbo GX (MQTT, nur lesen)
+## 5. Victron Cerbo GX (MQTT)
 
 - WLAN-Station am Access Point des Cerbo. SSID, Passwort und Broker-IP im Profil. Reconnect mit Backoff 1–30 s.
 - Portal-ID beim Start aus `N/+/system/0/Serial`. VE.Bus-Instanz aus `N/<id>/vebus/+/ProductId`.
@@ -170,7 +172,15 @@ H1–H4 über GPIO, stromlos = alle Segmente überbrückt = Basiswiderstand. Wel
   - `vebus/<inst>/{State,Mode,Ac/ActiveIn/ActiveInput,Ac/ActiveIn/L1/{V,I,F,P},Ac/Out/L1/{V,I,F,P,S},Ac/PowerMeasurementType,Dc/0/Power}`
   - `vebus/<inst>/Alarms/{L1/Overload,LowBattery,HighTemperature,L1/Ripple}`
 - Jeder Wert mit Empfangszeit. Alter > 10 s → Anzeige grau mit Alter. Fehlender Wert → leer, nie ein Ersatzwert.
-- **Nie** auf `W/…` publizieren.
+- Auf `W/…` nur nach 5.1.
+- Zusätzlich gelesen (aus v1 übernommen): `vebus/<inst>/Ac/In/1/{CurrentLimit,CurrentLimitIsAdjustable}`, `system/0/Dc/System/Power`, `solarcharger/+/State`, `alternator/+/{State,Dc/In/V}` (Ladephase MPPT/Orion XS, Starterbatterie), `vebus/<inst>/Dc/0/Power` (Ladeleistung des MultiPlus).
+
+### 5.1 MultiPlus umschalten
+
+- **Nur zwei Werte werden je geschrieben:** `W/<id>/vebus/<inst>/Mode` (1 Nur Laden, 3 Ein, 4 Aus; erlaubte Modi in `victron.modes`) und `W/<id>/vebus/<inst>/Ac/In/1/CurrentLimit` (Grenzen `victron.current_limit_a`; `max` 16 A laut Typenschild, `min` `TODO_MEASURE` → Begrenzung bis dahin gesperrt). Die Funktion `victron_write_topic` kennt keine anderen Topics.
+- Nur auf Bedienung (zweimal tippen), nur mit `victron.control: true` (Standard `false`), höchstens alle `min_interval_s`, nie bei getrenntem Cerbo; offene Befehle verfallen beim Verbindungsabbruch.
+- Bestätigung durch Rücklesen innert `confirm_s`; sonst Meldung «MultiPlus hat die Änderung nicht übernommen» (Schalter am Gerät, BMS, Panel). Begrenzung nur, wenn `CurrentLimitIsAdjustable = 1`.
+- Ort: Modul `victron_ctl` (reines C, Tests `tests/unit/test_victron_control.c`); die Oberfläche hat den Umschalter auf «Batterie und Strom» und die Begrenzung in der Expertenansicht (MultiPlus).
 - Stromsparen: Modem Sleep des C6 zulassen; Keepalive-Intervall danach ausrichten.
 
 ---
@@ -247,13 +257,15 @@ Wie Version 1.0, Kapitel 8, mit diesen Änderungen:
 Vorlage: die aktuelle Weboberfläche aus v1, abgelegt in `ui/reference/web_v1/` (Demo https://danielsaeuberli.github.io/California-camping-unit/). Layout, Farben, Navigation und Texte von dort übernehmen und in LVGL nachbauen; `ui/reference/Camping_Unit_Oberflaeche_v2.html` ist der ältere Klick-Prototyp. Keine Webtechnik auf dem Gerät.
 
 - Übersicht wie v1: oben die breite Kachel «Batterie und Strom» (Batteriegrafik, Status je Situation, Ladequellen- und 230-V-Chip) und Kühlbox; unten Heizung, Wasser, Dach.
+- Seiten wie v1: Batterie und Strom (Batterie, Laden je Gerät, MultiPlus mit Umschalter), Kühlbox, Heizung, Wasser, Dach, Einstellungen (Helligkeit, Tag/Nacht/Automatisch, Rückkehrzeit), Expertenansicht mit Signale, Stecker T32b, MultiPlus, Verbindung, Netzwerk (Bildschirmtastatur), Messmodus. Sprache Deutsch/Englisch in den Einstellungen wie in v1 (Texte aus `ui/i18n/de.json` und `en.json`; Dezimalkomma deutsch, Dezimalpunkt englisch).
+- Tag/Nacht: Farben der v1-Weboberfläche; «Automatisch» = Nacht bei eingeschalteter Armaturenbeleuchtung (58d).
 
 - Leinwand 1280 × 480 quer: Kopfzeile 64 px, Inhalt 416 px.
 - Navigation: Übersicht (6 Kacheln) → Detailseite → «‹ Übersicht». Zahnrad → Einstellungen → Expertenansicht mit Reitern Signale / Stecker T32b / MultiPlus / Verbindung / Messmodus.
 - Rückkehr zur Übersicht nach 1/2/5 min ohne Bedienung (Standard 2 min), nie während das Dach fährt.
 - Tastengrössen: Plus/Minus 112 px, Ein/Aus 88 px hoch, Dachtasten volle Höhe, sonst mindestens 52 px.
 - Eine Akzentfarbe; Grün/Gelb/Rot nur für Zustände. Tag- und Nachtschema, Automatik über 58d.
-- Texte aus `ui/i18n/de.json`, beim Build in eine C-Tabelle übersetzt. Keine Texte im C-Code.
+- Texte aus `ui/i18n/de.json` und `en.json`, beim Build in C-Tabellen übersetzt. Keine Texte im C-Code.
 - Schrift: mit `lv_font_conv` erzeugen, inkl. ä ö ü Ä Ö Ü ° – ‹ und Ziffern mit fester Breite.
 - Dachtasten: Antippen startet die Fahrt, die Oberfläche sendet die Laufmeldung im 100-ms-Takt bis Endlage, STOPP oder Berührung; im Rückfall Halten nur solange der Finger liegt (Grundlage für S3).
 - Erste Berührung nach dem Aufwecken: Summer, Display an, keine Bedienung.
@@ -290,7 +302,7 @@ camping-unit/
   firmware/        ESP-IDF-Projekt: main/, components/, sdkconfig.defaults, partitions.csv
   host/            Simulator und Tests (CMake), hal_sim, display_sdl
   tests/           unit/, safety/
-  ui/              reference/Camping_Unit_Oberflaeche_v2.html, i18n/de.json, fonts/
+  ui/              reference/Camping_Unit_Oberflaeche_v2.html, i18n/de.json + en.json, fonts/
   tools/           plot_measure.py, i18n_gen.py
 ```
 
@@ -303,7 +315,7 @@ camping-unit/
 | M | Inhalt | Fertig, wenn |
 | --- | --- | --- |
 | M1 | Repo-Gerüst, Profil und Schema, `signals`, `modules`, `safety` mit Host-Tests, Simulator mit LVGL über SDL, Übersicht und eine Detailseite | `make test` grün, `make sim` zeigt Übersicht und Dach-Detail, S1–S4 als Tests grün |
-| M2 | Ganze Oberfläche im Simulator, i18n, Schrift, Tag/Nacht | alle Seiten des Prototyps im Simulator bedienbar |
+| M2 | Ganze Oberfläche im Simulator, i18n, Schrift, Tag/Nacht | **erledigt** (1.11.2026): alle Seiten der v1-Weboberfläche im Simulator bedienbar |
 | M3 | Gerät: Board bringup, Display (Viewe-Komponente), Touch, Hintergrundbeleuchtung | Oberfläche auf dem Gerät, Touch geht, Startzeit gemessen |
 | M4 | Treiber SM-I-009, SM-H-001, Sollwertleiter auf dem Tisch; Cerbo-MQTT über WLAN | Rohwerte in der Expertenansicht, Victron-Werte vom echten Cerbo |
 | M5 | Messmodus, SD-Logger, Kalibrier-Assistent, Webui mit Dateidownload | Messfahrt mit Original-E153 möglich |

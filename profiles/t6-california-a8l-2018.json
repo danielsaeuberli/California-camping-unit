@@ -172,5 +172,19 @@
     "roof": false,
     "fridge": false,
     "heater": false
+  },
+  "victron": {
+    "control": false,
+    "modes": [
+      1,
+      3,
+      4
+    ],
+    "current_limit_a": {
+      "min": "TODO_MEASURE",
+      "max": 16
+    },
+    "confirm_s": 5,
+    "min_interval_s": 2
   }
 }
