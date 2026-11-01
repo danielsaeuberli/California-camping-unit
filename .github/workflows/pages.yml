@@ -1,0 +1,54 @@
+name: Demonstrator (GitHub Pages)
+
+# Builds the v2 firmware UI (C, LVGL) as WebAssembly with the simulator panel and publishes
+# it to gh-pages. The old v1 web UI stays available under /v1/ (built from branch v1).
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 3.1.74
+      - run: sudo apt-get update && sudo apt-get install -y ninja-build
+      - name: Build WebAssembly demonstrator
+        run: |
+          emcmake cmake -S host -B build/web -G Ninja -DCMAKE_BUILD_TYPE=Release -DCU_TESTS=OFF
+          cmake --build build/web --target camping_sim
+          mkdir -p _site
+          cp build/web/camping_sim.html _site/index.html
+          cp build/web/camping_sim.js build/web/camping_sim.wasm _site/
+          touch _site/.nojekyll
+      - uses: actions/checkout@v4
+        with:
+          ref: v1
+          path: v1src
+      - name: Build v1 web demo into /v1
+        run: v1src/demo/build.sh "$PWD/_site/v1"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: site
+          path: _site
+      - name: Publish to gh-pages
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: |
+          cd _site
+          git init -q -b gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Demonstrator build from ${GITHUB_SHA::7}"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" gh-pages
