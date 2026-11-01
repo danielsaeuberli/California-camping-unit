@@ -17,6 +17,8 @@
 #include "i18n.h"
 #include "ui.h"
 
+LV_FONT_DECLARE(font_15_semi); /* Inter with umlauts, as on the device */
+
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 
@@ -258,6 +260,7 @@ static lv_obj_t *small(lv_obj_t *parent, const char *s)
 {
     lv_obj_t *l = lv_label_create(parent);
     lv_label_set_text(l, s);
+    lv_obj_set_style_text_font(l, &font_15_semi, 0);
     lv_obj_set_style_text_color(l, lv_color_hex(0x9aa9b7), 0);
     return l;
 }
@@ -266,7 +269,7 @@ static void add_switch(lv_obj_t *parent, const char *name, bool *flag)
 {
     lv_obj_t *row = lv_obj_create(parent);
     lv_obj_remove_style_all(row);
-    lv_obj_set_size(row, 150, 40);
+    lv_obj_set_size(row, 165, 40);
     lv_obj_t *sw = lv_switch_create(row);
     lv_obj_align(sw, LV_ALIGN_LEFT_MID, 0, 0);
     if (*flag) {
@@ -306,10 +309,10 @@ static void build_panel(lv_obj_t *scr)
     lv_obj_set_style_pad_column(p, 14, 0);
     lv_obj_remove_flag(p, LV_OBJ_FLAG_SCROLLABLE);
 
-    lv_obj_t *head = small(p, sim_profile ? "SIMULATOR - Profil mit erfundenen Simulationswerten (profiles/sim), keine Fahrzeugdaten"
-                                          : "SIMULATOR - echtes Profil: alles TODO_MEASURE, nichts freigegeben");
+    lv_obj_t *head = small(p, sim_profile ? "Simulator – Profil mit erfundenen Simulationswerten (profiles/sim), keine Fahrzeugdaten"
+                                          : "Simulator – echtes Profil: alles TODO_MEASURE, nichts freigegeben");
     lv_obj_set_width(head, DEV_W - 30);
-    add_switch(p, "Zuendung", &WRLD.ignition);
+    add_switch(p, "Zündung", &WRLD.ignition);
     add_switch(p, "Fahrt", &WRLD.driving);
     add_switch(p, "86s", &WRLD.key86s);
     add_switch(p, "Cerbo", &WRLD.cerbo);
@@ -317,11 +320,11 @@ static void build_panel(lv_obj_t *scr)
     add_switch(p, "Abwasser voll", &WRLD.waste_full);
     add_switch(p, "Sonne", &WRLD.sun);
     add_switch(p, "Licht 58d", &WRLD.dim58);
-    add_slider(p, "Kuehlbox-Innentemperatur (Modell) -10..30 C", 0, -10, 30, (int32_t)WRLD.fridge_c);
-    add_slider(p, "Aussentemperatur -20..40 C", 1, -20, 40, (int32_t)WRLD.outside_c);
-    add_slider(p, "Frischwasser Stufe 0..3", 2, 0, 3, WRLD.fresh_step);
+    add_slider(p, "Kühlbox innen (Modell) −10…30 °C", 0, -10, 30, (int32_t)WRLD.fridge_c);
+    add_slider(p, "Aussentemperatur −20…40 °C", 1, -20, 40, (int32_t)WRLD.outside_c);
+    add_slider(p, "Frischwasser Stufe 0…3", 2, 0, 3, WRLD.fresh_step);
     add_slider(p, "SoC %", 3, 0, 100, WRLD.soc);
-    lv_obj_t *dl = small(p, "DI1..DI16 (DI1/2 Dach, DI4 Heizung, DI8/10 aus dem Modell):");
+    lv_obj_t *dl = small(p, "DI1…DI16 (DI1/2 Dach, DI4 Heizung, DI8/10 aus dem Modell):");
     lv_obj_set_width(dl, DEV_W - 30);
     for (int i = 0; i < CU_N_DI; i++) {
         lv_obj_t *b = lv_button_create(p);
