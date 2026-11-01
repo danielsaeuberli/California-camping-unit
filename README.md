@@ -1,26 +1,39 @@
-# Cali Camping Unit
+# Cali Camping Unit (v2)
 
-Replacement for the E153 camping control panel in a VW T6 California (MY 2018, A8L/A8R).
-A Raspberry Pi 5 drives roof, fridge and parking heater, shows tanks, temperatures and
-Victron data on a 1280 × 480 touch display. See `CLAUDE.md` and `docs/SOFTWARE_SPEC.md`.
+Replacement for the camping control panel E153 in a VW T6 California (MY 2018).
+**v2:** one ESP32-P4 board (Viewe ESP32-P4-Pi-VIEWE) controls roof, fridge and heater and
+shows the 1280 × 480 touch UI in LVGL. The previous Raspberry Pi/XIAO design is on branch
+[`v1`](../../tree/v1) (its web demo: https://danielsaeuberli.github.io/California-camping-unit/).
 
-**Live demo of the touch UI:** https://danielsaeuberli.github.io/California-camping-unit/
-(runs a simulator in the browser instead of `camperd`; built from `ui/` by `demo/build.sh`)
+Start with `CLAUDE.md`, `docs/SOFTWARE_SPEC.md`, `docs/HARDWARE.md`. Open work: `docs/TODO.md`.
 
-## Quick start (Mac, no hardware)
+## Build
+
+Host (macOS/Linux) needs CMake ≥ 3.20, Ninja, a C compiler, Python 3 and SDL2
+(`brew install cmake ninja sdl2` / `apt install cmake ninja-build libsdl2-dev`).
+Dependencies (LVGL 9.2.2, Unity 2.6.0, cJSON 1.7.18) are fetched at pinned versions.
 
 ```
-make venv      # once
-make dev       # camperd with the simulator, UI on http://localhost:8080
-               # simulator controls (ignition, driving, faults …) on http://localhost:8080/sim
-make test      # pytest, incl. safety rules S1–S10 in tests/safety/
-make lint      # ruff + mypy
+make test       # logic and safety tests on the host (Unity)
+make sim        # simulator: device UI 1280 × 480 plus a control panel (ignition, driving, DI, AI)
+make sim-shot   # headless screenshots into build/
+make build      # firmware, needs ESP-IDF >= 5.4 with ESP32-P4 support (idf.py)
+make flash
 ```
 
-`make dev` uses invented calibration values from `profiles/sim/sim-calibration.yaml`
-so every page shows data. `make dev-uncal` runs the simulator on the real vehicle
-profile, where unmeasured values show as «nicht kalibriert».
+The simulator uses `profiles/sim/sim-overrides.json`: invented values so every function can be
+shown, marked «Simulation» in the UI. The real profile `profiles/t6-california-a8l-2018.json`
+keeps every unmeasured value as `TODO_MEASURE`; with it nothing switches
+(`build/host/camping_sim --profile real`).
 
-## Status
+## Layout
 
-Milestone M1 (software) done – `docs/M1_STATUS.md`. Milestone M2 (drivers for SM-H-001, SM-I-009, Purecrea ladder, Cerbo) ready for the bench – `docs/M2_STATUS.md`. Roof, fridge and heater stay disabled (`release.*: false`) until measured at the vehicle.
+```
+docs/       SOFTWARE_SPEC.md, HARDWARE.md, KUEHLBOX.md, MESSBLATT.md, TODO.md, reference/
+profiles/   vehicle profile (JSON + schema), sim overlay
+firmware/   ESP-IDF project: main/, components/ (logic shared with the host, ui, device stubs)
+host/       host build: tests, LVGL/SDL simulator, hal_sim
+tests/      unit/, safety/ (one file per S rule)
+ui/         reference/ (web_v1 = current UI template), i18n/de.json, fonts/
+tools/      i18n_gen.py, gen_fonts.sh
+```
