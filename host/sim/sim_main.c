@@ -30,7 +30,9 @@ static uint32_t fake_ms; /* clock in --shot mode */
 
 /* Simulated world (sim only, not vehicle data). */
 static struct {
-    bool ignition, driving, key86s, cerbo, shore, waste_full;
+    bool ignition, driving, key86s, cerbo, shore, waste_full, dim58, sun;
+    uint8_t mp_mode;     /* MultiPlus mode (1 charger only, 3 on, 4 off) */
+    float mp_limit;      /* shore current limit in A */
     float roof;      /* 0 closed .. 1 open */
     float fridge_c;  /* cabinet temperature */
     float outside_c;
@@ -38,7 +40,8 @@ static struct {
     int soc;
     uint32_t heater_on_ms, heater_off_ms;
     bool run;
-} WRLD = {.ignition = true, .cerbo = true, .fridge_c = 9.0f, .outside_c = 12.5f, .fresh_step = 2, .soc = 76};
+} WRLD = {.ignition = true, .cerbo = true, .sun = true, .fridge_c = 9.0f, .outside_c = 12.5f, .fresh_step = 2,
+          .soc = 76, .mp_mode = 3, .mp_limit = 10.0f};
 
 static lv_obj_t *di_btn[CU_N_DI];
 
@@ -132,20 +135,56 @@ static void world_step(uint32_t now)
     SIM.ai[P.ai_ref - 1] = 2.75f;           /* 3.3 V via divider 1.2 (sim profile) */
     SIM.ai[P.ai_battery - 1] = 13.2f / 5.7f;
 
+    set_di(P.di_dim58, WRLD.dim58);
+
+    /* Simulated Cerbo: executes the MultiPlus writes (only Mode and the current limit exist). */
     energy_t *e = &CTL.energy;
     e->connected = WRLD.cerbo;
+    vc_write_t wr;
+    while (victron_pop_write(&CTL.victron, &wr)) {
+        if (wr.key == VW_MODE) {
+            WRLD.mp_mode = (uint8_t)wr.value;
+        } else {
+            WRLD.mp_limit = wr.value;
+        }
+    }
     if (WRLD.cerbo) {
-        float w = WRLD.shore ? 300.0f : -120.0f;
+        bool shore = WRLD.shore;
+        bool inverter = WRLD.mp_mode == 3 && !shore;
+        int state = WRLD.mp_mode == 4 ? 0 : shore ? (WRLD.mp_mode == 1 ? 5 : 5) : inverter ? 9 : 0;
+        float out_p = state == 0 ? 0 : 90.0f;
+        float pv = WRLD.sun ? 240.0f : 0.0f, alt = WRLD.driving ? 450.0f : 0.0f;
+        float charger = shore && WRLD.mp_mode != 4 ? 420.0f : 0.0f;
+        float dc = 85.0f;
+        float bw = pv + alt + charger - dc - (inverter ? out_p * 1.1f : 0.0f);
+        float bv = shore ? 13.8f : bw > 0 ? 13.4f : 12.9f;
         energy_set(e, EN_SOC, (float)WRLD.soc, now);
-        energy_set(e, EN_BATTERY_V, WRLD.shore ? 13.8f : 13.1f, now);
-        energy_set(e, EN_BATTERY_W, w, now);
-        energy_set(e, EN_ACTIVE_INPUT, WRLD.shore ? 0 : 240, now);
-        energy_set(e, EN_IN_V, 230, now);
-        energy_set(e, EN_VEBUS_STATE, WRLD.shore ? 5 : 9, now);
-        energy_set(e, EN_PV_W, 0, now);
-        energy_set(e, EN_ALT_W, WRLD.driving ? 450.0f : 0.0f, now);
-        if (WRLD.driving) {
-            energy_set(e, EN_BATTERY_W, 330.0f, now);
+        energy_set(e, EN_BATTERY_V, bv, now);
+        energy_set(e, EN_BATTERY_W, bw, now);
+        energy_set(e, EN_BATTERY_A, bw / bv, now);
+        energy_set(e, EN_DC_SYSTEM_W, dc, now);
+        energy_set(e, EN_PV_W, pv, now);
+        energy_set(e, EN_SOLAR_STATE, WRLD.sun ? 3 : 0, now);
+        energy_set(e, EN_ALT_W, alt, now);
+        energy_set(e, EN_ALT_STATE, WRLD.driving ? 3 : 0, now);
+        energy_set(e, EN_STARTER_V, WRLD.driving ? 14.3f : 12.45f, now);
+        energy_set(e, EN_ACTIVE_INPUT, shore ? 0 : 240, now);
+        energy_set(e, EN_IN_V, shore ? 230 : 0, now);
+        energy_set(e, EN_IN_I, shore ? 2.9f : 0, now);
+        energy_set(e, EN_IN_F, shore ? 50 : 0, now);
+        energy_set(e, EN_IN_P, shore ? 650 : 0, now);
+        energy_set(e, EN_VEBUS_STATE, (float)state, now);
+        energy_set(e, EN_VEBUS_MODE, WRLD.mp_mode, now);
+        energy_set(e, EN_VEBUS_DC_W, charger > 0 ? charger : -(inverter ? out_p * 1.1f : 0), now);
+        energy_set(e, EN_OUT_V, state == 0 ? 0 : 230, now);
+        energy_set(e, EN_OUT_I, out_p / 230.0f, now);
+        energy_set(e, EN_OUT_F, state == 0 ? 0 : 50, now);
+        energy_set(e, EN_OUT_P, out_p, now);
+        energy_set(e, EN_OUT_S, state == 0 ? 0 : 100, now);
+        energy_set(e, EN_CURRENT_LIMIT, WRLD.mp_limit, now);
+        energy_set(e, EN_LIMIT_ADJUSTABLE, 1, now);
+        for (energy_key_t k = EN_ALARM_OVERLOAD; k <= EN_ALARM_RIPPLE; k++) {
+            energy_set(e, k, 0, now);
         }
     }
     for (int i = 0; i < CU_N_DI && di_btn[i]; i++) {
@@ -266,6 +305,8 @@ static void build_panel(lv_obj_t *scr)
     add_switch(p, "Cerbo", &WRLD.cerbo);
     add_switch(p, "Landstrom", &WRLD.shore);
     add_switch(p, "Abwasser voll", &WRLD.waste_full);
+    add_switch(p, "Sonne", &WRLD.sun);
+    add_switch(p, "Licht 58d", &WRLD.dim58);
     add_slider(p, "Kuehlbox-Innentemperatur (Modell) -10..30 C", 0, -10, 30, (int32_t)WRLD.fridge_c);
     add_slider(p, "Aussentemperatur -20..40 C", 1, -20, 40, (int32_t)WRLD.outside_c);
     add_slider(p, "Frischwasser Stufe 0..3", 2, 0, 3, WRLD.fresh_step);
@@ -337,10 +378,19 @@ static int write_bmp(const char *path, lv_obj_t *obj)
 int main(int argc, char **argv)
 {
     const char *shot = NULL, *page = "overview";
-    bool shot_all = false, tap_open = false;
+    bool shot_all = false, tap_open = false, night = false;
+    int tab = -1, mp_off = 0;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--shot") && i + 1 < argc) {
             shot = argv[++i];
+        } else if (!strcmp(argv[i], "--tab") && i + 1 < argc) {
+            tab = atoi(argv[++i]);
+        } else if (!strcmp(argv[i], "--mp-off")) {
+            mp_off = 1;
+        } else if (!strcmp(argv[i], "--night")) {
+            night = true;
+        } else if (!strcmp(argv[i], "--shore")) {
+            WRLD.shore = true;
         } else if (!strcmp(argv[i], "--tap-open")) {
             tap_open = true;
         } else if (!strcmp(argv[i], "--shot-all")) {
@@ -381,6 +431,7 @@ int main(int argc, char **argv)
     lv_obj_set_style_bg_color(scr, lv_color_hex(0x05080b), 0);
     lv_obj_remove_flag(scr, LV_OBJ_FLAG_SCROLLABLE);
 
+    WRLD.dim58 = night;
     hal_sim_init(&SIM, &IO);
     state_bus_init(&BUS);
     control_init(&CTL, &P, &IO, &BUS, (cu_ms_t)lv_tick_get());
@@ -396,10 +447,15 @@ int main(int argc, char **argv)
     lv_timer_create(io_timer, 20, NULL);
     lv_timer_create(logic_timer, 50, NULL);
 
-    if (!strcmp(page, "roof")) {
-        ui_show(UI_PAGE_ROOF);
-    } else if (!strcmp(page, "fridge")) {
-        ui_show(UI_PAGE_FRIDGE);
+    static const char *const pages[UI_PAGE_COUNT] = {"overview", "roof", "fridge", "energy",
+                                                     "heat", "water", "settings", "expert"};
+    for (int i = 0; i < UI_PAGE_COUNT; i++) {
+        if (!strcmp(page, pages[i])) {
+            ui_show((ui_page_t)i);
+        }
+    }
+    if (tab >= 0) {
+        ui_expert_tab(tab);
     }
 
     if (shot) {
@@ -408,6 +464,9 @@ int main(int argc, char **argv)
             lv_timer_handler();
             if (tap_open && i == 100) {
                 ui_roof_tap(ROOF_OPEN);
+            }
+            if (mp_off && (i == 100 || i == 120)) { /* two taps confirm */
+                ui_mp_tap(4);
             }
         }
         return write_bmp(shot, shot_all ? scr : ui_root());

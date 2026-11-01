@@ -227,7 +227,7 @@ static uint32_t ms(ctx_t *c, const cJSON *o, const char *key, double factor)
 static void parse_tree(ctx_t *c, const cJSON *root, profile_t *p)
 {
     static const char *const top[] = {"schema", "vehicle", "outputs", "inputs", "analog", "curves", "roof", "speed",
-                                      "fridge", "heater", "power", "cerbo", "measure", "ui", "release", NULL};
+                                      "fridge", "heater", "power", "cerbo", "victron", "measure", "ui", "release", NULL};
     static const char *const ch_pin[] = {"channel", "pin", NULL};
     static const char *const ch_pin_drive[] = {"channel", "pin", "drive", NULL};
     static const char *const ch_pin_meaning[] = {"channel", "pin", "meaning", "drive", NULL};
@@ -440,6 +440,31 @@ static void parse_tree(ctx_t *c, const cJSON *root, profile_t *p)
     p->cerbo_port = (uint16_t)num(c, o, "port");
     p->cerbo_keepalive_s = (uint32_t)num(c, o, "keepalive_s");
     p->cerbo_stale_s = (uint32_t)num(c, o, "stale_s");
+
+    static const char *const vic_keys[] = {"control", "modes", "current_limit_a", "confirm_s", "min_interval_s", NULL};
+    o = obj(c, root, "", "victron", vic_keys);
+    p->victron_control = boolean(c, o, "control");
+    const cJSON *modes = item(c, o, "modes");
+    p->victron_modes = 0;
+    if (!cJSON_IsArray(modes) || cJSON_GetArraySize(modes) < 1) {
+        fail(c, "victron.modes must list the allowed modes 1..4");
+    } else {
+        const cJSON *m;
+        cJSON_ArrayForEach(m, modes)
+        {
+            if (!cJSON_IsNumber(m) || m->valueint < 1 || m->valueint > 4) {
+                fail(c, "victron.modes: allowed values are 1, 2, 3, 4");
+            } else {
+                p->victron_modes |= (uint8_t)(1u << m->valueint);
+            }
+        }
+    }
+    static const char *const lim_keys[] = {"min", "max", NULL};
+    const cJSON *lim = obj(c, o, "victron", "current_limit_a", lim_keys);
+    p->victron_limit_min_a = cal(c, lim, "min");
+    p->victron_limit_max_a = cal(c, lim, "max");
+    p->victron_confirm_ms = ms(c, o, "confirm_s", 1000);
+    p->victron_min_interval_ms = ms(c, o, "min_interval_s", 1000);
 
     static const char *const measure_keys[] = {"outputs_locked", NULL};
     p->measure_outputs_locked = boolean(c, obj(c, root, "", "measure", measure_keys), "outputs_locked");

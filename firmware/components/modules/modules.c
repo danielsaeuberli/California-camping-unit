@@ -1,6 +1,7 @@
 #include "modules.h"
 
 #include <math.h>
+#include <stdio.h>
 #include <string.h>
 
 /* ---------------- Roof ---------------- */
@@ -475,4 +476,119 @@ cu_quality_t energy_get(const energy_t *e, energy_key_t k, cu_ms_t now, float *v
     }
     *v = e->v[k];
     return CU_Q_OK;
+}
+
+/* ---------------- MultiPlus control ---------------- */
+
+void victron_ctl_init(victron_ctl_t *v, const profile_t *p)
+{
+    memset(v, 0, sizeof *v);
+    v->p = p;
+    v->unconfirmed = -1;
+}
+
+bool victron_limit_enabled(const profile_t *p)
+{
+    return p->victron_control && p->victron_limit_min_a.cal && p->victron_limit_max_a.cal;
+}
+
+static vc_result_t common(victron_ctl_t *v, const energy_t *e, cu_ms_t now)
+{
+    if (!v->p->victron_control) {
+        return VC_DISABLED;
+    }
+    if (!e->connected) {
+        return VC_OFFLINE;
+    }
+    if (v->written_once && now - v->last_write < (cu_ms_t)v->p->victron_min_interval_ms) {
+        return VC_TOO_FAST;
+    }
+    return VC_OK;
+}
+
+static void queue(victron_ctl_t *v, vc_key_t key, float value, cu_ms_t now)
+{
+    if (v->n_queue < CU_ARRAY_LEN(v->queue)) {
+        v->queue[v->n_queue++] = (vc_write_t){key, value};
+    }
+    v->pending[key] = true;
+    v->expected[key] = value;
+    v->sent[key] = now;
+    v->last_write = now;
+    v->written_once = true;
+    v->unconfirmed = -1;
+}
+
+vc_result_t victron_request_mode(victron_ctl_t *v, const energy_t *e, uint8_t mode, cu_ms_t now)
+{
+    vc_result_t r = common(v, e, now);
+    if (r == VC_OK && (mode < 1 || mode > 4 || !(v->p->victron_modes & (1u << mode)))) {
+        r = VC_BAD_MODE;
+    }
+    if (r == VC_OK) {
+        queue(v, VW_MODE, mode, now);
+    }
+    v->last = r;
+    return r;
+}
+
+vc_result_t victron_request_limit(victron_ctl_t *v, const energy_t *e, float amps, cu_ms_t now)
+{
+    vc_result_t r = common(v, e, now);
+    float adj;
+    if (r == VC_OK && !victron_limit_enabled(v->p)) {
+        r = VC_LIMIT_DISABLED;
+    } else if (r == VC_OK && (energy_get(e, EN_LIMIT_ADJUSTABLE, now, &adj) != CU_Q_OK || adj != 1)) {
+        r = VC_LIMIT_FIXED;
+    } else if (r == VC_OK) {
+        amps = roundf(amps * 10) / 10;
+        if (isnan(amps) || amps < v->p->victron_limit_min_a.v || amps > v->p->victron_limit_max_a.v) {
+            r = VC_OUT_OF_RANGE;
+        }
+    }
+    if (r == VC_OK) {
+        queue(v, VW_CURRENT_LIMIT, amps, now);
+    }
+    v->last = r;
+    return r;
+}
+
+void victron_ctl_tick(victron_ctl_t *v, const energy_t *e, cu_ms_t now)
+{
+    static const energy_key_t readback[VW_COUNT] = {EN_VEBUS_MODE, EN_CURRENT_LIMIT};
+    for (int k = 0; k < VW_COUNT; k++) {
+        if (!v->pending[k]) {
+            continue;
+        }
+        float actual;
+        if (energy_get(e, readback[k], now, &actual) == CU_Q_OK && fabsf(actual - v->expected[k]) < 0.05f) {
+            v->pending[k] = false;
+        } else if (now - v->sent[k] > (cu_ms_t)v->p->victron_confirm_ms) {
+            v->pending[k] = false;
+            v->unconfirmed = (int8_t)k; /* front switch, BMS or panel overrides */
+        }
+    }
+    if (!e->connected) {
+        v->n_queue = 0; /* never replay a stale command after a reconnect */
+    }
+}
+
+bool victron_pop_write(victron_ctl_t *v, vc_write_t *out)
+{
+    if (!v->n_queue) {
+        return false;
+    }
+    *out = v->queue[0];
+    memmove(v->queue, v->queue + 1, sizeof(vc_write_t) * --v->n_queue);
+    return true;
+}
+
+int victron_write_topic(char *buf, size_t len, const char *portal, const char *instance, vc_key_t key)
+{
+    static const char *const path[VW_COUNT] = {"Mode", "Ac/In/1/CurrentLimit"};
+    if (key >= VW_COUNT || !portal || !instance || !portal[0] || !instance[0]) {
+        return -1;
+    }
+    int n = snprintf(buf, len, "W/%s/vebus/%s/%s", portal, instance, path[key]);
+    return n > 0 && (size_t)n < len ? 0 : -1;
 }

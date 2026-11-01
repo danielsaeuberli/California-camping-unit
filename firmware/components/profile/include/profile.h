@@ -65,6 +65,12 @@ typedef struct {
     float power_undervoltage_v;
     uint32_t power_undervoltage_ms;
 
+    /* MultiPlus control (SPEC 5.1): writes only Mode and Ac/In/1/CurrentLimit. */
+    bool victron_control;
+    uint8_t victron_modes; /* bit n = mode n allowed (1, 2, 3, 4) */
+    cu_cal_t victron_limit_min_a, victron_limit_max_a;
+    uint32_t victron_confirm_ms, victron_min_interval_ms;
+
     char cerbo_ssid[33], cerbo_password[65], cerbo_broker[40];
     uint16_t cerbo_port;
     uint32_t cerbo_keepalive_s, cerbo_stale_s;

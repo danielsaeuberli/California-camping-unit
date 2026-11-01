@@ -119,5 +119,11 @@
     "off_below_c": 1.0,
     "diag_polarity": "low",
     "diag_decoder": "secop_hypothesis"
+  },
+  "victron": {
+    "control": true,
+    "current_limit_a": {
+      "min": 3
+    }
   }
 }

@@ -177,16 +177,77 @@ typedef enum {
     EN_OUT_P,
     EN_OUT_S,
     EN_ALARM_OVERLOAD,
+    EN_ALARM_LOW_BATTERY,
+    EN_ALARM_TEMPERATURE,
+    EN_ALARM_RIPPLE,
+    EN_CURRENT_LIMIT,     /* vebus Ac/In/1/CurrentLimit */
+    EN_LIMIT_ADJUSTABLE,  /* vebus Ac/In/1/CurrentLimitIsAdjustable */
+    EN_IN_I,
+    EN_OUT_V,
+    EN_OUT_I,
+    EN_OUT_F,
+    EN_IN_F,
+    EN_DC_SYSTEM_W,       /* system/0/Dc/System/Power (12-V consumers) */
+    EN_SOLAR_STATE,       /* solarcharger/+/State (charging phase) */
+    EN_ALT_STATE,         /* alternator/+/State (Orion XS) */
+    EN_STARTER_V,         /* alternator/+/Dc/In/V = starter battery */
+    EN_VEBUS_DC_W,        /* vebus Dc/0/Power: MultiPlus DC side (+ charging) */
     EN_COUNT,
 } energy_key_t;
 
-typedef struct {
+struct energy {
     float v[EN_COUNT];
     cu_ms_t t[EN_COUNT];
     bool has[EN_COUNT];
     uint32_t stale_ms;
     bool connected;
-} energy_t;
+};
+
+/* ---------------- MultiPlus control (SPEC 5.1) ----------------
+ * Writes only vebus Mode (allowed modes from the profile) and Ac/In/1/CurrentLimit,
+ * only on a user command, only with victron.control true, rate limited and confirmed
+ * by reading the value back. Never any other W/ topic. */
+
+typedef enum {
+    VC_OK = 0,
+    VC_DISABLED,       /* victron.control false */
+    VC_OFFLINE,        /* Cerbo not connected */
+    VC_TOO_FAST,       /* min_interval_s */
+    VC_BAD_MODE,       /* mode not in victron.modes */
+    VC_LIMIT_DISABLED, /* current limit range not calibrated */
+    VC_LIMIT_FIXED,    /* CurrentLimitIsAdjustable = 0 (BMS, panel) */
+    VC_OUT_OF_RANGE,
+} vc_result_t;
+
+typedef enum { VW_MODE = 0, VW_CURRENT_LIMIT = 1, VW_COUNT } vc_key_t;
+
+typedef struct {
+    vc_key_t key;
+    float value;
+} vc_write_t;
+
+typedef struct {
+    const profile_t *p;
+    cu_ms_t last_write;
+    bool written_once;
+    bool pending[VW_COUNT];
+    float expected[VW_COUNT];
+    cu_ms_t sent[VW_COUNT];
+    int8_t unconfirmed;    /* key that the MultiPlus did not take, -1 none */
+    vc_result_t last;
+    vc_write_t queue[4];   /* for the Cerbo client */
+    uint8_t n_queue;
+} victron_ctl_t;
+
+typedef struct energy energy_t;
+void victron_ctl_init(victron_ctl_t *v, const profile_t *p);
+bool victron_limit_enabled(const profile_t *p);
+vc_result_t victron_request_mode(victron_ctl_t *v, const energy_t *e, uint8_t mode, cu_ms_t now);
+vc_result_t victron_request_limit(victron_ctl_t *v, const energy_t *e, float amps, cu_ms_t now);
+void victron_ctl_tick(victron_ctl_t *v, const energy_t *e, cu_ms_t now);
+bool victron_pop_write(victron_ctl_t *v, vc_write_t *out);
+/* "W/<portal>/vebus/<instance>/Mode" or ".../Ac/In/1/CurrentLimit"; the only writable topics. */
+int victron_write_topic(char *buf, size_t len, const char *portal, const char *instance, vc_key_t key);
 
 void energy_init(energy_t *e, uint32_t stale_ms);
 void energy_set(energy_t *e, energy_key_t k, float v, cu_ms_t now);

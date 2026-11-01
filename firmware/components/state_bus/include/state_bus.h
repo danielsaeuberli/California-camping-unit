@@ -15,6 +15,7 @@ typedef enum {
     ALERT_WASTE_FULL = 1u << 6,
     ALERT_UNDERVOLTAGE = 1u << 7,
     ALERT_OUTPUT_CONFLICT = 1u << 8,
+    ALERT_VICTRON_UNCONFIRMED = 1u << 9,
 } cu_alert_t;
 
 typedef struct {
@@ -62,6 +63,14 @@ typedef struct {
         cu_quality_t q[EN_COUNT];
     } energy;
     struct {
+        bool enabled, limit_enabled;
+        uint8_t modes;         /* bit n = mode n allowed */
+        float limit_min_a, limit_max_a;
+        bool pending_mode, pending_limit;
+        int8_t unconfirmed;    /* vc_key_t or -1 */
+        vc_result_t last;
+    } victron;
+    struct {
         uint16_t di;
         uint8_t relays, ladder;
         float ai[CU_N_AI];
@@ -69,7 +78,7 @@ typedef struct {
     uint32_t alerts;
 } cu_state_t;
 
-typedef enum { CMD_ROOF = 1, CMD_FRIDGE, CMD_HEATER } cu_cmd_type_t;
+typedef enum { CMD_ROOF = 1, CMD_FRIDGE, CMD_HEATER, CMD_VICTRON_MODE, CMD_VICTRON_LIMIT } cu_cmd_type_t;
 
 typedef struct {
     cu_cmd_type_t type;
@@ -77,7 +86,7 @@ typedef struct {
     roof_dir_t dir;    /* roof */
     bool auto_run;     /* roof: tap */
     bool on;           /* fridge, heater */
-    float value;       /* fridge target in degrees C, heater level */
+    float value;       /* fridge target in degrees C, heater level, MultiPlus mode or limit in A */
 } cu_cmd_t;
 
 #define STATE_BUS_QUEUE 32

@@ -6,8 +6,8 @@
 #include "modules.h"
 #include "state_bus.h"
 
-typedef enum { UI_PAGE_OVERVIEW = 0, UI_PAGE_ROOF, UI_PAGE_FRIDGE, UI_PAGE_ENERGY, UI_PAGE_HEAT, UI_PAGE_POWER,
-               UI_PAGE_WATER, UI_PAGE_SETTINGS, UI_PAGE_COUNT } ui_page_t;
+typedef enum { UI_PAGE_OVERVIEW = 0, UI_PAGE_ROOF, UI_PAGE_FRIDGE, UI_PAGE_ENERGY, UI_PAGE_HEAT, UI_PAGE_WATER,
+               UI_PAGE_SETTINGS, UI_PAGE_EXPERT, UI_PAGE_COUNT } ui_page_t;
 
 typedef struct {
     state_bus_t *bus;
@@ -24,3 +24,7 @@ void ui_touch_pressed(int32_t x, int32_t y);
 lv_obj_t *ui_root(void);
 /* Same as tapping Öffnen/Schliessen on the roof page (simulator, tests). */
 void ui_roof_tap(roof_dir_t dir);
+/* Simulator/tests: open a tab of the expert view (0 Signale .. 5 Messmodus). */
+void ui_expert_tab(int tab);
+/* Simulator/tests: same as tapping a mode of the MultiPlus switch (1, 3, 4). */
+void ui_mp_tap(uint8_t mode);

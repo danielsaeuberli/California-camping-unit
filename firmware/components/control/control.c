@@ -46,6 +46,7 @@ int control_init(control_t *c, const profile_t *p, hal_io_t *io, state_bus_t *bu
     tanks_init(&c->tanks, p);
     vehicle_init(&c->vehicle, p);
     energy_init(&c->energy, p->cerbo_stale_s * 1000u);
+    victron_ctl_init(&c->victron, p);
     for (int i = 0; i < CU_N_DI; i++) {
         sig_debounce_init(&c->deb[i], DI_DEBOUNCE);
     }
@@ -220,6 +221,12 @@ static void apply(control_t *c, const cu_cmd_t *cmd, cu_ms_t now)
     case CMD_HEATER:
         heater_set(&c->heater, cmd->on, (uint8_t)cmd->value);
         break;
+    case CMD_VICTRON_MODE:
+        victron_request_mode(&c->victron, &c->energy, (uint8_t)cmd->value, now);
+        break;
+    case CMD_VICTRON_LIMIT:
+        victron_request_limit(&c->victron, &c->energy, cmd->value, now);
+        break;
     }
 }
 
@@ -292,6 +299,15 @@ static void publish(control_t *c, cu_ms_t now)
     for (int k = 0; k < EN_COUNT; k++) {
         s.energy.q[k] = energy_get(&c->energy, (energy_key_t)k, now, &s.energy.v[k]);
     }
+    s.victron.enabled = p->victron_control;
+    s.victron.limit_enabled = victron_limit_enabled(p);
+    s.victron.modes = p->victron_modes;
+    s.victron.limit_min_a = s.victron.limit_enabled ? p->victron_limit_min_a.v : NAN;
+    s.victron.limit_max_a = s.victron.limit_enabled ? p->victron_limit_max_a.v : NAN;
+    s.victron.pending_mode = c->victron.pending[VW_MODE];
+    s.victron.pending_limit = c->victron.pending[VW_CURRENT_LIMIT];
+    s.victron.unconfirmed = c->victron.unconfirmed;
+    s.victron.last = c->victron.last;
     s.io.di = c->di;
     for (int i = 0; i < CU_N_RELAYS; i++) {
         s.io.relays |= (uint8_t)((c->written.relay[i] ? 1u : 0u) << i);
@@ -309,6 +325,7 @@ static void publish(control_t *c, cu_ms_t now)
     a |= c->tanks.waste_full ? ALERT_WASTE_FULL : 0;
     a |= c->undervoltage ? ALERT_UNDERVOLTAGE : 0;
     a |= c->safety.conflicts ? ALERT_OUTPUT_CONFLICT : 0;
+    a |= c->victron.unconfirmed >= 0 ? ALERT_VICTRON_UNCONFIRMED : 0;
     s.alerts = a;
     state_bus_publish(c->bus, &s);
 }
@@ -321,6 +338,7 @@ void control_logic_step(control_t *c, cu_ms_t now)
         apply(c, &cmd, now);
     }
     fridge_step(&c->fridge, now, c->fridge_q, c->fridge_temp_c);
+    victron_ctl_tick(&c->victron, &c->energy, now);
     undervoltage(c, now);
     publish(c, now);
     unlock(c);

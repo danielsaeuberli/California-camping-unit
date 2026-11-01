@@ -1,5 +1,6 @@
-/* LVGL interface after the current web UI ui/reference/web_v1/ (dark theme).
- * M1: header, overview, roof and fridge pages; the other pages follow in M2. */
+/* LVGL interface after the current web UI ui/reference/web_v1/ (day and night theme).
+ * All pages of the web UI: overview, Batterie und Strom (with the MultiPlus switch),
+ * Kühlbox, Heizung, Wasser, Dach, Einstellungen, Expertenansicht. */
 #include "ui.h"
 
 #include <math.h>
@@ -21,18 +22,26 @@ LV_FONT_DECLARE(font_46_semi);
 LV_FONT_DECLARE(font_56_semi);
 LV_FONT_DECLARE(font_84_semi);
 
-/* Colours of the reference (dark theme). */
-#define C_BG 0x0f1419
-#define C_SURFACE 0x182029
-#define C_SURFACE2 0x212b36
-#define C_LINE 0x2c3845
-#define C_INK 0xeef3f7
-#define C_MUTED 0x9aa9b7
-#define C_ACCENT 0x4fb3d9
-#define C_ACCENT_INK 0x06202b
-#define C_OK 0x4cc38a
-#define C_WARN 0xf0b429
-#define C_ERR 0xef6262
+/* Colours of the web UI (style.css #screen), night and day. */
+typedef struct {
+    uint32_t bg, surface, surface2, line, ink, muted, accent, accent_ink, ok, warn, err;
+} pal_t;
+static const pal_t NIGHT = {0x0f1419, 0x182029, 0x212b36, 0x2c3845, 0xeef3f7, 0x9aa9b7,
+                            0x4fb3d9, 0x06202b, 0x4cc38a, 0xf0b429, 0xef6262};
+static const pal_t DAY = {0xeef2f5, 0xffffff, 0xe3e9ee, 0xcfd8df, 0x13212c, 0x51606d,
+                          0x0b6e99, 0xffffff, 0x1f8a5a, 0xa86b00, 0xc23b3b};
+static const pal_t *PAL = &NIGHT;
+#define C_BG (PAL->bg)
+#define C_SURFACE (PAL->surface)
+#define C_SURFACE2 (PAL->surface2)
+#define C_LINE (PAL->line)
+#define C_INK (PAL->ink)
+#define C_MUTED (PAL->muted)
+#define C_ACCENT (PAL->accent)
+#define C_ACCENT_INK (PAL->accent_ink)
+#define C_OK (PAL->ok)
+#define C_WARN (PAL->warn)
+#define C_ERR (PAL->err)
 
 #define W 1280
 #define H 480
@@ -54,15 +63,69 @@ typedef struct {
     lv_obj_t *steps[3];
 } tile_t;
 
+typedef struct {
+    lv_obj_t *batt, *fill, *pct, *bolt;
+} batt_t;
+
+typedef enum { THEME_AUTO = 0, THEME_DAY, THEME_NIGHT } theme_t;
+typedef enum { X_IO = 0, X_PINS, X_AC, X_CONN, X_NET, X_MEASURE, X_COUNT } xtab_t;
+
+/* Two-tap confirmation (MultiPlus switch, limit, network): armed until the deadline. */
+typedef struct {
+    int armed;          /* value armed by the first tap, -1 none */
+    uint32_t until;
+} confirm_t;
+
+#define NET_FIELDS 6
+typedef enum { NF_ADDR = 0, NF_GW, NF_DNS, NF_SSID, NF_PSK, NF_HOST } net_field_t;
+
 static struct {
     ui_config_t cfg;
+    /* settings (kept over a theme rebuild; stored in LittleFS on the device later) */
+    uint8_t brightness;
+    theme_t theme;
+    bool night;          /* palette in use */
+    bool built, timers;
+    /* energy page */
+    struct {
+        batt_t g;
+        lv_obj_t *soc_sub, *v, *a, *dc, *in, *shore, *solar, *alt, *starter;
+        chip_t mp_chip;
+        lv_obj_t *mp_state, *mode_btn[3], *mode_label[3], *mode_note, *inv, *load, *load_bar, *alarm;
+        confirm_t mode_confirm;
+    } ep;
+    /* heater page */
+    lv_obj_t *ht_phase, *ht_note, *ht_level, *ht_of, *ht_minus, *ht_plus, *ht_toggle, *ht_toggle_label;
+    chip_t ht_chip;
+    /* water page */
+    lv_obj_t *wa_fresh, *wa_steps[3], *wa_waste;
+    chip_t wa_chip;
+    /* settings page */
+    lv_obj_t *st_bright_val, *st_slider, *st_theme[3], *st_idle[3];
+    /* expert view */
+    xtab_t xtab;
+    lv_obj_t *x_tab_btn[X_COUNT], *x_body[X_COUNT];
+    lv_obj_t *x_di[CU_N_DI], *x_k[CU_N_RELAYS + CU_N_LADDER], *x_ai[CU_N_AI], *x_rail;
+    lv_obj_t *x_pin_btn[32], *x_pin_name, *x_pin_desc;
+    uint8_t x_pin;
+    lv_obj_t *x_ac_in[4], *x_ac_out[5], *x_ac_dev[7], *x_lim, *x_lim_set, *x_lim_set_label, *x_ctl_note;
+    float x_lim_value;
+    confirm_t lim_confirm;
+    lv_obj_t *x_conn[5], *x_unit[4];
+    lv_obj_t *x_eth_mode[2], *x_net_val[NET_FIELDS], *x_net_apply, *x_net_apply_label, *x_net_note;
+    bool net_static;
+    char net[NET_FIELDS][64];
+    confirm_t net_confirm;
+    lv_obj_t *kb_layer, *kb_ta, *kb;
+    net_field_t kb_field;
     lv_obj_t *root, *body;
     lv_obj_t *back, *brand, *title, *outside, *dot_unit, *dot_cerbo, *clock;
     lv_obj_t *pages[UI_PAGE_COUNT];
     ui_page_t page;
     tile_t tiles[5];    /* fridge, heat, water, roof (index 0 unused: energy tile below) */
     struct {
-        lv_obj_t *batt, *fill, *pct, *bolt, *status, *sub, *chips;
+        batt_t g;
+        lv_obj_t *status, *sub, *chips;
         chip_t chip[2];
     } en;
     cu_state_t st;
@@ -316,8 +379,8 @@ static void fridge_btn_cb(lv_event_t *e)
 
 /* ---------- navigation ---------- */
 
-static const tx_t page_title[UI_PAGE_COUNT] = {TX_PAGE_OVERVIEW, TX_PAGE_ROOF,  TX_PAGE_FRIDGE, TX_PAGE_ENERGY,
-                                               TX_PAGE_HEAT,     TX_PAGE_POWER, TX_PAGE_WATER,  TX_PAGE_SETTINGS};
+static const tx_t page_title[UI_PAGE_COUNT] = {TX_PAGE_OVERVIEW, TX_PAGE_ROOF,  TX_PAGE_FRIDGE,   TX_PAGE_ENERGY,
+                                               TX_PAGE_HEAT,     TX_PAGE_WATER, TX_PAGE_SETTINGS, TX_PAGE_EXPERT};
 
 void ui_show(ui_page_t page)
 {
@@ -473,23 +536,39 @@ static tile_t make_tile(lv_obj_t *parent, int col, int row, tx_t label, ui_page_
 }
 
 /* Battery graphic as in the web UI: fill = SoC, colour by level, bolt while charging. */
-static void build_battery(lv_obj_t *parent)
+#define BATT_W 248
+static void build_battery(lv_obj_t *parent, batt_t *g)
 {
-    lv_obj_t *wrap = box(parent, 0, 0, 264, 104, C_SURFACE, 0);
+    lv_obj_t *wrap = box(parent, 0, 0, BATT_W + 16, 104, C_SURFACE, 0);
     lv_obj_set_style_bg_opa(wrap, LV_OPA_TRANSP, 0);
-    U.en.batt = box(wrap, 0, 0, 248, 104, C_SURFACE, 18);
-    border(U.en.batt, C_INK, 5);
-    lv_obj_set_style_pad_all(U.en.batt, 6, 0);
-    lv_obj_t *nub = box(wrap, 253, 32, 10, 40, C_INK, 6);
-    (void)nub;
-    U.en.fill = box(U.en.batt, 0, 0, 0, LV_PCT(100), C_OK, 10);
-    lv_obj_t *lab = box(U.en.batt, 0, 0, LV_PCT(100), LV_PCT(100), C_SURFACE, 0);
+    g->batt = box(wrap, 0, 0, BATT_W, 104, C_SURFACE, 18);
+    border(g->batt, C_INK, 5);
+    lv_obj_set_style_pad_all(g->batt, 6, 0);
+    box(wrap, BATT_W + 5, 32, 10, 40, C_INK, 6); /* terminal */
+    g->fill = box(g->batt, 0, 0, 0, LV_PCT(100), C_OK, 10);
+    lv_obj_t *lab = box(g->batt, 0, 0, LV_PCT(100), LV_PCT(100), C_SURFACE, 0);
     lv_obj_set_style_bg_opa(lab, LV_OPA_TRANSP, 0);
     lv_obj_set_flex_flow(lab, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(lab, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     lv_obj_set_style_pad_column(lab, 4, 0);
-    U.en.bolt = text(lab, &lv_font_montserrat_24, C_INK, LV_SYMBOL_CHARGE);
-    U.en.pct = text(lab, &font_44_bold, C_INK, "\xe2\x80\x93");
+    g->bolt = text(lab, &lv_font_montserrat_24, C_INK, LV_SYMBOL_CHARGE);
+    g->pct = text(lab, &font_44_bold, C_INK, "\xe2\x80\x93");
+}
+
+static void update_battery(batt_t *g, const cu_state_t *s, bool charging)
+{
+    char a[32];
+    bool soc_ok = s->energy.q[EN_SOC] == CU_Q_OK;
+    float soc = soc_ok ? s->energy.v[EN_SOC] : NAN;
+    set_text(g->pct, soc_ok ? (snprintf(a, sizeof a, "%.0f %%", (double)soc), a) : "\xe2\x80\x93");
+    int32_t inner = BATT_W - 2 * 5 - 2 * 6;
+    lv_obj_set_width(g->fill, soc_ok ? (int32_t)(inner * (soc < 0 ? 0 : soc > 100 ? 100 : soc) / 100) : 0);
+    lv_obj_set_style_bg_color(g->fill, lv_color_hex(soc < 15 ? C_ERR : soc < 30 ? C_WARN : C_OK), 0);
+    if (charging) {
+        lv_obj_remove_flag(g->bolt, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        lv_obj_add_flag(g->bolt, LV_OBJ_FLAG_HIDDEN);
+    }
 }
 
 static void build_overview(lv_obj_t *page)
@@ -502,7 +581,7 @@ static void build_overview(lv_obj_t *page)
     lv_obj_set_flex_flow(body, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(body, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     lv_obj_set_style_pad_column(body, 36, 0);
-    build_battery(body);
+    build_battery(body, &U.en.g);
     lv_obj_t *info = box(body, 0, 0, 0, LV_SIZE_CONTENT, C_SURFACE, 0);
     lv_obj_set_style_bg_opa(info, LV_OPA_TRANSP, 0);
     lv_obj_set_flex_grow(info, 1);
@@ -636,12 +715,6 @@ static void build_fridge(lv_obj_t *page)
     lv_label_set_long_mode(note, LV_LABEL_LONG_WRAP);
 }
 
-static void build_placeholder(lv_obj_t *page)
-{
-    lv_obj_t *p = panel(page, 0, BODY_W);
-    text(p, &font_18, C_MUTED, tr(TX_COMMON_TODO_M2));
-}
-
 /* ---------- update from the state snapshot ---------- */
 
 static const char *roof_pos_text(const cu_state_t *s)
@@ -760,12 +833,6 @@ static tx_t battery_status(const cu_state_t *s, bool *charging)
 static void update_energy_tile(const cu_state_t *s)
 {
     char a[64], b[64], c[160];
-    bool soc_ok = s->energy.q[EN_SOC] == CU_Q_OK;
-    float soc = soc_ok ? s->energy.v[EN_SOC] : NAN;
-    set_text(U.en.pct, soc_ok ? (snprintf(a, sizeof a, "%.0f %%", (double)soc), a) : "\xe2\x80\x93");
-    int32_t inner = 248 - 2 * 5 - 2 * 6;
-    lv_obj_set_width(U.en.fill, soc_ok ? (int32_t)(inner * (soc < 0 ? 0 : soc > 100 ? 100 : soc) / 100) : 0);
-    lv_obj_set_style_bg_color(U.en.fill, lv_color_hex(soc < 15 ? C_ERR : soc < 30 ? C_WARN : C_OK), 0);
     bool bw_ok = s->energy.connected && s->energy.q[EN_BATTERY_W] == CU_Q_OK;
     bool charging = false;
     if (!s->energy.connected) {
@@ -775,11 +842,7 @@ static void update_energy_tile(const cu_state_t *s)
     } else {
         set_text(U.en.status, tr(battery_status(s, &charging)));
     }
-    if (charging) {
-        lv_obj_remove_flag(U.en.bolt, LV_OBJ_FLAG_HIDDEN);
-    } else {
-        lv_obj_add_flag(U.en.bolt, LV_OBJ_FLAG_HIDDEN);
-    }
+    update_battery(&U.en.g, s, charging);
     if (bw_ok) {
         num(a, sizeof a, s->energy.v[EN_BATTERY_W], 0, "W");
         if (s->energy.v[EN_BATTERY_W] > 0) {
@@ -966,9 +1029,971 @@ static void update_fridge(const cu_state_t *s)
     lv_obj_set_style_text_color(U.fr_toggle_label, lv_color_hex(s->fridge.on ? C_ACCENT_INK : C_INK), 0);
 }
 
+/* ---------- shared building blocks for the M2 pages ---------- */
+
+static lv_obj_t *row_f(lv_obj_t *parent, tx_t name, const lv_font_t *font)
+{
+    lv_obj_t *r = box(parent, 0, 0, LV_PCT(100), LV_SIZE_CONTENT, C_SURFACE, 0);
+    lv_obj_set_style_border_side(r, LV_BORDER_SIDE_TOP, 0);
+    border(r, C_LINE, 1);
+    lv_obj_set_style_pad_ver(r, font == &font_18 ? 9 : 6, 0);
+    lv_obj_t *n = text(r, font, C_MUTED, tr(name));
+    lv_obj_align(n, LV_ALIGN_LEFT_MID, 0, 0);
+    lv_obj_t *v = text(r, font, C_INK, "\xe2\x80\x93");
+    lv_obj_align(v, LV_ALIGN_RIGHT_MID, 0, 0);
+    return v;
+}
+
+static void transparent(lv_obj_t *o)
+{
+    lv_obj_set_style_bg_opa(o, LV_OPA_TRANSP, 0);
+}
+
+static lv_obj_t *seg(lv_obj_t *parent, int n, const tx_t *labels, lv_event_cb_t cb, lv_obj_t **btns, lv_obj_t **lbls,
+                     int32_t h)
+{
+    lv_obj_t *s = box(parent, 0, 0, LV_PCT(100), h + 12, C_SURFACE2, 16);
+    lv_obj_set_style_pad_all(s, 6, 0);
+    lv_obj_set_flex_flow(s, LV_FLEX_FLOW_ROW);
+    lv_obj_set_style_pad_column(s, 8, 0);
+    for (int i = 0; i < n; i++) {
+        lv_obj_t *b = box(s, 0, 0, 0, h, C_SURFACE2, 12);
+        transparent(b);
+        lv_obj_set_flex_grow(b, 1);
+        lv_obj_add_flag(b, LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_add_event_cb(b, cb, LV_EVENT_CLICKED, (void *)(intptr_t)i);
+        lv_obj_t *l = text(b, h >= 60 ? &font_20_semi : &font_16_semi, C_INK, tr(labels[i]));
+        lv_obj_center(l);
+        btns[i] = b;
+        if (lbls) {
+            lbls[i] = l;
+        }
+    }
+    return s;
+}
+
+static void seg_set(lv_obj_t **btns, int n, int active)
+{
+    for (int i = 0; i < n; i++) {
+        bool on = i == active;
+        lv_obj_set_style_bg_opa(btns[i], on ? LV_OPA_COVER : LV_OPA_TRANSP, 0);
+        lv_obj_set_style_bg_color(btns[i], lv_color_hex(C_ACCENT), 0);
+        lv_obj_set_style_text_color(lv_obj_get_child(btns[i], 0), lv_color_hex(on ? C_ACCENT_INK : C_INK), 0);
+    }
+}
+
+static void enable(lv_obj_t *o, bool on)
+{
+    if (on) {
+        lv_obj_remove_state(o, LV_STATE_DISABLED);
+        lv_obj_set_style_opa(o, LV_OPA_COVER, 0);
+    } else {
+        lv_obj_add_state(o, LV_STATE_DISABLED);
+        lv_obj_set_style_opa(o, LV_OPA_40, 0);
+    }
+}
+
+static lv_obj_t *note(lv_obj_t *parent, const char *s)
+{
+    lv_obj_t *l = text(parent, &font_15_semi, C_MUTED, s);
+    lv_obj_set_width(l, LV_PCT(100));
+    lv_label_set_long_mode(l, LV_LABEL_LONG_WRAP);
+    lv_obj_set_style_text_line_space(l, 4, 0);
+    return l;
+}
+
+static lv_obj_t *big_btn(lv_obj_t *parent, int32_t h, lv_event_cb_t cb, void *ud, lv_obj_t **label)
+{
+    lv_obj_t *b = box(parent, 0, 0, LV_PCT(100), h, C_SURFACE2, 16);
+    lv_obj_add_flag(b, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_style_bg_color(b, lv_color_hex(C_LINE), LV_STATE_PRESSED);
+    lv_obj_add_event_cb(b, cb, LV_EVENT_CLICKED, ud);
+    *label = text(b, h >= 80 ? &font_22_semi : &font_18, C_INK, "");
+    lv_obj_center(*label);
+    return b;
+}
+
+/* First tap arms, second tap within 3 s confirms. */
+static bool confirm_tap(confirm_t *c, int value)
+{
+    if (c->armed == value && lv_tick_get() < c->until) {
+        c->armed = -1;
+        return true;
+    }
+    c->armed = value;
+    c->until = lv_tick_get() + 3000;
+    return false;
+}
+
+static bool armed(const confirm_t *c, int value)
+{
+    return c->armed == value && lv_tick_get() < c->until;
+}
+
+static const char *signed_num(char *buf, size_t len, float v, int d, const char *unit)
+{
+    char t[40];
+    num(t, sizeof t, v, d, unit);
+    snprintf(buf, len, "%s%s", (!isnan(v) && v > 0) ? "+" : "", t);
+    return buf;
+}
+
+static float ev(const cu_state_t *s, energy_key_t k)
+{
+    return s->energy.q[k] == CU_Q_OK ? s->energy.v[k] : NAN;
+}
+
+/* ---------- Batterie und Strom ---------- */
+
+static const uint8_t MODES[3] = {1, 3, 4};
+
+static void mode_cb(lv_event_t *e)
+{
+    int i = (int)(intptr_t)lv_event_get_user_data(e);
+    if (!U.st.victron.enabled) {
+        return;
+    }
+    if (confirm_tap(&U.ep.mode_confirm, MODES[i])) {
+        cu_cmd_t c = {.type = CMD_VICTRON_MODE, .value = MODES[i]};
+        send(&c);
+    }
+}
+
+static void build_energy(lv_obj_t *page)
+{
+    int32_t pw = (BODY_W - 2 * GAP) / 3;
+    U.ep.mode_confirm.armed = -1;
+    lv_obj_t *p = panel(page, 0, pw);
+    label_caps(p, TX_TILE_BATTERY);
+    lv_obj_t *bw = box(p, 0, 0, LV_PCT(100), 104, C_SURFACE, 0);
+    lv_obj_set_flex_flow(bw, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(bw, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    build_battery(bw, &U.ep.g);
+    U.ep.soc_sub = text(p, &font_18, C_MUTED, "");
+    lv_obj_set_width(U.ep.soc_sub, LV_PCT(100));
+    lv_obj_set_style_text_align(U.ep.soc_sub, LV_TEXT_ALIGN_CENTER, 0);
+    filler(p);
+    U.ep.v = row_f(p, TX_BAT_VOLTAGE, &font_18);
+    U.ep.a = row_f(p, TX_BAT_CURRENT, &font_18);
+    U.ep.dc = row_f(p, TX_EN_DC, &font_18);
+
+    lv_obj_t *q = panel(page, pw + GAP, pw);
+    lv_obj_t *hl = box(q, 0, 0, LV_PCT(100), LV_SIZE_CONTENT, C_SURFACE, 0);
+    lv_obj_t *l = label_caps(hl, TX_EN_IN);
+    lv_obj_align(l, LV_ALIGN_LEFT_MID, 0, 0);
+    U.ep.in = text(hl, &font_46_semi, C_INK, "\xe2\x80\x93");
+    lv_obj_align(U.ep.in, LV_ALIGN_RIGHT_MID, 0, 0);
+    filler(q);
+    U.ep.shore = row_f(q, TX_EN_SRC_SHORE, &font_18);
+    U.ep.solar = row_f(q, TX_EN_SRC_SOLAR, &font_18);
+    U.ep.alt = row_f(q, TX_EN_SRC_ALT, &font_18);
+    U.ep.starter = row_f(q, TX_EN_STARTER, &font_18);
+
+    lv_obj_t *m = panel(page, 2 * (pw + GAP), BODY_W - 2 * (pw + GAP));
+    lv_obj_set_style_pad_row(m, 8, 0);
+    lv_obj_t *mh = box(m, 0, 0, LV_PCT(100), 34, C_SURFACE, 0);
+    l = label_caps(mh, TX_EN_MP);
+    lv_obj_align(l, LV_ALIGN_LEFT_MID, 0, 0);
+    U.ep.mp_chip = chip(mh);
+    lv_obj_align(U.ep.mp_chip.box, LV_ALIGN_RIGHT_MID, 0, 0);
+    U.ep.mp_state = text(m, &font_18, C_MUTED, "");
+    static const tx_t ml[3] = {TX_X_MODE_1, TX_X_MODE_3, TX_X_MODE_4};
+    seg(m, 3, ml, mode_cb, U.ep.mode_btn, U.ep.mode_label, 52);
+    U.ep.mode_note = note(m, "");
+    filler(m);
+    U.ep.inv = row_f(m, TX_EN_INV, &font_16_semi);
+    U.ep.load = row_f(m, TX_EN_LOAD, &font_16_semi);
+    U.ep.load_bar = lv_bar_create(m);
+    lv_obj_set_size(U.ep.load_bar, LV_PCT(100), 12);
+    lv_bar_set_range(U.ep.load_bar, 0, 100);
+    lv_obj_set_style_bg_color(U.ep.load_bar, lv_color_hex(C_SURFACE2), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(U.ep.load_bar, lv_color_hex(C_ACCENT), LV_PART_INDICATOR);
+    U.ep.alarm = row_f(m, TX_EN_ALARMS, &font_16_semi);
+}
+
+/* Phase name and power of one charging device; "aus" when it delivers nothing. */
+static const char *source(char *buf, size_t len, float phase, float w)
+{
+    char t[32];
+    if (isnan(phase) && isnan(w)) {
+        snprintf(buf, len, "\xe2\x80\x93");
+        return buf;
+    }
+    int ph = isnan(phase) ? -1 : (int)phase;
+    if (ph == 2) {
+        snprintf(buf, len, "%s", tr(TX_PHASE_2));
+        return buf;
+    }
+    bool watts = !isnan(w) && w > 5;
+    static const tx_t names[] = {TX_PHASE_3, TX_PHASE_4, TX_PHASE_5, TX_PHASE_6, TX_PHASE_7};
+    const char *name = (ph >= 3 && ph <= 7) ? tr(names[ph - 3]) : watts ? tr(TX_PHASE_ON) : tr(TX_PHASE_0);
+    if (watts) {
+        snprintf(buf, len, "%s \xc2\xb7 %s", name, num(t, sizeof t, w, 0, "W"));
+    } else {
+        snprintf(buf, len, "%s", name);
+    }
+    return buf;
+}
+
+static void update_energy(const cu_state_t *s)
+{
+    char a[96], b[64];
+    bool charging = false;
+    bool has = s->energy.connected;
+    bool bw_ok = has && s->energy.q[EN_BATTERY_W] == CU_Q_OK;
+    tx_t status = bw_ok ? battery_status(s, &charging) : (has ? TX_COMMON_NO_DATA : TX_COMMON_NO_VICTRON);
+    update_battery(&U.ep.g, s, charging);
+    set_text(U.ep.soc_sub, tr(status));
+    set_text(U.ep.v, num(a, sizeof a, ev(s, EN_BATTERY_V), 1, "V"));
+    set_text(U.ep.a, signed_num(a, sizeof a, ev(s, EN_BATTERY_A), 1, "A"));
+    set_text(U.ep.dc, num(a, sizeof a, ev(s, EN_DC_SYSTEM_W), 0, "W"));
+
+    float state = ev(s, EN_VEBUS_STATE), active = ev(s, EN_ACTIVE_INPUT), mode = ev(s, EN_VEBUS_MODE);
+    bool shore = !isnan(active) && active != 240;
+    float vdc = ev(s, EN_VEBUS_DC_W), pv = ev(s, EN_PV_W), alt = ev(s, EN_ALT_W);
+    float shore_w = shore && !isnan(vdc) && vdc > 0 ? vdc : 0;
+    float total = shore_w + (pv > 0 ? pv : 0) + (alt > 0 ? alt : 0);
+    set_text(U.ep.in, !bw_ok ? "\xe2\x80\x93" : total > 5 ? num(a, sizeof a, total, 0, "W") : tr(TX_EN_CHARGING_OFF));
+    set_text(U.ep.shore, isnan(state) ? "\xe2\x80\x93" : shore ? source(a, sizeof a, state, shore_w) : tr(TX_EN_NO_SHORE));
+    set_text(U.ep.solar, source(a, sizeof a, ev(s, EN_SOLAR_STATE), pv));
+    set_text(U.ep.alt, source(a, sizeof a, ev(s, EN_ALT_STATE), alt));
+    set_text(U.ep.starter, num(a, sizeof a, ev(s, EN_STARTER_V), 1, "V"));
+
+    /* MultiPlus: chip, what it does, switch, 230 V side */
+    float overload = ev(s, EN_ALARM_OVERLOAD);
+    bool charger_only = mode == 1 && !shore;
+    int st = isnan(state) ? -1 : (int)state;
+    if (st < 0) {
+        set_chip(&U.ep.mp_chip, tr(TX_COMMON_NO_DATA), K_WARN);
+        set_text(U.ep.mp_state, has ? "\xe2\x80\x93" : tr(TX_COMMON_NO_VICTRON));
+    } else {
+        tx_t chipt = overload == 2 ? TX_EN_ALARM_OVERLOAD : charger_only ? TX_MP_CHIP_0 : TX_COMMON_NO_DATA;
+        static const tx_t mp_chip[12] = {TX_MP_CHIP_0, TX_MP_CHIP_1, TX_MP_CHIP_2,  TX_MP_CHIP_3,
+                                         TX_MP_CHIP_4, TX_MP_CHIP_5, TX_MP_CHIP_6,  TX_MP_CHIP_7,
+                                         TX_MP_CHIP_8, TX_MP_CHIP_9, TX_MP_CHIP_10, TX_MP_CHIP_11};
+        static const tx_t desc[12] = {TX_VEBUS_DESC_0, TX_VEBUS_DESC_1, TX_VEBUS_DESC_2,  TX_VEBUS_DESC_3,
+                                      TX_VEBUS_DESC_4, TX_VEBUS_DESC_5, TX_VEBUS_DESC_6,  TX_VEBUS_DESC_7,
+                                      TX_VEBUS_DESC_8, TX_VEBUS_DESC_9, TX_VEBUS_DESC_10, TX_VEBUS_DESC_11};
+        if (overload != 2 && !charger_only && st <= 11) {
+            chipt = mp_chip[st];
+        }
+        set_chip(&U.ep.mp_chip, tr(chipt), overload == 2 || st == 2 ? K_ERR : (st == 0 || charger_only) ? K_NEUTRAL : K_OK);
+        if (mode == 1) {
+            set_text(U.ep.mp_state, shore && st <= 11 ? fill(a, sizeof a, tr(TX_MP_CHARGER_ONLY_SHORE), "desc", tr(desc[st]))
+                                                      : tr(TX_MP_CHARGER_ONLY));
+        } else {
+            set_text(U.ep.mp_state, st <= 11 ? tr(desc[st]) : "\xe2\x80\x93");
+        }
+    }
+    int active_i = mode == 1 ? 0 : mode == 3 ? 1 : mode == 4 ? 2 : -1;
+    seg_set(U.ep.mode_btn, 3, active_i);
+    static const tx_t ml[3] = {TX_X_MODE_1, TX_X_MODE_3, TX_X_MODE_4};
+    for (int i = 0; i < 3; i++) {
+        set_text(U.ep.mode_label[i], armed(&U.ep.mode_confirm, MODES[i]) ? tr(TX_X_CONFIRM) : tr(ml[i]));
+        enable(U.ep.mode_btn[i], s->victron.enabled && has && (s->victron.modes & (1u << MODES[i])));
+    }
+    tx_t n = !s->victron.enabled ? TX_MP_MODE_DISABLED
+             : !has ? TX_X_CTL_OFFLINE
+             : s->victron.pending_mode ? TX_X_CTL_PENDING
+             : s->victron.unconfirmed == VW_MODE ? TX_X_CTL_UNCONFIRMED
+             : s->victron.last == VC_TOO_FAST ? TX_X_VC_TOO_FAST
+             : TX_MP_MODE_HINT;
+    set_text(U.ep.mode_note, tr(n));
+    float outp = ev(s, EN_OUT_P), outs = ev(s, EN_OUT_S);
+    set_text(U.ep.inv, num(a, sizeof a, st == 0 ? 0 : outp, 0, "W"));
+    float load = isnan(outs) ? NAN : outs / 1600.0f * 100.0f; /* MultiPlus Compact 12/1600 */
+    if (isnan(load)) {
+        set_text(U.ep.load, "\xe2\x80\x93");
+    } else {
+        snprintf(a, sizeof a, "%.0f %% \xc2\xb7 %s", (double)load, num(b, sizeof b, outs, 0, "VA"));
+        set_text(U.ep.load, a);
+    }
+    lv_bar_set_value(U.ep.load_bar, overload == 2 ? 100 : isnan(load) ? 0 : (int32_t)load, LV_ANIM_OFF);
+    lv_obj_set_style_bg_color(U.ep.load_bar, lv_color_hex(overload == 2 ? C_ERR : load > 80 ? C_WARN : C_ACCENT),
+                              LV_PART_INDICATOR);
+    set_text(U.ep.alarm, isnan(overload) ? "\xe2\x80\x93" : overload == 2 ? tr(TX_EN_ALARM_OVERLOAD) : tr(TX_EN_ALARM_NONE));
+}
+
+/* ---------- Heizung ---------- */
+
+static void heat_cb(lv_event_t *e)
+{
+    int what = (int)(intptr_t)lv_event_get_user_data(e);
+    const cu_state_t *s = &U.st;
+    cu_cmd_t c = {.type = CMD_HEATER, .on = s->heater.on, .value = s->heater.level};
+    if (what == 0) {
+        c.on = !s->heater.on;
+    } else {
+        c.value = (float)(s->heater.level + what);
+    }
+    send(&c);
+}
+
+static lv_obj_t *step_cb_btn(lv_obj_t *parent, const char *sym, lv_event_cb_t cb, int delta, int32_t size)
+{
+    lv_obj_t *b = box(parent, 0, 0, size, size, C_SURFACE2, size >= 100 ? 20 : 14);
+    lv_obj_t *l = text(b, size >= 100 ? &font_46_semi : &font_28_semi, C_INK, sym);
+    lv_obj_center(l);
+    lv_obj_add_flag(b, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_style_bg_color(b, lv_color_hex(C_LINE), LV_STATE_PRESSED);
+    lv_obj_add_event_cb(b, cb, LV_EVENT_CLICKED, (void *)(intptr_t)delta);
+    return b;
+}
+
+static void build_heat(lv_obj_t *page)
+{
+    int32_t lw = (BODY_W - GAP) * 4 / 9, rw = BODY_W - GAP - lw;
+    lv_obj_t *p = panel(page, 0, lw);
+    label_caps(p, TX_HEAT_STATE);
+    U.ht_phase = text(p, &font_56_semi, C_INK, "\xe2\x80\x93");
+    U.ht_chip = chip(p);
+    filler(p);
+    U.ht_note = note(p, "");
+
+    lv_obj_t *q = panel(page, lw + GAP, rw);
+    label_caps(q, TX_HEAT_LEVEL);
+    lv_obj_t *stepper = box(q, 0, 0, LV_PCT(100), 112, C_SURFACE, 0);
+    U.ht_minus = step_cb_btn(stepper, "\xe2\x88\x92", heat_cb, -1, 112);
+    lv_obj_align(U.ht_minus, LV_ALIGN_LEFT_MID, 0, 0);
+    lv_obj_t *val = box(stepper, 0, 0, LV_SIZE_CONTENT, LV_SIZE_CONTENT, C_SURFACE, 0);
+    lv_obj_set_flex_flow(val, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(val, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_align(val, LV_ALIGN_CENTER, 0, 0);
+    U.ht_level = text(val, &font_84_semi, C_INK, "\xe2\x80\x93");
+    U.ht_of = text(val, &font_18, C_MUTED, "");
+    U.ht_plus = step_cb_btn(stepper, "+", heat_cb, 1, 112);
+    lv_obj_align(U.ht_plus, LV_ALIGN_RIGHT_MID, 0, 0);
+    U.ht_toggle = big_btn(q, 88, heat_cb, (void *)(intptr_t)0, &U.ht_toggle_label);
+}
+
+static void update_heat(const cu_state_t *s)
+{
+    char a[48], b[48];
+    static const tx_t phase[] = {TX_HEAT_PHASE_OFF, TX_HEAT_PHASE_START, TX_HEAT_PHASE_HEATING,
+                                 TX_HEAT_PHASE_AFTERRUN, TX_HEAT_PHASE_FAULT};
+    static const tx_t chipt[] = {TX_HEAT_CHIP_READY, TX_HEAT_CHIP_WAIT, TX_HEAT_CHIP_HEATING,
+                                 TX_HEAT_PHASE_AFTERRUN, TX_HEAT_CHIP_FAULT};
+    static const kind_t chipk[] = {K_NEUTRAL, K_ACCENT, K_OK, K_WARN, K_ERR};
+    set_text(U.ht_phase, tr(phase[s->heater.phase]));
+    if (!s->heater.released) {
+        set_chip(&U.ht_chip, tr(TX_COMMON_NOT_RELEASED), K_WARN);
+    } else {
+        set_chip(&U.ht_chip, tr(chipt[s->heater.phase]), chipk[s->heater.phase]);
+    }
+    set_text(U.ht_note, tr(s->heater.phase == HEAT_AFTERRUN ? TX_HEAT_NOTE_AFTERRUN
+                           : s->heater.phase == HEAT_FAULT  ? TX_HEAT_NOTE_FAULT
+                                                            : TX_HEAT_NOTE));
+    snprintf(a, sizeof a, "%u", s->heater.level + 1);
+    set_text(U.ht_level, a);
+    snprintf(b, sizeof b, "%u", s->heater.levels);
+    set_text(U.ht_of, s->heater.level_cal ? fill(a, sizeof a, tr(TX_HEAT_OF), "n", b) : tr(TX_HEAT_LEVEL_UNCAL));
+    bool rel = s->heater.released;
+    enable(U.ht_minus, rel && s->heater.level_cal && s->heater.level > 0);
+    enable(U.ht_plus, rel && s->heater.level_cal && s->heater.level + 1 < s->heater.levels);
+    enable(U.ht_toggle, rel);
+    set_text(U.ht_toggle_label, tr(s->heater.on ? TX_HEAT_TOGGLE_ON : TX_HEAT_TOGGLE_OFF));
+    lv_obj_set_style_bg_color(U.ht_toggle, lv_color_hex(s->heater.on ? C_ACCENT : C_SURFACE2), 0);
+    lv_obj_set_style_text_color(U.ht_toggle_label, lv_color_hex(s->heater.on ? C_ACCENT_INK : C_INK), 0);
+}
+
+/* ---------- Wasser ---------- */
+
+static void build_water(lv_obj_t *page)
+{
+    int32_t lw = (BODY_W - GAP) * 14 / 24, rw = BODY_W - GAP - lw;
+    lv_obj_t *p = panel(page, 0, lw);
+    lv_obj_set_style_pad_row(p, 14, 0);
+    label_caps(p, TX_WATER_FRESH);
+    U.wa_fresh = text(p, &font_56_semi, C_INK, "\xe2\x80\x93");
+    lv_obj_t *r = box(p, 0, 0, LV_PCT(100), 72, C_SURFACE, 0);
+    lv_obj_set_flex_flow(r, LV_FLEX_FLOW_ROW);
+    lv_obj_set_style_pad_column(r, 10, 0);
+    for (int k = 0; k < 3; k++) {
+        U.wa_steps[k] = box(r, 0, 0, 0, 72, C_SURFACE2, 12);
+        lv_obj_set_flex_grow(U.wa_steps[k], 1);
+    }
+    filler(p);
+    note(p, tr(TX_WATER_NOTE_FRESH));
+
+    lv_obj_t *q = panel(page, lw + GAP, rw);
+    lv_obj_set_style_pad_row(q, 14, 0);
+    label_caps(q, TX_WATER_WASTE);
+    U.wa_waste = text(q, &font_56_semi, C_INK, "\xe2\x80\x93");
+    U.wa_chip = chip(q);
+    filler(q);
+    note(q, tr(TX_WATER_NOTE_WASTE));
+}
+
+static void update_water(const cu_state_t *s)
+{
+    static const tx_t level[] = {TX_WATER_LEVEL_0, TX_WATER_LEVEL_1, TX_WATER_LEVEL_2, TX_WATER_LEVEL_3};
+    int8_t st = s->tanks.fresh_step;
+    set_text(U.wa_fresh, st >= 0 && st <= 3 ? tr(level[st]) : tr(TX_COMMON_UNCALIBRATED));
+    for (int k = 0; k < 3; k++) {
+        lv_obj_set_style_bg_color(U.wa_steps[k], lv_color_hex(st > k ? C_ACCENT : C_SURFACE2), 0);
+    }
+    if (s->tanks.waste_q != CU_Q_OK) {
+        set_text(U.wa_waste, "\xe2\x80\x93");
+        set_chip(&U.wa_chip, tr(TX_COMMON_UNCALIBRATED), K_WARN);
+    } else {
+        set_text(U.wa_waste, tr(s->tanks.waste_full ? TX_WATER_WASTE_FULL : TX_WATER_WASTE_OK));
+        set_chip(&U.wa_chip, tr(s->tanks.waste_full ? TX_WATER_EMPTY_IT : TX_WATER_IN_ORDER),
+                 s->tanks.waste_full ? K_ERR : K_OK);
+    }
+}
+
+/* ---------- Einstellungen ---------- */
+
+static void rebuild(void);
+
+static void apply_theme(void)
+{
+    bool night = U.theme == THEME_NIGHT || (U.theme == THEME_AUTO && U.st.vehicle.dim58);
+    if (night != U.night) {
+        U.night = night;
+        PAL = night ? &NIGHT : &DAY;
+        rebuild();
+    }
+}
+
+static void theme_cb(lv_event_t *e)
+{
+    U.theme = (theme_t)(intptr_t)lv_event_get_user_data(e);
+    seg_set(U.st_theme, 3, U.theme);
+    apply_theme();
+}
+
+static void idle_cb(lv_event_t *e)
+{
+    static const uint8_t mins[3] = {1, 2, 5};
+    int i = (int)(intptr_t)lv_event_get_user_data(e);
+    U.cfg.return_min = mins[i];
+    seg_set(U.st_idle, 3, i);
+}
+
+static void bright_cb(lv_event_t *e)
+{
+    U.brightness = (uint8_t)lv_slider_get_value(lv_event_get_target(e));
+    char a[16];
+    snprintf(a, sizeof a, "%u %%", U.brightness);
+    set_text(U.st_bright_val, a); /* TODO(O15): backlight PWM on the device; on/off only until confirmed */
+}
+
+static void build_settings(lv_obj_t *page)
+{
+    int32_t pw = (BODY_W - GAP) / 2;
+    lv_obj_t *p = panel(page, 0, pw);
+    label_caps(p, TX_SET_SCREEN);
+    lv_obj_t *hl = box(p, 0, 0, LV_PCT(100), LV_SIZE_CONTENT, C_SURFACE, 0);
+    lv_obj_t *l = text(hl, &font_18, C_MUTED, tr(TX_SET_BRIGHTNESS));
+    lv_obj_align(l, LV_ALIGN_LEFT_MID, 0, 0);
+    U.st_bright_val = text(hl, &font_46_semi, C_INK, "");
+    lv_obj_align(U.st_bright_val, LV_ALIGN_RIGHT_MID, 0, 0);
+    U.st_slider = lv_slider_create(p);
+    lv_obj_set_width(U.st_slider, LV_PCT(96));
+    lv_obj_set_style_margin_hor(U.st_slider, 12, 0);
+    lv_slider_set_range(U.st_slider, 10, 100);
+    lv_slider_set_value(U.st_slider, U.brightness, LV_ANIM_OFF);
+    lv_obj_set_height(U.st_slider, 14);
+    lv_obj_set_style_bg_color(U.st_slider, lv_color_hex(C_SURFACE2), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(U.st_slider, lv_color_hex(C_ACCENT), LV_PART_INDICATOR);
+    lv_obj_set_style_bg_color(U.st_slider, lv_color_hex(C_ACCENT), LV_PART_KNOB);
+    lv_obj_set_style_pad_all(U.st_slider, 19, LV_PART_KNOB);
+    lv_obj_add_event_cb(U.st_slider, bright_cb, LV_EVENT_VALUE_CHANGED, NULL);
+    lv_obj_t *sp = box(p, 0, 0, 1, 8, C_SURFACE, 0);
+    transparent(sp);
+    text(p, &font_18, C_MUTED, tr(TX_SET_APPEARANCE));
+    static const tx_t th[3] = {TX_SET_THEME_AUTO, TX_SET_THEME_LIGHT, TX_SET_THEME_DARK};
+    seg(p, 3, th, theme_cb, U.st_theme, NULL, 52);
+    seg_set(U.st_theme, 3, U.theme);
+    filler(p);
+    char nb[256];
+    snprintf(nb, sizeof nb, "%s %s", tr(TX_SET_THEME_NOTE), tr(TX_SET_BRIGHTNESS_NA));
+    note(p, nb);
+    char a[16];
+    snprintf(a, sizeof a, "%u %%", U.brightness);
+    set_text(U.st_bright_val, a);
+
+    lv_obj_t *q = panel(page, pw + GAP, BODY_W - pw - GAP);
+    label_caps(q, TX_SET_OPERATION);
+    text(q, &font_18, C_MUTED, tr(TX_SET_IDLE));
+    static const tx_t il[3] = {TX_SET_IDLE_1, TX_SET_IDLE_2, TX_SET_IDLE_5};
+    seg(q, 3, il, idle_cb, U.st_idle, NULL, 52);
+    seg_set(U.st_idle, 3, U.cfg.return_min == 1 ? 0 : U.cfg.return_min == 5 ? 2 : 1);
+    filler(q);
+    lv_obj_t *lab;
+    lv_obj_t *b = big_btn(q, 76, go_cb, (void *)(intptr_t)UI_PAGE_EXPERT, &lab);
+    set_text(lab, tr(TX_SET_EXPERT));
+    lv_obj_align(lab, LV_ALIGN_LEFT_MID, 24, 0);
+    lv_obj_t *chev = text(b, &lv_font_montserrat_24, C_INK, LV_SYMBOL_RIGHT);
+    lv_obj_align(chev, LV_ALIGN_RIGHT_MID, -24, 0);
+}
+
+/* ---------- Expertenansicht ---------- */
+
+#define XBODY_Y 76
+#define XBODY_H (BODY_H - XBODY_Y)
+
+void ui_mp_tap(uint8_t mode)
+{
+    for (int i = 0; i < 3; i++) {
+        if (MODES[i] == mode) {
+            lv_obj_send_event(U.ep.mode_btn[i], LV_EVENT_CLICKED, NULL);
+        }
+    }
+}
+
+void ui_expert_tab(int tab)
+{
+    if (tab < 0 || tab >= X_COUNT) {
+        return;
+    }
+    U.xtab = (xtab_t)tab;
+    seg_set(U.x_tab_btn, X_COUNT, tab);
+    for (int i = 0; i < X_COUNT; i++) {
+        if (i == tab) {
+            lv_obj_remove_flag(U.x_body[i], LV_OBJ_FLAG_HIDDEN);
+        } else {
+            lv_obj_add_flag(U.x_body[i], LV_OBJ_FLAG_HIDDEN);
+        }
+    }
+}
+
+static void xtab_cb(lv_event_t *e)
+{
+    ui_expert_tab((int)(intptr_t)lv_event_get_user_data(e));
+}
+
+static lv_obj_t *xpanel(lv_obj_t *parent, int32_t x, int32_t w, tx_t label)
+{
+    lv_obj_t *p = box(parent, x, 0, w, XBODY_H, C_SURFACE, 16);
+    border(p, C_LINE, 1);
+    lv_obj_set_style_pad_hor(p, 16, 0);
+    lv_obj_set_style_pad_ver(p, 14, 0);
+    lv_obj_set_flex_flow(p, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_style_pad_row(p, 6, 0);
+    label_caps(p, label);
+    return p;
+}
+
+static lv_obj_t *xlist(lv_obj_t *panel_obj)
+{
+    lv_obj_t *l = box(panel_obj, 0, 0, LV_PCT(100), 0, C_SURFACE, 0);
+    lv_obj_set_flex_grow(l, 1);
+    lv_obj_set_flex_flow(l, LV_FLEX_FLOW_COLUMN);
+    lv_obj_add_flag(l, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scroll_dir(l, LV_DIR_VER);
+    return l;
+}
+
+/* "DI1  Dach Rückmeldung A · T32b/15 ........ 1" */
+static lv_obj_t *io_row(lv_obj_t *list, const char *ch, const char *name, bool free_ch)
+{
+    lv_obj_t *r = box(list, 0, 0, LV_PCT(100), 30, C_SURFACE, 0);
+    lv_obj_set_style_border_side(r, LV_BORDER_SIDE_TOP, 0);
+    border(r, C_LINE, 1);
+    lv_obj_t *c = text(r, &font_15_semi, C_MUTED, ch);
+    lv_obj_align(c, LV_ALIGN_LEFT_MID, 0, 0);
+    lv_obj_t *n = text(r, &font_15_semi, C_INK, name);
+    lv_obj_set_size(n, 250, 20);
+    lv_label_set_long_mode(n, LV_LABEL_LONG_DOT);
+    lv_obj_align(n, LV_ALIGN_LEFT_MID, 50, 0);
+    lv_obj_t *v = text(r, &font_15_semi, C_INK, "\xe2\x80\x93");
+    lv_obj_align(v, LV_ALIGN_RIGHT_MID, 0, 0);
+    if (free_ch) {
+        lv_obj_set_style_opa(r, LV_OPA_50, 0);
+    }
+    return v;
+}
+
+static void build_x_io(lv_obj_t *body)
+{
+    int32_t w = (BODY_W - 2 * GAP) / 3;
+    char ch[8];
+    lv_obj_t *l = xlist(xpanel(body, 0, w, TX_X_DI));
+    for (int i = 0; i < CU_N_DI; i++) {
+        snprintf(ch, sizeof ch, "DI%d", i + 1);
+        tx_t name = i < TXL_IO_DI_LEN ? TXL_IO_DI[i] : TX_NONE;
+        U.x_di[i] = io_row(l, ch, name == TX_NONE ? tr(TX_X_FREE) : tr(name), name == TX_NONE);
+    }
+    l = xlist(xpanel(body, w + GAP, w, TX_X_DO));
+    for (int i = 0; i < CU_N_RELAYS; i++) {
+        snprintf(ch, sizeof ch, "K%d", i + 1);
+        tx_t name = i < TXL_IO_K_LEN ? TXL_IO_K[i] : TX_NONE;
+        U.x_k[i] = io_row(l, ch, name == TX_NONE ? tr(TX_X_UNUSED_K) : tr(name), name == TX_NONE);
+    }
+    for (int i = 0; i < CU_N_LADDER; i++) {
+        char nm[64], n[4];
+        snprintf(ch, sizeof ch, "H%d", i + 1);
+        snprintf(n, sizeof n, "%d", i + 1);
+        U.x_k[CU_N_RELAYS + i] = io_row(l, ch, fill(nm, sizeof nm, tr(TX_X_LADDER_SEG), "n", n), false);
+    }
+    l = xlist(xpanel(body, 2 * (w + GAP), BODY_W - 2 * (w + GAP), TX_X_AI));
+    for (int i = 0; i < CU_N_AI; i++) {
+        snprintf(ch, sizeof ch, "AI%d", i + 1);
+        tx_t name = i < TXL_IO_AI_LEN ? TXL_IO_AI[i] : TX_NONE;
+        U.x_ai[i] = io_row(l, ch, name == TX_NONE ? tr(TX_X_RESERVE) : tr(name), name == TX_NONE);
+    }
+}
+
+static void pin_cb(lv_event_t *e)
+{
+    U.x_pin = (uint8_t)(intptr_t)lv_event_get_user_data(e);
+}
+
+static void build_x_pins(lv_obj_t *body)
+{
+    int32_t bw = (BODY_W - 7 * 8) / 8;
+    for (int i = 0; i < 32; i++) {
+        lv_obj_t *b = box(body, (i % 8) * (bw + 8), (i / 8) * 52, bw, 46, C_SURFACE, 10);
+        border(b, C_LINE, 1);
+        char n[4];
+        snprintf(n, sizeof n, "%02d", i + 1);
+        lv_obj_t *l = text(b, &font_18, C_INK, n);
+        lv_obj_center(l);
+        lv_obj_add_flag(b, LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_add_event_cb(b, pin_cb, LV_EVENT_CLICKED, (void *)(intptr_t)(i + 1));
+        U.x_pin_btn[i] = b;
+    }
+    lv_obj_t *info = box(body, 0, 4 * 52 + 4, BODY_W, XBODY_H - 4 * 52 - 4, C_SURFACE, 16);
+    border(info, C_LINE, 1);
+    lv_obj_set_style_pad_all(info, 16, 0);
+    lv_obj_set_flex_flow(info, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_style_pad_row(info, 6, 0);
+    U.x_pin_name = text(info, &font_22_semi, C_INK, "");
+    U.x_pin_desc = text(info, &font_18, C_MUTED, "");
+    U.x_pin = 1;
+}
+
+static void lim_cb(lv_event_t *e)
+{
+    int d = (int)(intptr_t)lv_event_get_user_data(e);
+    const cu_state_t *s = &U.st;
+    if (!s->victron.limit_enabled) {
+        return;
+    }
+    if (d == 0) {
+        if (confirm_tap(&U.lim_confirm, 1)) {
+            cu_cmd_t c = {.type = CMD_VICTRON_LIMIT, .value = U.x_lim_value};
+            send(&c);
+        }
+        return;
+    }
+    if (isnan(U.x_lim_value)) {
+        U.x_lim_value = isnan(s->energy.v[EN_CURRENT_LIMIT]) ? s->victron.limit_min_a : s->energy.v[EN_CURRENT_LIMIT];
+    }
+    U.x_lim_value += (float)d;
+    if (U.x_lim_value < s->victron.limit_min_a) {
+        U.x_lim_value = s->victron.limit_min_a;
+    }
+    if (U.x_lim_value > s->victron.limit_max_a) {
+        U.x_lim_value = s->victron.limit_max_a;
+    }
+    U.lim_confirm.armed = -1;
+}
+
+static void build_x_ac(lv_obj_t *body)
+{
+    int32_t w = (BODY_W - 3 * GAP) / 4;
+    lv_obj_t *p = xpanel(body, 0, w, TX_X_AC_IN);
+    static const tx_t in_rows[4] = {TX_X_AC_VOLTAGE, TX_X_AC_CURRENT, TX_X_AC_FREQ, TX_X_AC_POWER};
+    for (int i = 0; i < 4; i++) {
+        U.x_ac_in[i] = row_f(p, in_rows[i], &font_15_semi);
+    }
+    p = xpanel(body, w + GAP, w, TX_X_AC_OUT);
+    static const tx_t out_rows[5] = {TX_X_AC_VOLTAGE, TX_X_AC_CURRENT, TX_X_AC_FREQ, TX_X_AC_POWER, TX_X_AC_APPARENT};
+    for (int i = 0; i < 5; i++) {
+        U.x_ac_out[i] = row_f(p, out_rows[i], &font_15_semi);
+    }
+    p = xpanel(body, 2 * (w + GAP), w, TX_X_AC_DEV);
+    static const tx_t dev_rows[7] = {TX_X_AC_MODEL, TX_X_AC_STATE, TX_X_AC_MODE, TX_X_AC_OVERLOAD,
+                                     TX_X_AC_LOW_BAT, TX_X_AC_TEMP, TX_X_AC_RIPPLE};
+    for (int i = 0; i < 7; i++) {
+        U.x_ac_dev[i] = row_f(p, dev_rows[i], &font_15_semi);
+    }
+    p = xpanel(body, 3 * (w + GAP), BODY_W - 3 * (w + GAP), TX_X_LIM);
+    lv_obj_t *lim = box(p, 0, 0, LV_PCT(100), 64, C_SURFACE, 0);
+    lv_obj_t *m = step_cb_btn(lim, "\xe2\x88\x92", lim_cb, -1, 64);
+    lv_obj_align(m, LV_ALIGN_LEFT_MID, 0, 0);
+    U.x_lim = text(lim, &font_34_semi, C_INK, "\xe2\x80\x93");
+    lv_obj_align(U.x_lim, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_t *pl = step_cb_btn(lim, "+", lim_cb, 1, 64);
+    lv_obj_align(pl, LV_ALIGN_RIGHT_MID, 0, 0);
+    U.x_lim_set = big_btn(p, 56, lim_cb, (void *)(intptr_t)0, &U.x_lim_set_label);
+    U.x_ctl_note = note(p, "");
+    U.x_lim_value = NAN;
+    U.lim_confirm.armed = -1;
+}
+
+static void build_x_conn(lv_obj_t *body)
+{
+    int32_t w = (BODY_W - GAP) / 2;
+    lv_obj_t *p = xpanel(body, 0, w, TX_X_CONN_CERBO);
+    static const tx_t cr[3] = {TX_X_CONN_STATE, TX_X_CONN_PORTAL, TX_X_LIM};
+    for (int i = 0; i < 3; i++) {
+        U.x_conn[i] = row_f(p, cr[i], &font_16_semi);
+    }
+    filler(p);
+    note(p, tr(TX_X_CONN_NOTE));
+    p = xpanel(body, w + GAP, BODY_W - w - GAP, TX_X_CONN_UNIT);
+    static const tx_t ur[4] = {TX_X_CONN_VERSION, TX_X_CONN_HAL, TX_X_CONN_PROFILE, TX_X_CONN_WS};
+    for (int i = 0; i < 4; i++) {
+        U.x_unit[i] = row_f(p, ur[i], &font_16_semi);
+    }
+}
+
+/* ----- network (stored in the simulator; applied on the device with M4) ----- */
+
+static bool ipv4(const char *s, bool prefix)
+{
+    unsigned a, b, c, d, p = 32;
+    char tail;
+    int n = prefix ? sscanf(s, "%u.%u.%u.%u/%u%c", &a, &b, &c, &d, &p, &tail)
+                   : sscanf(s, "%u.%u.%u.%u%c", &a, &b, &c, &d, &tail);
+    if (prefix ? n != 5 : n != 4) {
+        return false;
+    }
+    return a < 256 && b < 256 && c < 256 && d < 256 && p >= 8 && p <= 30;
+}
+
+static bool net_valid(net_field_t f, const char *v)
+{
+    size_t n = strlen(v);
+    switch (f) {
+    case NF_ADDR: return ipv4(v, true);
+    case NF_GW:
+    case NF_HOST: return ipv4(v, false);
+    case NF_DNS: return n == 0 || ipv4(v, false);
+    case NF_SSID: return n >= 1 && n <= 32;
+    case NF_PSK: return n >= 8 && n <= 63;
+    }
+    return false;
+}
+
+static void kb_close(void)
+{
+    if (U.kb_layer) {
+        lv_obj_delete(U.kb_layer);
+        U.kb_layer = NULL;
+    }
+}
+
+static void kb_cb(lv_event_t *e)
+{
+    lv_event_code_t code = lv_event_get_code(e);
+    if (code == LV_EVENT_READY) {
+        const char *v = lv_textarea_get_text(U.kb_ta);
+        if (!net_valid(U.kb_field, v)) {
+            lv_textarea_set_placeholder_text(U.kb_ta, tr(TX_X_NET_INVALID));
+            lv_textarea_set_text(U.kb_ta, "");
+            return;
+        }
+        snprintf(U.net[U.kb_field], sizeof U.net[0], "%s", v);
+        U.net_confirm.armed = -1;
+        kb_close();
+    } else if (code == LV_EVENT_CANCEL) {
+        kb_close();
+    }
+}
+
+static void field_cb(lv_event_t *e)
+{
+    net_field_t f = (net_field_t)(intptr_t)lv_event_get_user_data(e);
+    if (f <= NF_DNS && !U.net_static) {
+        return;
+    }
+    U.kb_field = f;
+    U.kb_layer = box(U.root, 0, 0, W, H, C_BG, 0);
+    lv_obj_add_flag(U.kb_layer, LV_OBJ_FLAG_CLICKABLE);
+    U.kb_ta = lv_textarea_create(U.kb_layer);
+    lv_textarea_set_one_line(U.kb_ta, true);
+    lv_obj_set_size(U.kb_ta, W - 2 * PAD, 60);
+    lv_obj_set_pos(U.kb_ta, PAD, PAD);
+    lv_obj_set_style_text_font(U.kb_ta, &font_22_semi, 0);
+    lv_textarea_set_text(U.kb_ta, f == NF_PSK ? "" : U.net[f]);
+    lv_textarea_set_password_mode(U.kb_ta, f == NF_PSK);
+    U.kb = lv_keyboard_create(U.kb_layer);
+    lv_obj_set_size(U.kb, W, H - 92);
+    lv_obj_align(U.kb, LV_ALIGN_BOTTOM_MID, 0, 0);
+    lv_keyboard_set_textarea(U.kb, U.kb_ta);
+    lv_keyboard_set_mode(U.kb, f == NF_SSID || f == NF_PSK ? LV_KEYBOARD_MODE_TEXT_LOWER : LV_KEYBOARD_MODE_NUMBER);
+    lv_obj_add_event_cb(U.kb, kb_cb, LV_EVENT_READY, NULL);
+    lv_obj_add_event_cb(U.kb, kb_cb, LV_EVENT_CANCEL, NULL);
+}
+
+static void eth_cb(lv_event_t *e)
+{
+    U.net_static = (int)(intptr_t)lv_event_get_user_data(e) == 1;
+    seg_set(U.x_eth_mode, 2, U.net_static);
+    U.net_confirm.armed = -1;
+}
+
+static void apply_cb(lv_event_t *e)
+{
+    (void)e;
+    bool ok = net_valid(NF_SSID, U.net[NF_SSID]) && net_valid(NF_PSK, U.net[NF_PSK]) && net_valid(NF_HOST, U.net[NF_HOST]);
+    if (U.net_static) {
+        ok = ok && net_valid(NF_ADDR, U.net[NF_ADDR]) && net_valid(NF_GW, U.net[NF_GW]) && net_valid(NF_DNS, U.net[NF_DNS]);
+    }
+    if (!ok) {
+        set_text(U.x_net_note, tr(TX_X_NET_INVALID));
+        return;
+    }
+    if (confirm_tap(&U.net_confirm, 1)) {
+        set_text(U.x_net_note, tr(TX_X_NET_APPLIED)); /* TODO(M4): apply on the device (Ethernet, WLAN of the C6) */
+    }
+}
+
+static lv_obj_t *field_row(lv_obj_t *p, tx_t name, net_field_t f)
+{
+    lv_obj_t *v = row_f(p, name, &font_16_semi);
+    lv_obj_t *r = lv_obj_get_parent(v);
+    lv_obj_add_flag(r, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(r, field_cb, LV_EVENT_CLICKED, (void *)(intptr_t)f);
+    lv_obj_set_style_pad_ver(r, 10, 0);
+    return v;
+}
+
+static void build_x_net(lv_obj_t *body)
+{
+    int32_t w = (BODY_W - GAP) / 2;
+    lv_obj_t *p = xpanel(body, 0, w, TX_X_NET_ETH);
+    static const tx_t em[2] = {TX_X_NET_DHCP, TX_X_NET_STATIC};
+    seg(p, 2, em, eth_cb, U.x_eth_mode, NULL, 40);
+    seg_set(U.x_eth_mode, 2, U.net_static);
+    U.x_net_val[NF_ADDR] = field_row(p, TX_X_NET_ADDRESS, NF_ADDR);
+    U.x_net_val[NF_GW] = field_row(p, TX_X_NET_GATEWAY, NF_GW);
+    U.x_net_val[NF_DNS] = field_row(p, TX_X_NET_DNS, NF_DNS);
+    filler(p);
+    note(p, tr(TX_X_NET_NOTE_V2));
+    p = xpanel(body, w + GAP, BODY_W - w - GAP, TX_X_NET_WIFI);
+    U.x_net_val[NF_SSID] = field_row(p, TX_X_NET_SSID, NF_SSID);
+    U.x_net_val[NF_PSK] = field_row(p, TX_X_NET_PSK, NF_PSK);
+    U.x_net_val[NF_HOST] = field_row(p, TX_X_NET_CERBO_HOST, NF_HOST);
+    filler(p);
+    U.x_net_apply = big_btn(p, 52, apply_cb, NULL, &U.x_net_apply_label);
+    U.x_net_note = note(p, tr(TX_X_NET_HINT));
+    U.net_confirm.armed = -1;
+}
+
+static void build_expert(lv_obj_t *page)
+{
+    static const tx_t tabs[X_COUNT] = {TX_X_TAB_IO, TX_X_TAB_PINS, TX_X_TAB_AC, TX_X_TAB_CONN, TX_X_TAB_NET, TX_X_TAB_MEASURE};
+    seg(page, X_COUNT, tabs, xtab_cb, U.x_tab_btn, NULL, 52);
+    for (int i = 0; i < X_COUNT; i++) {
+        U.x_body[i] = box(page, 0, XBODY_Y, BODY_W, XBODY_H, C_BG, 0);
+        transparent(U.x_body[i]);
+    }
+    build_x_io(U.x_body[X_IO]);
+    build_x_pins(U.x_body[X_PINS]);
+    build_x_ac(U.x_body[X_AC]);
+    build_x_conn(U.x_body[X_CONN]);
+    build_x_net(U.x_body[X_NET]);
+    lv_obj_t *m = xpanel(U.x_body[X_MEASURE], 0, BODY_W, TX_X_MEASURE_TITLE);
+    note(m, tr(TX_X_MEASURE_NOTE));
+    ui_expert_tab(U.xtab);
+}
+
+static const char *alarm_text(float v)
+{
+    static const tx_t al[3] = {TX_X_AC_ALARM_0, TX_X_AC_ALARM_1, TX_X_AC_ALARM_2};
+    return isnan(v) || v < 0 || v > 2 ? "\xe2\x80\x93" : tr(al[(int)v]);
+}
+
+static void update_expert(const cu_state_t *s)
+{
+    char a[96];
+    if (U.xtab == X_IO) {
+        for (int i = 0; i < CU_N_DI; i++) {
+            bool on = (s->io.di >> i) & 1u;
+            set_text(U.x_di[i], on ? "1" : "0");
+            lv_obj_set_style_text_color(U.x_di[i], lv_color_hex(on ? C_OK : C_MUTED), 0);
+        }
+        for (int i = 0; i < CU_N_RELAYS + CU_N_LADDER; i++) {
+            bool on = i < CU_N_RELAYS ? (s->io.relays >> i) & 1u : (s->io.ladder >> (i - CU_N_RELAYS)) & 1u;
+            set_text(U.x_k[i], tr(on ? TX_COMMON_ON : TX_COMMON_OFF));
+            lv_obj_set_style_text_color(U.x_k[i], lv_color_hex(on ? C_OK : C_MUTED), 0);
+        }
+        for (int i = 0; i < CU_N_AI; i++) {
+            set_text(U.x_ai[i], num(a, sizeof a, s->io.ai[i], 3, "V"));
+        }
+    } else if (U.xtab == X_PINS) {
+        for (int i = 0; i < 32; i++) {
+            bool on = i + 1 == U.x_pin;
+            lv_obj_set_style_bg_color(U.x_pin_btn[i], lv_color_hex(on ? C_ACCENT : C_SURFACE), 0);
+            lv_obj_set_style_text_color(lv_obj_get_child(U.x_pin_btn[i], 0), lv_color_hex(on ? C_ACCENT_INK : C_INK), 0);
+        }
+        snprintf(a, sizeof a, "T32b/%02u", U.x_pin);
+        set_text(U.x_pin_name, a);
+        tx_t d = U.x_pin >= 1 && U.x_pin <= TXL_PINS_LEN ? TXL_PINS[U.x_pin - 1] : TX_NONE;
+        set_text(U.x_pin_desc, d == TX_NONE ? tr(TX_X_RESERVE) : tr(d));
+    } else if (U.xtab == X_AC) {
+        float active = ev(s, EN_ACTIVE_INPUT);
+        bool shore = !isnan(active) && active != 240;
+        set_text(U.x_ac_in[0], num(a, sizeof a, shore ? ev(s, EN_IN_V) : NAN, 0, "V"));
+        set_text(U.x_ac_in[1], num(a, sizeof a, shore ? ev(s, EN_IN_I) : NAN, 1, "A"));
+        set_text(U.x_ac_in[2], num(a, sizeof a, shore ? ev(s, EN_IN_F) : NAN, 1, "Hz"));
+        set_text(U.x_ac_in[3], num(a, sizeof a, shore ? ev(s, EN_IN_P) : NAN, 0, "W"));
+        set_text(U.x_ac_out[0], num(a, sizeof a, ev(s, EN_OUT_V), 0, "V"));
+        set_text(U.x_ac_out[1], num(a, sizeof a, ev(s, EN_OUT_I), 1, "A"));
+        set_text(U.x_ac_out[2], num(a, sizeof a, ev(s, EN_OUT_F), 1, "Hz"));
+        set_text(U.x_ac_out[3], num(a, sizeof a, ev(s, EN_OUT_P), 0, "W"));
+        set_text(U.x_ac_out[4], num(a, sizeof a, ev(s, EN_OUT_S), 0, "VA"));
+        set_text(U.x_ac_dev[0], tr(TX_X_AC_MODEL_VAL));
+        float st = ev(s, EN_VEBUS_STATE), md = ev(s, EN_VEBUS_MODE);
+        static const tx_t vb[12] = {TX_VEBUS_0, TX_VEBUS_1, TX_VEBUS_2, TX_VEBUS_3, TX_VEBUS_4,  TX_VEBUS_5,
+                                    TX_VEBUS_6, TX_VEBUS_7, TX_VEBUS_8, TX_VEBUS_9, TX_VEBUS_10, TX_VEBUS_11};
+        static const tx_t mdn[4] = {TX_X_AC_MODE_1, TX_X_AC_MODE_2, TX_X_AC_MODE_3, TX_X_AC_MODE_4};
+        set_text(U.x_ac_dev[1], !isnan(st) && st >= 0 && st <= 11 ? tr(vb[(int)st]) : "\xe2\x80\x93");
+        set_text(U.x_ac_dev[2], !isnan(md) && md >= 1 && md <= 4 ? tr(mdn[(int)md - 1]) : "\xe2\x80\x93");
+        set_text(U.x_ac_dev[3], alarm_text(ev(s, EN_ALARM_OVERLOAD)));
+        set_text(U.x_ac_dev[4], alarm_text(ev(s, EN_ALARM_LOW_BATTERY)));
+        set_text(U.x_ac_dev[5], alarm_text(ev(s, EN_ALARM_TEMPERATURE)));
+        set_text(U.x_ac_dev[6], alarm_text(ev(s, EN_ALARM_RIPPLE)));
+        float shown = isnan(U.x_lim_value) ? ev(s, EN_CURRENT_LIMIT) : U.x_lim_value;
+        set_text(U.x_lim, num(a, sizeof a, shown, 1, "A"));
+        set_text(U.x_lim_set_label, armed(&U.lim_confirm, 1) ? tr(TX_X_CONFIRM) : tr(TX_X_LIM_SET));
+        enable(U.x_lim_set, s->victron.limit_enabled && s->energy.connected);
+        tx_t n = !s->victron.enabled         ? TX_X_CTL_DISABLED
+                 : !s->victron.limit_enabled ? TX_X_CTL_LIMIT_DISABLED
+                 : !s->energy.connected      ? TX_X_CTL_OFFLINE
+                 : s->victron.pending_limit  ? TX_X_CTL_PENDING
+                 : s->victron.unconfirmed == VW_CURRENT_LIMIT ? TX_X_CTL_UNCONFIRMED
+                 : s->victron.last == VC_LIMIT_FIXED          ? TX_X_VC_LIMIT_FIXED
+                 : s->victron.last == VC_OUT_OF_RANGE         ? TX_X_VC_OUT_OF_RANGE
+                 : s->victron.last == VC_TOO_FAST             ? TX_X_VC_TOO_FAST
+                                                              : TX_X_CTL_HINT;
+        set_text(U.x_ctl_note, tr(n));
+    } else if (U.xtab == X_CONN) {
+        set_text(U.x_conn[0], tr(s->energy.connected ? TX_X_CONN_ONLINE : TX_X_CONN_OFFLINE));
+        set_text(U.x_conn[1], "\xe2\x80\x93"); /* TODO(M4): portal id from the cerbo component */
+        set_text(U.x_conn[2], num(a, sizeof a, ev(s, EN_CURRENT_LIMIT), 1, "A"));
+        set_text(U.x_unit[0], "2.0.0-m2");
+        set_text(U.x_unit[1], tr(U.cfg.simulation ? TX_X_CONN_HAL_SIM : TX_COMMON_UNKNOWN));
+        set_text(U.x_unit[2], tr(U.cfg.simulation ? TX_X_CONN_PROFILE_SIM : TX_X_CONN_PROFILE_REAL));
+        set_text(U.x_unit[3], tr(TX_X_CONN_WS_VAL));
+    } else if (U.xtab == X_NET) {
+        for (int f = 0; f < NET_FIELDS; f++) {
+            const char *v = U.net[f];
+            if (f == NF_PSK) {
+                v = tr(U.net[NF_PSK][0] ? TX_X_NET_PSK_SET : TX_X_NET_PSK_UNSET);
+            } else if (f <= NF_DNS && !U.net_static) {
+                v = tr(TX_X_NET_DHCP);
+            } else if (!v[0]) {
+                v = "\xe2\x80\x93";
+            }
+            set_text(U.x_net_val[f], v);
+        }
+        set_text(U.x_net_apply_label, armed(&U.net_confirm, 1) ? tr(TX_X_CONFIRM) : tr(TX_X_NET_APPLY));
+    }
+}
+
 static void update(lv_timer_t *t)
 {
     (void)t;
+    if (!U.built) {
+        return;
+    }
     state_bus_snapshot(U.cfg.bus, &U.st);
     const cu_state_t *s = &U.st;
     char a[48];
@@ -982,18 +2007,25 @@ static void update(lv_timer_t *t)
     update_overview(s);
     update_roof(s);
     update_fridge(s);
+    update_energy(s);
+    update_heat(s);
+    update_water(s);
+    if (U.page == UI_PAGE_EXPERT) {
+        update_expert(s);
+    }
     /* Back to the overview after inactivity, never while the roof moves (SPEC 9). */
-    if (U.page != UI_PAGE_OVERVIEW && !s->roof.busy && U.roof_dir == ROOF_STOP &&
+    if (U.page != UI_PAGE_OVERVIEW && !s->roof.busy && U.roof_dir == ROOF_STOP && !U.kb_layer &&
         lv_display_get_inactive_time(NULL) > (uint32_t)U.cfg.return_min * 60000u) {
         ui_show(UI_PAGE_OVERVIEW);
     }
+    apply_theme(); /* automatic: night with the dashboard lighting (58d) */
 }
 
-void ui_init(lv_obj_t *parent, const ui_config_t *cfg)
+static lv_obj_t *g_parent;
+
+static void build_all(void)
 {
-    memset(&U, 0, sizeof U);
-    U.cfg = *cfg;
-    U.root = box(parent, 0, 0, W, H, C_BG, 0);
+    U.root = box(g_parent, 0, 0, W, H, C_BG, 0);
     lv_obj_set_style_text_color(U.root, lv_color_hex(C_INK), 0);
     build_header();
     U.body = box(U.root, PAD, HEAD + PAD, BODY_W, BODY_H, C_BG, 0);
@@ -1003,11 +2035,43 @@ void ui_init(lv_obj_t *parent, const ui_config_t *cfg)
     build_overview(U.pages[UI_PAGE_OVERVIEW]);
     build_roof(U.pages[UI_PAGE_ROOF]);
     build_fridge(U.pages[UI_PAGE_FRIDGE]);
-    for (int i = UI_PAGE_ENERGY; i < UI_PAGE_COUNT; i++) {
-        build_placeholder(U.pages[i]);
-    }
+    build_energy(U.pages[UI_PAGE_ENERGY]);
+    build_heat(U.pages[UI_PAGE_HEAT]);
+    build_water(U.pages[UI_PAGE_WATER]);
+    build_settings(U.pages[UI_PAGE_SETTINGS]);
+    build_expert(U.pages[UI_PAGE_EXPERT]);
+    U.built = true;
+}
+
+/* Theme change: rebuild every page with the other palette, keep page and settings. */
+static void rebuild(void)
+{
+    ui_page_t page = U.page;
+    U.built = false;
+    kb_close();
+    lv_obj_delete(U.root);
+    build_all();
+    U.page = UI_PAGE_OVERVIEW;
+    ui_show(page);
+    update(NULL);
+}
+
+void ui_init(lv_obj_t *parent, const ui_config_t *cfg)
+{
+    memset(&U, 0, sizeof U);
+    U.cfg = *cfg;
+    U.brightness = 80;
+    U.theme = THEME_AUTO;
+    U.night = true;
+    PAL = &NIGHT;
+    snprintf(U.net[NF_HOST], sizeof U.net[0], "172.24.24.1");
+    g_parent = parent;
+    build_all();
     ui_show(UI_PAGE_OVERVIEW);
-    lv_timer_create(roof_timer, 100, NULL);
-    lv_timer_create(update, 100, NULL);
+    if (!U.timers) {
+        lv_timer_create(roof_timer, 100, NULL);
+        lv_timer_create(update, 100, NULL);
+        U.timers = true;
+    }
     update(NULL);
 }

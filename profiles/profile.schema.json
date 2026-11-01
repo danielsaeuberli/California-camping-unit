@@ -1055,6 +1055,76 @@
         "fridge",
         "heater"
       ]
+    },
+    "victron": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "MultiPlus control through the Cerbo (SPEC 5.1). Only Mode and Ac/In/1/CurrentLimit are ever written, only on user action and only with control true.",
+      "properties": {
+        "control": {
+          "type": "boolean"
+        },
+        "modes": {
+          "type": "array",
+          "items": {
+            "enum": [
+              1,
+              2,
+              3,
+              4
+            ]
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "current_limit_a": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "min": {
+              "oneOf": [
+                {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                {
+                  "const": "TODO_MEASURE"
+                }
+              ]
+            },
+            "max": {
+              "oneOf": [
+                {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                {
+                  "const": "TODO_MEASURE"
+                }
+              ]
+            }
+          },
+          "required": [
+            "min",
+            "max"
+          ]
+        },
+        "confirm_s": {
+          "type": "number",
+          "minimum": 1
+        },
+        "min_interval_s": {
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "control",
+        "modes",
+        "current_limit_a",
+        "confirm_s",
+        "min_interval_s"
+      ]
     }
   },
   "required": [
@@ -1072,6 +1142,7 @@
     "cerbo",
     "measure",
     "ui",
-    "release"
+    "release",
+    "victron"
   ]
 }

@@ -24,6 +24,7 @@ typedef struct {
     tanks_t tanks;
     vehicle_t vehicle;
     energy_t energy;
+    victron_ctl_t victron;
 
     sig_debounce_t deb[CU_N_DI];
     uint16_t di;          /* debounced DI1..DI16 */
