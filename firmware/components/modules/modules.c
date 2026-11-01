@@ -234,7 +234,11 @@ void fridge_step(fridge_t *f, cu_ms_t now, cu_quality_t temp_q, float temp_c)
         }
     }
     if (f->on && fridge_thermostat_calibrated(p) && temp_q == CU_Q_OK) {
-        f->thermo = f->request ? FRIDGE_DEMAND : FRIDGE_IDLE;
+        if (want == f->request) {
+            f->thermo = f->request ? FRIDGE_DEMAND : FRIDGE_IDLE;
+        } else {
+            f->thermo = f->request ? FRIDGE_PROTECT_RUN : FRIDGE_PROTECT_PAUSE;
+        }
     }
 }
 

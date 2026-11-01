@@ -65,8 +65,8 @@ Touch ── I²C 1 + INT über FPC ── P4
 | 13 | I/O | 16 LV-Digitaleingänge | Sequent SM-I-009 | 1 | Geplant | 60.00 | 60.00 | DI1–DI16 (3–24 V) | Adresse 0x27 (Level 0) |
 | 14 | Heizung | 4-fach-Relaismodul, getrennte COM/NC/NO | Purecrea 420053 | 1 | Geplant | 12.90 | 12.90 | H1–H4 Sollwertleiter | Einschaltpegel bei 3,3-V-Logik prüfen |
 | 15 | Bedienung | Summer 5 V + Transistor | Piezo aktiv | 1 | Bestellen | 4.00 | 4.00 | Quittung Berührung | |
-| 16 | Heizung | Präzisionswiderstand 1750 Ω 0,1 % | Metallfilm | 1 | Bestellen | 4.00 | 4.00 | Basis der Sollwertleiter | |
-| 17 | Heizung | Präzisionswiderstände 27,4 / 54,9 / 110 / 237 Ω 0,1 % | Metallfilm, je 1 | 1 | Bestellen | 8.00 | 8.00 | Segmente H1–H4 | |
+| 16 | Heizung | Präzisionswiderstand Basis der Sollwertleiter | Metallfilm 0,1 % | 1 | **Nicht bestellen** | 4.00 | 4.00 | Basis der Sollwertleiter | Wert erst nach Messung T2p je Stufe (O23). Der frühere Wert 1750 Ω ist ein unvalidierter Entwurf |
+| 17 | Heizung | Präzisionswiderstände Segmente H1–H4 | Metallfilm 0,1 % | 1 | **Nicht bestellen** | 8.00 | 8.00 | Segmente H1–H4 | dito; 27,4 / 54,9 / 110 / 237 Ω gehören zum unvalidierten Entwurf |
 | 18 | Fahrzeug | Gegenstecker T32b | VW, Codierung am E153 ablesen | 1 | Bestätigen | 35.00 | 35.00 | Originalkabelbaum | Teilenummer nach Gehäusefoto |
 | 19 | Fahrzeug | MQS-Kontakte/Reparaturleitungen | 32 + 6 Reserve | 38 | Bestellen | 2.20 | 83.60 | alle 32 Pins | |
 | 20 | Fahrzeug | Gegenstecker T6ap komplett | VW | 1 | Bestätigen | 18.00 | 18.00 | Heizung, Zündung | |
@@ -104,7 +104,7 @@ Noch nicht budgetiert (Menge erst nach Bauraumaufnahme): Pos. 31 Aluträger, 32 
 
 ## 4. Kanalbelegung
 
-Quelle der Wahrheit für die Software ist `profiles/t6-california-a8l-2018.yaml`. Diese Tabelle muss damit übereinstimmen. Die Fahrzeugseite ist unverändert gegenüber 1.0.
+Quelle der Wahrheit für die Software ist `profiles/t6-california-a8l-2018.json`. Diese Tabelle muss damit übereinstimmen. Die Fahrzeugseite ist unverändert gegenüber 1.0.
 
 ### 4.1 Ausgänge
 
@@ -112,17 +112,17 @@ Quelle der Wahrheit für die Software ist `profiles/t6-california-a8l-2018.yaml`
 | --- | --- | --- | --- | --- | --- |
 | K1 | SM-H-001 Relais 1 | T32b/11 | J768 Dach Befehl A | +12 V über COM (Annahme) | Richtung und Pegel messen (O6) |
 | K2 | SM-H-001 Relais 2 | T32b/12 | J768 Dach Befehl B | +12 V | dito |
-| K3 | SM-H-001 Relais 3 | T32b/10 | J1029 Kühlanforderung | +12 V | Pegel messen; evtl. Open-Drain statt Relais |
+| K3 | SM-H-001 Relais 3 | T32b/10 | J1029 Kühlanforderung (Klemme K4) | **unbekannt** (+12 V war Entwurfsannahme) | Ausgangsart erst nach Messung und Elektronik-Datenblatt (`docs/KUEHLBOX.md`) |
 | K4 | SM-H-001 Relais 4 | T6ap/3 | J604 S+ | +12 V | Zuordnung zu T6ap/2 messen |
 | K5–K8 | SM-H-001 Relais 5–8 | – | frei | – | nicht für Sollwertleiter (gemeinsame COM) |
-| H1 | Relaismodul IN1, P4-GPIO | T2p | Segment 27,4 Ω | NC überbrückt | Relais an = Segment wirksam |
-| H2 | Relaismodul IN2, P4-GPIO | T2p | Segment 54,9 Ω | NC | |
-| H3 | Relaismodul IN3, P4-GPIO | T2p | Segment 110 Ω | NC | |
-| H4 | Relaismodul IN4, P4-GPIO | T2p | Segment 237 Ω | NC | Summe max. 2179,3 Ω |
+| H1 | Relaismodul IN1, P4-GPIO | T2p | Segment, Wert offen (O23) | NC überbrückt | Relais an = Segment wirksam |
+| H2 | Relaismodul IN2, P4-GPIO | T2p | Segment, Wert offen (O23) | NC | |
+| H3 | Relaismodul IN3, P4-GPIO | T2p | Segment, Wert offen (O23) | NC | |
+| H4 | Relaismodul IN4, P4-GPIO | T2p | Segment, Wert offen (O23) | NC | Werte erst nach Messung |
 
 **COM K1–K4:** Die vier Relais teilen sich eine COM. Annahme: alle schalten +12 V über F2 (2 A). Zeigt die Messung, dass ein Eingang nach Masse geschaltet werden muss, braucht dieser Kanal ein Relais aus der zweiten Gruppe (K5–K8) mit COM auf Masse.
 
-**Sollwertleiter:** T2p/1 → 1750 Ω → Segment H1 → H2 → H3 → H4 → T2p/2. Jedes Segment hat einen NC-Kontakt parallel. Stromlos sind alle Segmente überbrückt: 1750 Ω.
+**Sollwertleiter (T2p/1–T2p/2, 10 Stufen):** Belegte Quellenwerte nur Stufe 1 = 333 Ω, Stufe 5 = 839 Ω, Stufe 10 = 1993 Ω (Tristan, Pekaway-Forum, Abschnitt «Eberspächer», https://forum.pekaway.de/t/webasto-und-der-w-bus-erklart-und-viele-gerate-implementieren/1897; kein Nachweis für dieses Fahrzeug). Die Zwischenstufen 2–4 und 6–9 (ca. 439, 558, 690, 1008, 1201, 1424, 1685 Ω) sind frühere, nicht belegte Schätzungen und werden nicht verwendet. **Unvalidierter anderer Entwurf:** Leiter 1750 Ω + Segmente 27,4 / 54,9 / 110 / 237 Ω (1750–2179,3 Ω, 16 Kombinationen); passt nicht zum Bereich 333–1993 Ω und ist keine Zehnstufen-Tabelle. Leiter-Entwurf erst nach Messung aller zehn Stufen am E153-seitigen T2p (`docs/MESSBLATT.md` 2): Zielwiderstand und tatsächlich erzeugten Widerstand je Stufe abgleichen. Stromlos überbrücken die NC-Kontakte alle Segmente.
 
 ### 4.2 Digitaleingänge (SM-I-009, 3–24 V, Adresse 0x27)
 
@@ -130,7 +130,7 @@ Quelle der Wahrheit für die Software ist `profiles/t6-california-a8l-2018.yaml`
 | --- | --- | --- | --- |
 | DI1 | T32b/15 | J768 Rückmeldung A | |
 | DI2 | T32b/14 | J768 Rückmeldung B | |
-| DI3 | T32b/9 | Kühlbox Diagnose Klemme D | low-aktive Pulse; Pegel messen |
+| DI3 | T32b/9 | Kühlbox Diagnose Klemme D | Polarität und Protokoll unbekannt («low-aktiv» ist Hypothese); vorerst nur Rohaufzeichnung |
 | DI4 | T6ap/2 | J604 Betriebsanzeige | |
 | DI5 | T32b/22 | A11 Ladegerät Status | evtl. ohne Funktion (O5) |
 | DI6 | T32b/3 | Geschwindigkeitssignal J285 | Flankenzähler der Karte (Register 25 ff.) statt Abfrage; löst O14 |
@@ -148,7 +148,7 @@ Die Analogeingänge des SM-H-001 messen 0–3,3 V, laut V4-Händlerangabe max. 3
 
 | Kanal | VW-Pin | Geber | Messnetzwerk |
 | --- | --- | --- | --- |
-| AI1 | T32b/7 (A), /8 (B) | G817 NTC Kühlbox | Pull-up nach Messung des NTC (`TODO_MEASURE`) |
+| AI1 | T32b/7 (A), /8 (B) | G817 Kühlbox-Fühler (Typ und Kennlinie unbekannt) | Pull-up nach Messung (`TODO_MEASURE`) |
 | AI2 | T32b/20, /21 | G120 Frischwasser, 4 Stufen | Pull-up nach Messung der Stufenwiderstände |
 | AI3 | T32b/18, /19 | G126 Abwasser, voll/nicht voll | dito |
 | AI4 | T32b/16, /17 | G249 NTC aussen | dito |
@@ -274,3 +274,6 @@ Nur falls Viewe den 2-Lane-Betrieb nicht bestätigt. Die Platine setzt den DSI-S
 Touch-Stecker (6-pol., 1,0 mm, Molex 52271-0679): 1 VDD (3,3 V dauernd), 2 GND, 3 SCL, 4 SDA (je 4,7 kΩ Pull-up), 5 /INT, 6 /RESET. Init-Code für den NV3051F-L mit 2 Lanes bei Newhaven anfordern.
 
 Layout: 4 Lagen, impedanzkontrolliert, durchgehende Massefläche, DSI-Paare 100 Ω differenziell, längengleich, unter 5 cm, Boost-Treiber räumlich getrennt.
+| O21 | Kühlbox: Elektronik-Typ, Pegel T32b/9 und /10, G817-Kennlinie, Sollbereich und Hysterese | nur Simulation; `docs/KUEHLBOX.md` |
+| O22 | Ausgangsart K1–K4 (+12 V, Masse, Open-Drain, potentialfreier Kontakt) | `drive: TODO_MEASURE`, Kanal schaltet nicht |
+| O23 | Heizungs-Sollwert: zehn Stufen am T2p messen, Regelrichtung, Leiter-Entwurf | Leiter stromlos, Pos. 16/17 nicht bestellen |

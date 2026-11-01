@@ -1,6 +1,8 @@
 # Cali Camping Unit – Software-Spezifikation
 
-Version 2.0 | 1. November 2026 | Fahrzeug: VW T6 California 2.0 TDI 4Motion, MJ 2018, Campingausrüstung A8L/A8R
+Version 2.1 | 1. November 2026 | Fahrzeug: VW T6 California 2.0 TDI 4Motion, MJ 2018, Campingausrüstung A8L/A8R
+
+Version 2.1 (Umsetzung M1): Dach per Antippen mit STOPP (7.1, S3), Kühlbox nach Evidenz getrennt (7.2, `docs/KUEHLBOX.md`), Ausgangsart je Kanal und Freigabe je Funktion im Profil (6), Heizungs-Sollwert nach Quellenwert/Schätzung getrennt (7.3), Vorlage der Oberfläche ist die aktuelle Weboberfläche aus v1 (9), Lichtmaschinen-Leistung gelesen (5).
 
 Ersetzt Version 1.0 (Raspberry Pi 5, Python, React, Wake-MCU). Neu: eine Firmware auf einem ESP32-P4 in C mit ESP-IDF, Oberfläche in LVGL. Fachlogik, Sicherheitsregeln, Messmodus und Oberflächenkonzept bleiben inhaltlich gleich.
 
@@ -15,7 +17,7 @@ Die Unit ersetzt das Bedienteil E153. Die Original-Steuergeräte bleiben im Fahr
 | Gerät | VW-Bezeichnung | Was die Unit tut |
 | --- | --- | --- |
 | Dachhydraulik | J768 | Fahranforderung AUF/ZU (K1/K2), Rückmeldungen lesen |
-| Kühlbox | J698 / J1029, Secop BD35F | Kühlanforderung (K3), Thermostat auf G817, Fehlercodes lesen |
+| Kühlbox | J698 / J1029 (Kompressor-Elektronik unbestätigt, Hypothese Secop BD35F) | Kühlanforderung (K3), Thermostat auf G817, Diagnose T32b/9 aufzeichnen (`docs/KUEHLBOX.md`) |
 | Standheizung | J604, Eberspächer Airtronic | Ein/Aus über S+ (K4), Sollwert über Widerstandsleiter (H1–H4), Betriebsanzeige lesen |
 | Tanks | G120 Frisch, G126 Abwasser | Stufen anzeigen |
 | Temperaturfühler | G817 Kühlbox, G249 aussen | anzeigen |
@@ -148,7 +150,7 @@ Registerkarte aus dem offenen Sequent-Repository für die Home Automation Card p
 
 ### 4.3 Sollwertleiter
 
-H1–H4 über GPIO, stromlos = alle Segmente überbrückt = 1750 Ω. Stufe 0–15 binär (H1 = Bit 0). Widerstand = 1750 + Summe der aktiven Segmente (27,4 / 54,9 / 110 / 237 Ω).
+H1–H4 über GPIO, stromlos = alle Segmente überbrückt = Basiswiderstand. Welche Bitkombination welche der zehn Stufen ergibt, steht in `heater.level_bits` (`TODO_MEASURE`); bis dahin bleibt die Leiter stromlos. Widerstandswerte siehe 7.3 und HARDWARE 4.1 (O23); die frühere Leiter 1750 Ω + 27,4 / 54,9 / 110 / 237 Ω ist ein unvalidierter Entwurf.
 
 ### 4.4 Anzeige und Touch
 
@@ -164,7 +166,7 @@ H1–H4 über GPIO, stromlos = alle Segmente überbrückt = 1750 Ω. Stufe 0–1
 - Portal-ID beim Start aus `N/+/system/0/Serial`. VE.Bus-Instanz aus `N/<id>/vebus/+/ProductId`.
 - Keepalive: alle 30 s `R/<id>/keepalive` (Payload nach dbus-flashmq-README der installierten Venus-OS-Version; im Code verlinken).
 - Gelesen:
-  - `system/0/Dc/Battery/{Soc,Voltage,Current,Power}`, `system/0/Dc/Pv/Power`, `system/0/Dc/Charger/Power`
+  - `system/0/Dc/Battery/{Soc,Voltage,Current,Power}`, `system/0/Dc/Pv/Power`, `system/0/Dc/Charger/Power`, `system/0/Dc/Alternator/Power` (Orion XS, in v1 am Cerbo bestätigt)
   - `vebus/<inst>/{State,Mode,Ac/ActiveIn/ActiveInput,Ac/ActiveIn/L1/{V,I,F,P},Ac/Out/L1/{V,I,F,P,S},Ac/PowerMeasurementType,Dc/0/Power}`
   - `vebus/<inst>/Alarms/{L1/Overload,LowBattery,HighTemperature,L1/Ripple}`
 - Jeder Wert mit Empfangszeit. Alter > 10 s → Anzeige grau mit Alter. Fehlender Wert → leer, nie ein Ersatzwert.
@@ -179,7 +181,7 @@ H1–H4 über GPIO, stromlos = alle Segmente überbrückt = 1750 Ω. Stufe 0–1
 | --- | --- |
 | S1 | Erste Aktion nach jedem Start, vor UI und Netzwerk: K1–K4 aus (SM-H-001), H1–H4 stromlos. Innert 500 ms nach Reset. |
 | S2 | K1 und K2 nie gleichzeitig. Richtungswechsel nur nach 300 ms mit beiden aus. |
-| S3 | Dachrelais fällt ab, wenn 300 ms keine Halten-Meldung vom Touch kommt (Finger weg, Touch-Fehler, UI-Task hängt) oder 60 s Laufzeit pro Druck erreicht sind (Profil). |
+| S3 | Dachrelais fällt ab, wenn 300 ms keine Laufmeldung der Oberfläche kommt (Finger weg beim Halten, STOPP oder Berührung beim Antippen, Touch-Fehler, UI-Task hängt) oder 60 s Laufzeit pro Fahrt erreicht sind (Profil). Beim Antippen bestätigt die Oberfläche die Fahrt alle 100 ms bis Endlage, STOPP oder irgendeine Berührung. Nach einem Stopp durch eine Sperre oder Zeitüberschreitung braucht es ein neues Antippen bzw. Drücken. |
 | S4 | Öffnen des Dachs gesperrt, solange das Fahrzeug fährt (Flankenzähler DI6, Schwelle im Profil). Schliessen bleibt erlaubt. Läuft Öffnen beim Anfahren: sofort stoppen. |
 | S5 | Fällt der SM-I-009 aus (3 I²C-Fehler in Folge): DI-Werte `stale`, Dach gesperrt, Meldung. |
 | S6 | Kühlbox: Mindestlaufzeit 2 min, Mindestpause 3 min (Profil). |
@@ -191,6 +193,8 @@ H1–H4 über GPIO, stromlos = alle Segmente überbrückt = 1750 Ω. Stufe 0–1
 
 Jede Regel hat mindestens einen Host-Test in `tests/safety/`, benannt nach der Nummer (`test_s3_roof_hold_timeout.c`).
 
+**Freigabe und Ausgangsart je Kanal (Profil):** `release.roof/fridge/heater` (false = Messung ausstehend) und `outputs.<kanal>.drive` (`relay_plus`, `relay_ground`, `open_drain`, `dry_contact` oder `TODO_MEASURE`). Ein Kanal schaltet nur mit Freigabe **und** bestätigter Ausgangsart; sonst bleibt er aus und die Funktion läuft nur im Simulator. Test: `tests/safety/test_release_gate.c`, `tests/unit/test_fridge.c`.
+
 ---
 
 ## 7. Funktionsmodule
@@ -198,21 +202,28 @@ Jede Regel hat mindestens einen Host-Test in `tests/safety/`, benannt nach der N
 Inhalt wie Version 1.0, Kapitel 7. Kurzfassung:
 
 ### 7.1 Dach (`roof`)
-- Eingänge DI1 (T32b/15), DI2 (T32b/14), Fahrt aus DI6. Ausgänge K1 (T32b/11), K2 (T32b/12).
-- Wahrheitstabelle im Profil (`roof.truth_table`, `TODO_MEASURE`). Ohne Tabelle: Stellung `unknown`, Bedienung trotzdem möglich (Hold-to-run).
-- Zustände `closed`, `open`, `moving`, `between`, `unknown`, `fault`. Warnung `roof_open_ignition`.
-- **Abnahme:** S2, S3, S4 grün. Im Simulator: Taste halten → K1 an; loslassen → K1 innert 300 ms aus.
+- Eingänge DI1 (T32b/15), DI2 (T32b/14), Fahrt aus DI6, Zündung DI10. Ausgänge K1 (T32b/11), K2 (T32b/12); welche Richtung K1/K2 bedeuten, steht als `outputs.roof_a/b.meaning` im Profil (`TODO_MEASURE`, O6).
+- **Bedienung per Antippen** (`roof.tap_to_run`, Entscheid Daniel): ein Tippen fährt bis zur Endlage; während der Fahrt ersetzt eine rote STOPP-Taste beide Tasten, und jede Berührung hält sofort an. Antippen nur mit gemessener Wahrheitstabelle und Richtung; sonst Halten (Hold-to-run) als Rückfall.
+- Fährt nur mit Zündung (`roof.require_ignition`, wie das Original). Öffnen gesperrt bei Fahrt (S4).
+- **Pumpen-Nachlauf** (`roof.pump_afterrun_s`, `TODO_MEASURE`): Richtungswechsel erst nach Nachlauf; solange gilt «Pumpe läuft nach» und kein Display-Aus (S8). Ohne Messwert nur die 300 ms aus S2.
+- Wahrheitstabelle im Profil (`roof.truth_table`, `TODO_MEASURE`). Ohne Tabelle: Stellung `unknown`, nur Halten.
+- **Abnahme:** S2, S3, S4 grün. Im Simulator: Öffnen antippen → K1 an, STOPP sichtbar; Endlage → aus.
 
 ### 7.2 Kühlbox (`fridge`)
-- Thermostat auf G817 (AI1): an bei `temp ≥ target + 1,5`, aus bei `temp ≤ target − 1,0` (Profil). Soll 1–10 °C.
-- Diagnose DI3 (T32b/9): low-aktive Pulse 0,25 s, Sequenz alle 4 s, Code erst nach zwei gleichen Sequenzen. Codes 1–6 nach Secop.
-- G817 `open`/`short`/`uncalibrated` → Thermostat aus, Meldung.
-- Anzeige «Kühlung angefordert», nicht «Kompressor läuft».
-- **Abnahme:** S6; Pulsdecoder-Test mit aufgezeichneten Folgen für Codes 1–6 und Störpulsen.
+Evidenz und offene Punkte: `docs/KUEHLBOX.md`. Messaufträge: `docs/MESSBLATT.md`.
+- **Getrennte Teile:** Temperatur (Rohspannung AI1 → Ohm → °C mit Qualität und Zeitstempel), Thermostat, Kühlanforderung als Ausgang K3, Diagnose T32b/9.
+- **Thermostat:** an bei `temp ≥ Soll + fridge.on_above_c`, aus bei `temp ≤ Soll − fridge.off_below_c`, Sollbereich `fridge.target_min_c … target_max_c`. **Alle diese Werte sind für das E153 nicht belegt und stehen auf `TODO_MEASURE`**; ohne sie fordert das Thermostat nichts an («Thermostat nicht kalibriert»). Die Simulationswerte (1,5 / 1,0 °C, 1–10 °C) stehen nur in `profiles/sim/`.
+- G817 ohne gemessene Kennlinie: keine Temperatur, nur Rohwert. `open`/`short`/`stale`/`uncalibrated` → keine Anforderung (nach S6-Mindestlaufzeit), Meldung.
+- **Anforderung ≠ Ausgang ≠ Kompressor:** Der Thermostat-Wunsch, der tatsächlich angesteuerte Ausgang (nur mit Freigabe und bestätigter Ausgangsart) und der Kompressorstatus werden getrennt geführt. Der Kompressorstatus ist «unbekannt», solange es keine Rückmeldung gibt.
+- **Diagnose T32b/9:** Pegelwechsel werden immer roh aufgezeichnet. Ein Decoder läuft nur mit gewähltem Profil (`fridge.diag_decoder`) und gemessener Polarität. Der vorhandene Decoder `secop_hypothesis` (1–5 Impulse à ca. 250 ms, ca. 4 s Pause, Code nach zwei gleichen Folgen) ist eine Hypothese, kein Fahrzeugprotokoll; Code 6 ist unbelegt.
+- **Neustart:** Anforderung aus, S6-Mindestpause gilt. **Datenverlust:** wie Fühlerfehler. Keine alten Befehle: Befehle kommen nur über die interne Queue.
+- Anzeige «Kühlung angefordert», nie «Kompressor läuft».
+- **Abnahme:** S6; `tests/unit/test_fridge.c` (unbestätigtes Profil schaltet nicht, Anforderung und Ausgang getrennt, Datenverlust, Neustart, Rohaufzeichnung ohne Decoder); Decoder-Test mit synthetischen Folgen für die Hypothese.
 
 ### 7.3 Standheizung (`heater`)
 - K4 = S+ (T6ap/3), DI4 = Betriebsanzeige (T6ap/2); Zuordnung noch messen.
 - Phasen `off` → `start` → (DI4 an) `heating` → (aus) `afterrun` → (DI4 aus) `off`. `start` ohne DI4 nach 120 s → `fault`.
+- **10 Stufen** (Daniel, SSP 329). Sollwert über T2p/1–T2p/2. Belegte Quellenwerte nur für Stufe 1 = 333 Ω, 5 = 839 Ω, 10 = 1993 Ω (Pekaway-Forum, kein Fahrzeugnachweis); Zwischenwerte sind frühere Schätzungen und werden nicht verwendet (`heater.level_ohm`, `docs/MESSBLATT.md` 2). Welche Relaiskombination welche Stufe ergibt (`heater.level_bits`), folgt erst aus Messung und Leiter-Entwurf; bis dahin bleibt die Leiter stromlos und die Stufe fest.
 - Anzeige in Stufen, bis `heater.level_to_c` kalibriert ist.
 - **Abnahme:** S7; Phasenwechsel im Simulator inkl. Nachlauf.
 
@@ -233,7 +244,9 @@ Wie Version 1.0, Kapitel 8, mit diesen Änderungen:
 
 ## 9. Oberfläche (LVGL)
 
-Vorlage: `ui/reference/Camping_Unit_Oberflaeche_v2.html`. Layout, Farben, Navigation und Texte von dort übernehmen und in LVGL nachbauen. Keine Webtechnik auf dem Gerät.
+Vorlage: die aktuelle Weboberfläche aus v1, abgelegt in `ui/reference/web_v1/` (Demo https://danielsaeuberli.github.io/California-camping-unit/). Layout, Farben, Navigation und Texte von dort übernehmen und in LVGL nachbauen; `ui/reference/Camping_Unit_Oberflaeche_v2.html` ist der ältere Klick-Prototyp. Keine Webtechnik auf dem Gerät.
+
+- Übersicht wie v1: oben die breite Kachel «Batterie und Strom» (Batteriegrafik, Status je Situation, Ladequellen- und 230-V-Chip) und Kühlbox; unten Heizung, Wasser, Dach.
 
 - Leinwand 1280 × 480 quer: Kopfzeile 64 px, Inhalt 416 px.
 - Navigation: Übersicht (6 Kacheln) → Detailseite → «‹ Übersicht». Zahnrad → Einstellungen → Expertenansicht mit Reitern Signale / Stecker T32b / MultiPlus / Verbindung / Messmodus.
@@ -242,7 +255,7 @@ Vorlage: `ui/reference/Camping_Unit_Oberflaeche_v2.html`. Layout, Farben, Naviga
 - Eine Akzentfarbe; Grün/Gelb/Rot nur für Zustände. Tag- und Nachtschema, Automatik über 58d.
 - Texte aus `ui/i18n/de.json`, beim Build in eine C-Tabelle übersetzt. Keine Texte im C-Code.
 - Schrift: mit `lv_font_conv` erzeugen, inkl. ä ö ü Ä Ö Ü ° – ‹ und Ziffern mit fester Breite.
-- Dachtasten senden «halten» im 100-ms-Takt, solange der Finger liegt (Grundlage für S3).
+- Dachtasten: Antippen startet die Fahrt, die Oberfläche sendet die Laufmeldung im 100-ms-Takt bis Endlage, STOPP oder Berührung; im Rückfall Halten nur solange der Finger liegt (Grundlage für S3).
 - Erste Berührung nach dem Aufwecken: Summer, Display an, keine Bedienung.
 - Helligkeit: Regler wirkt, sobald PWM geklärt ist; vorher nur an/aus.
 
@@ -318,3 +331,6 @@ M1 und M2 laufen ohne Hardware und können sofort beginnen.
 | O17 | SM-H-001: Adresse, eigene Pull-ups, 3,3 V vom Header, Relais-Abschaltung ohne Kommunikation (S11) | Sequent-Repository und Schaltplan |
 | O19 | Ruhestrom P4 mit WLAN | messen in M7 |
 | O20 | SM-H-001 direkt auf den Header des Boards stecken? | abgesetzt, bis geklärt |
+| O21 | Kühlbox: Typ der Kompressor-Elektronik, Pegel T32b/9 und T32b/10, G817-Kennlinie, Sollbereich und Hysterese des E153 | `TODO_MEASURE`, nur Simulation (`docs/KUEHLBOX.md`) |
+| O22 | Ausgangsart je Kanal (K1–K4): +12 V, Masse, Open-Drain, potentialfreier Kontakt | `drive: TODO_MEASURE`, Kanal schaltet nicht |
+| O23 | Heizungs-Sollwert: Widerstand je Stufe, Regelrichtung, Leiter-Entwurf | Leiter stromlos (`docs/MESSBLATT.md` 2) |

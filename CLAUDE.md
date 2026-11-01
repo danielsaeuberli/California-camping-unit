@@ -7,6 +7,7 @@ ESP32-P4 (Viewe ESP32-P4-Pi-VIEWE) in C mit ESP-IDF, Oberfläche in LVGL 9.
 - docs/SOFTWARE_SPEC.md: Verhalten, Sicherheitsregeln, Meilensteine
 - docs/HARDWARE.md: Kanalbelegung, Stückliste, offene Punkte
 - docs/E153_Pin_Check_Nr133.md: VW-Pins und Aderfarben
+- docs/KUEHLBOX.md: Evidenz Kühlbox (Quelle/Messung/Hypothese); docs/MESSBLATT.md: Messaufträge
 - profiles/t6-california-a8l-2018.json: Pinbelegung und Kalibrierwerte
 Widersprechen sich Code und diese Dokumente, gelten die Dokumente. Weicht etwas ab,
 in docs/ nachführen und im Commit erwähnen.
@@ -18,6 +19,9 @@ in docs/ nachführen und im Commit erwähnen.
 - Nie einen Wert erfinden. Fehlt ein Messwert oder eine Kalibrierung:
   Qualität "uncalibrated" oder "stale", Anzeige leer oder grau.
 - Nie auf Victron-Topics W/... publizieren.
+- Ein Ausgang schaltet nur mit Freigabe (release.*) und bestätigter Ausgangsart
+  (outputs.*.drive); Entwurfsannahmen wie «+12 V» nie als Geräteeigenschaft verwenden.
+- Simulationswerte nur in profiles/sim/, in der Oberfläche als «Simulation» gekennzeichnet.
 
 ## Code
 - C11. Logik (signals, modules, safety, profile) ohne ESP-IDF und ohne FreeRTOS,
@@ -29,9 +33,11 @@ in docs/ nachführen und im Commit erwähnen.
 - Abhängigkeiten über idf_component.yml mit gepinnten Versionen.
 
 ## Oberfläche
-- Vorlage ui/reference/Camping_Unit_Oberflaeche_v2.html. Layout, Farben,
-  Navigation und Texte übernehmen.
-- Texte nur aus ui/i18n/de.json, Schweizer Rechtschreibung (ss statt ß).
+- Vorlage ist die aktuelle Weboberfläche aus v1: ui/reference/web_v1/ (Entscheid
+  Daniel 1.11.2026). Layout, Farben, Navigation und Texte übernehmen.
+  ui/reference/Camping_Unit_Oberflaeche_v2.html ist der ältere Prototyp.
+- Texte nur aus ui/i18n/de.json (Basis: Sprachdatei der v1-Weboberfläche), Schweizer
+  Rechtschreibung (ss statt ß). tools/i18n_gen.py erzeugt die C-Tabelle.
 
 ## Ablauf
 - make test vor jedem Commit. Kleine Commits mit klarer Nachricht.

@@ -19,7 +19,9 @@ gen font_18 Inter-Regular.otf 18
 gen font_20_semi Inter-SemiBold.otf 20
 gen font_22_semi Inter-SemiBold.otf 22
 gen font_28_semi Inter-SemiBold.otf 28
+gen font_34_semi Inter-SemiBold.otf 34
 gen font_46_semi Inter-SemiBold.otf 46
 gen font_56_semi Inter-SemiBold.otf 56
-RANGE="0x20,0x25,0x2B-0x39,0xB0,0x2013,0x2212" gen font_84_semi Inter-SemiBold.otf 84  # digits only
+RANGE="0x20,0x25,0x2B-0x39,0x43,0xB0,0x2013,0x2212" gen font_84_semi Inter-SemiBold.otf 84  # digits only
+RANGE="0x20,0x25,0x30-0x39,0x2013" gen font_44_bold Inter-Bold.otf 44  # battery label: digits only
 echo "fonts written to $OUT"

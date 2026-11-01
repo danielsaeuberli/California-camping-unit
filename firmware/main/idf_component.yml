@@ -1,0 +1,4 @@
+# Pinned dependencies (CLAUDE.md). Keep in step with host/CMakeLists.txt.
+dependencies:
+  idf: ">=5.4"
+  lvgl/lvgl: "9.2.2"

@@ -23,12 +23,13 @@ def c_str(s: str) -> str:
 
 def load(path: Path) -> dict[str, str]:
     data = json.loads(path.read_text(encoding="utf-8"))
+    out: dict[str, str] = {}
     for k, v in data.items():
-        if not isinstance(v, str):
-            sys.exit(f"{k}: value must be a string")
-        if "ß" in v:
+        if "ß" in json.dumps(v, ensure_ascii=False):
             sys.exit(f"{k}: Swiss spelling, no sharp s")
-    return data
+        if isinstance(v, str):
+            out[k] = v  # lists/objects (tables of the v1 web UI) are not used by the C UI
+    return out
 
 
 def generate(src: Path, out: Path) -> None:

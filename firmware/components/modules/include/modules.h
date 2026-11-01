@@ -73,6 +73,8 @@ typedef enum {
     FRIDGE_SENSOR_FAULT,     /* G817 not ok (open, short, stale, uncalibrated) */
     FRIDGE_IDLE,             /* on, no cooling demand */
     FRIDGE_DEMAND,           /* on, cooling requested */
+    FRIDGE_PROTECT_PAUSE,    /* demand, but the S6 minimum pause still runs */
+    FRIDGE_PROTECT_RUN,      /* no demand, but the S6 minimum run still runs */
 } fridge_thermo_t;
 
 #define DIAG_RAW 32
@@ -166,6 +168,7 @@ typedef enum {
     EN_BATTERY_W,
     EN_PV_W,
     EN_CHARGER_W,
+    EN_ALT_W,        /* system/0/Dc/Alternator/Power (Orion XS, confirmed in v1, O21) */
     EN_VEBUS_STATE,
     EN_VEBUS_MODE,
     EN_ACTIVE_INPUT,
