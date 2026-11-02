@@ -53,6 +53,8 @@ Touch ── I²C 1 + INT über FPC ── P4
 
 ## 3. Stückliste
 
+Bezugsquellen pro Position: [STUECKLISTE.md](STUECKLISTE.md).
+
 | Pos | Gruppe | Bauteil | Modell | Menge | Status | CHF/Stk | CHF | Funktion | Hinweis |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | Rechner | ESP32-P4-Board mit C6, Ethernet, 2-Lane-DSI | Viewe ESP32-P4-Pi-VIEWE | 1 | Bestellen | 18.00 | 18.00 | Regelung, Anzeige, Netzwerk | 17.99 USD; Schaltpläne auf GitHub |
