@@ -1,6 +1,6 @@
 # Cali Camping Unit – Hardware
 
-Version 2.1 | 1. November 2026 | Ersetzt Version 1.0 (Pi 5 + XIAO). Änderung gegenüber 2.0: Viewe-Board und Viewe-MIPI-Display statt Waveshare + Newhaven, keine eigene Adapterplatine. Grundlage: Pin-Check Nr. 133, Hardware 1.0, Verkabelungsplan Entwurf 0.1
+Version 2.2 | 2. November 2026 | Ersetzt Version 1.0 (Pi 5 + XIAO). Änderung gegenüber 2.1: Befunde aus den Viewe-Repositories (Abschnitt 6.1): Display-Stecker FPC1 ohne Touch-INT, Reset und Hintergrundbeleuchtung; kein Treiber für das 6,8"; Dimmen nicht nötig (Entscheid Daniel 2.11.2026). Änderung gegenüber 2.0: Viewe-Board und Viewe-MIPI-Display statt Waveshare + Newhaven, keine eigene Adapterplatine. Grundlage: Pin-Check Nr. 133, Hardware 1.0, Verkabelungsplan Entwurf 0.1
 
 Preise sind Budgetwerte in CHF, keine Offerten. Status «Bestätigen/Anfragen/Prüfen» heisst: vor der Bestellung klären.
 
@@ -12,16 +12,17 @@ Ein ESP32-P4 übernimmt Regelung, Anzeige und Victron-Anbindung. Pi 5, XIAO ESP3
 | --- | --- |
 | Rechner | Viewe ESP32-P4-Pi-VIEWE (P4 + ESP32-C6 für WLAN, Ethernet, 2-Lane-DSI, 40-pol. Header in Pi-Belegung, 85 × 56 mm). Läuft dauernd. |
 | Regelung | Der P4 ist einziger Master für alle Ausgänge: Kühlschrank-Thermostat, Heizung (S+, Sollwertleiter), Dach inkl. Freigabe Zündung + Stillstand. |
-| Anzeige | Viewe 6,8" 480 × 1280, MIPI-DSI-Version mit kapazitivem Touch über I²C. Dasselbe Panel wie die bisher geplante HDMI-Version, Aussenmass 181 × 66,6 mm. Ein FPC führt Bild, Touch und Versorgung. Init-Sequenz in Viewes ESP-IDF-Komponente `esp_lcd_dsi`. Bestellnummer und 2-Lane-Betrieb bei Viewe angefragt (O15). |
-| Wecken | Touch-INT am P4. Display und Hintergrundbeleuchtung aus, wenn nicht bedient; Touch bleibt versorgt. Erste Berührung quittiert der Summer, sie löst keine Bedienung aus. |
+| Anzeige | Viewe 6,8" 480 × 1280, MIPI-DSI-Version mit kapazitivem Touch über I²C. Dasselbe Panel wie die bisher geplante HDMI-Version, Aussenmass 181 × 66,6 mm. Touch: Viewe-Wiki «Cap (I2C)», eine Viewe-Produktseite «kein Touch»; Variante mit Touch über die Bestellnummer klären (O15). Der Display-Stecker FPC1 des Boards führt nur DSI (2 Lanes), I²C und 3,3 V (Abschnitt 6.1). Für das 6,8" gibt es in Viewes Repositories keinen Treiber und keine Init-Sequenz (O15). |
+| Wecken | Display und Hintergrundbeleuchtung aus, wenn nicht bedient; Touch bleibt versorgt. Erste Berührung quittiert der Summer, sie löst keine Bedienung aus. **Offen:** Touch-INT liegt nicht auf FPC1. Entweder eigene INT-Leitung, falls das Panel sie herausführt, oder Touch aus Light Sleep zyklisch über I²C abfragen (Ruhestrom, O19). Entscheid nach Antwort Viewe (O15). |
 | Zündung | über DI10 des SM-I-009 (Optokoppler). Kein 12-V-Signal direkt an einen GPIO. |
-| I²C | Bus 0: SM-H-001 und SM-I-009. Bus 1: Touch (über das Display-FPC). P4 ist auf beiden einziger Master. |
+| I²C | Bus 0: SM-H-001 und SM-I-009. Bus 1: Touch über FPC1 an GPIO7 (SDA) / GPIO8 (SCL); im Viewe-BSP hängen dort auch die Audio-Codecs. P4 ist auf beiden einziger Master. |
 | Sequent-Karten | Abgesetzt wie bisher. Option: SM-H-001 direkt auf den Pi-kompatiblen Header stecken; eine Rückspeisung wie beim Pi entfällt, weil Board und Karten an derselben Dauerschiene hängen (O20). |
 | Software | ESP-IDF (C), Oberfläche in LVGL nach Vorlage `Camping_Unit_Oberflaeche_v2.html`. `SOFTWARE_SPEC_v1_0.md` muss neu geschrieben werden. |
 | Netzwerk | WLAN (C6) am Access Point des Cerbo für MQTT; Ethernet des P4 am LAN-Port des Camper-Routers für Fernzugriff, wenn der Router an ist. |
 
 **Folgen:**
-- Keine eigene Platine für die Anzeige. Die Versorgung der Hintergrundbeleuchtung kommt laut Viewe über das FPC; Dimmen und Abschalten per PWM vom P4 ist angefragt (O15).
+- Keine eigene Platine für die Anzeige, sofern Viewe die Versorgung und das Abschalten der Hintergrundbeleuchtung ohne Zusatzleitungen löst. FPC1 führt nur 3,3 V; das Viewe-BSP schaltet die Hintergrundbeleuchtung über GPIO23 und den LCD-Reset über GPIO22, beide nicht auf FPC1 (O15).
+- Dimmen ist nicht nötig (Entscheid Daniel 2.11.2026). Nötig ist nur Ein/Aus der Hintergrundbeleuchtung (Ruhestrom O19, Blendung nachts).
 - Rückfall, falls Viewe den 2-Lane-Betrieb nicht bestätigt: Newhaven NHD-6.8 mit eigener Adapterplatine (Anhang A) oder Waveshare 7,9" (207,8 × 69,8 mm, grössere Frontblende).
 - Die Oberfläche wird in LVGL neu gebaut; die React-Oberfläche entfällt. Fernzugriff nur über eine einfache Weboberfläche auf dem P4.
 - **Ruhestrom:** Ziel bleibt geparkt mit aktiver Regelung unter 1 W. Der P4 mit dauernd aktivem WLAN liegt ohne Stromsparmodus darüber. Light Sleep des P4 und Modem Sleep des C6 sind dafür Pflicht. Auf dem Prüfstand messen, bevor der Einbau festgelegt wird.
@@ -29,14 +30,14 @@ Ein ESP32-P4 übernimmt Regelung, Anzeige und Victron-Anbindung. Pi 5, XIAO ESP3
 ## 1. Übersicht
 
 ```
-12 V Zweitbatterie ── F1 7,5 A ── Verpolschutz ── TVS ──┬── DC/DC 5 V 3 A (immer an) ──┬── ESP32-P4-Pi-VIEWE ── FPC (DSI, Touch, Versorgung) ── Viewe 6,8" MIPI
+12 V Zweitbatterie ── F1 7,5 A ── Verpolschutz ── TVS ──┬── DC/DC 5 V 3 A (immer an) ──┬── ESP32-P4-Pi-VIEWE ── FPC1 (DSI 2 Lanes, I²C, 3,3 V) ── Viewe 6,8" MIPI
                                                        │                              ├── SM-H-001, SM-I-009 (I²C 0)
                                                        │                              └── Relaismodul H1–H4
                                                        └── F2 2 A ── COM K1–K4
 Fahrzeug T32b / T6ap / T2p ── Breakout X1–X5 ── SM-H-001 (K1–K4, AI1–AI8) / SM-I-009 (DI1–DI16) / H1–H4
 P4 WLAN (C6) ── Access Point Cerbo GX (MQTT)
 P4 Ethernet ── LAN-Port Camper-Router (nur wenn Router an)
-Touch ── I²C 1 + INT über FPC ── P4
+Touch ── I²C 1 (GPIO7/8) über FPC1 ── P4; Touch-INT, LCD-Reset, Hintergrundbeleuchtung: Weg offen (O15)
 ```
 
 ## 2. Bereits im Fahrzeug (nicht kaufen)
@@ -59,7 +60,7 @@ Touch ── I²C 1 + INT über FPC ── P4
 | 3 | Rechner | microSD 32 GB High Endurance | A1 | 1 | Bestätigen | 18.00 | 18.00 | Messdaten, Ereignislog | Kartenslot am Board prüfen |
 | 4 | Rechner | RTC-Batterie oder -Akku | passend zum Board | 1 | Bestätigen | 6.00 | 6.00 | Uhrzeit ohne Netz | RTC am Board prüfen |
 | 5 | Anzeige | 6,8" 480×1280 IPS, MIPI DSI, CTP über I²C | Viewe, Bestellnummer angefragt | 1 | Anfragen | 45.00 | 45.00 | Anzeige und Bedienung | nicht die -HMD-H-Version |
-| 6 | Anzeige | FPC- oder Zwischenkabel Board ↔ Display | Viewe | 1 | Anfragen | 5.00 | 5.00 | Bild, Touch, Versorgung | Länge nach Einbau |
+| 6 | Anzeige | FPC- oder Zwischenkabel Board ↔ Display | Viewe | 1 | Anfragen | 5.00 | 5.00 | DSI, I²C, 3,3 V | Länge nach Einbau; Zusatzleitungen INT/Reset/Hintergrundbeleuchtung? (O15) |
 | 11 | I/O | Home Automation HAT | Sequent SM-H-001 | 1 | Geplant | 80.00 | 80.00 | K1–K4, AI1–AI8 | abgesetzt, nicht gesteckt |
 | 12 | Strom | DC/DC 12 → 5 V, 3 A, kleiner Ruhestrom | Pololu D36V28F5 (Vorschlag) | 1 | Prüfen | 30.00 | 30.00 | 5 V Dauer | Ruhestrom und Wirkungsgrad bei kleiner Last prüfen |
 | 13 | I/O | 16 LV-Digitaleingänge | Sequent SM-I-009 | 1 | Geplant | 60.00 | 60.00 | DI1–DI16 (3–24 V) | Adresse 0x27 (Level 0) |
@@ -161,16 +162,16 @@ Die Analogeingänge des SM-H-001 messen 0–3,3 V, laut V4-Händlerangabe max. 3
 
 ### 4.4 GPIO-Budget ESP32-P4
 
-GPIO-Nummern nach dem Pinout des ESP32-P4-Pi-VIEWE festlegen. Welche Display-Signale das Board fest auf den DSI-Stecker legt, steht im Viewe-Schaltplan.
+GPIO-Nummern nach dem Pinout des ESP32-P4-Pi-VIEWE festlegen. Display-Signale auf FPC1 siehe Abschnitt 6.1; GPIO22/23 sind die Belegung im Viewe-BSP.
 
 | Funktion | Richtung | Ziel | Bemerkung |
 | --- | --- | --- | --- |
 | I2C0 SDA, SCL | bidir. | SM-H-001, SM-I-009 | Pull-ups 2,2 kΩ auf 3,3 V |
-| I2C1 SDA, SCL | bidir. | Touch | über das Display-FPC |
-| Touch INT | ein | Touch | Pin, der aus Light Sleep weckt; über FPC verfügbar? (O15) |
-| Touch RST | aus | Touch | |
-| Display Reset | aus | Panel | meist vom Board fest belegt |
-| PWM Hintergrundbeleuchtung | aus | Panel | Steuerung laut Viewe (O15) |
+| I2C1 SDA, SCL | bidir. | Touch | GPIO7 / GPIO8, auf FPC1; im BSP mit den Audio-Codecs geteilt |
+| Touch INT | ein | Touch | nicht auf FPC1; eigene Leitung nur, wenn das Panel INT herausführt (O15). Sonst Abfrage über I²C |
+| Touch RST | aus | Touch | im BSP nicht belegt |
+| Display Reset | aus | Panel | GPIO22 im BSP, nicht auf FPC1 (O15) |
+| Hintergrundbeleuchtung ein/aus | aus | Panel | GPIO23 im BSP (LEDC), nicht auf FPC1; Dimmen nicht nötig (O15) |
 | H1–H4 | aus | Relaismodul | Ruhezustand stromlos |
 | Summer | aus | Transistor | |
 | SM-I-009 INT | ein | Karte | optional, Pin laut Schaltplan |
@@ -186,7 +187,7 @@ GPIO-Nummern nach dem Pinout des ESP32-P4-Pi-VIEWE festlegen. Welche Display-Sig
 | SM-H-001 | 0,15 | 0,60 | 8 Relais an |
 | SM-I-009 | 0,05 | 0,10 | |
 | Relaismodul H1–H4 | 0,00 | 0,30 | |
-| Display inkl. Hintergrundbeleuchtung | 0,35 | 0,50 | Schätzung; Datenblatt der MIPI-Version abwarten. Nur wenn Display an |
+| Display inkl. Hintergrundbeleuchtung | 0,35 | 0,50 | Schätzung; Datenblatt der MIPI-Version abwarten. Nur wenn Display an. FPC1 liefert nur 3,3 V; Weg der Versorgung offen (O15) |
 | Touch | 0,01 | 0,02 | dauernd versorgt |
 | Summer | 0,00 | 0,03 | |
 | **Gesamt** | **0,81** | **2,15** | Display an |
@@ -210,16 +211,33 @@ Geparkt mit dunklem Display ohne angezogene Relais: P4, Touch, Karten. Schätzun
 
 ## 6. Anzeige-Anschluss
 
-Ein FPC-Kabel vom DSI-Stecker des ESP32-P4-Pi-VIEWE zum Display. Es führt Bild (2 Lanes), Touch (I²C, INT) und Versorgung. Keine eigene Platine.
+Ein FPC-Kabel vom Display-Stecker FPC1 des ESP32-P4-Pi-VIEWE zum Display. Ob Touch-INT, LCD-Reset und Hintergrundbeleuchtung zusätzliche Leitungen brauchen, hängt von der Antwort Viewe ab (O15). Keine eigene Platine, solange das ohne Zusatzschaltung geht.
 
-Bei Viewe angefragt (O15):
-1. Bestellnummer der MIPI-Version mit Touch, Preis
-2. 2-Lane-Betrieb am ESP32-P4-Pi-VIEWE
-3. Passt das FPC direkt oder braucht es ein Zwischenkabel
-4. Versorgung und PWM-Dimmung der Hintergrundbeleuchtung, ganz abschaltbar
-5. Touch-Controller, INT über das FPC, Ruhestrom
-6. ESP-IDF-Komponente mit Init-Sequenz
-7. Datenblatt und Zeichnung der MIPI-Version mit FPC-Belegung
+### 6.1 Befunde aus den Viewe-Repositories (2. November 2026)
+
+Quelle: github.com/VIEWESMART, Repositories `ESP32-P4-Core` (Schaltplan `SCH_ESP32-ESP32-P4-Pi-VIEWE-V1.1_2025-10-23.pdf`), `ESP32-P4-Pi` (Beispiele), `Viewe-esp32-components` (BSP `bsp/esp32_p4_pi`), `wiki` (Produkttabellen). Gelesen, nicht am Gerät geprüft.
+
+| Thema | Befund | Folge |
+| --- | --- | --- |
+| Display-Stecker FPC1 | 15-pol., 1,0 mm, Belegung wie der DSI-Stecker des Raspberry Pi: DSI D0, D1, CLK (2 Lanes), I²C SCL GPIO8 / SDA GPIO7, 3,3 V, Masse. Kein Touch-INT, kein Reset, keine Hintergrundbeleuchtung, keine 5 V | Wecken über Touch-INT nur mit eigener Leitung; Versorgung der Hintergrundbeleuchtung klären |
+| BSP `esp32_p4_pi` | Touch GT911 über I²C; Touch-INT und -RST «not connected»; Hintergrundbeleuchtung GPIO23 (LEDC), LCD-Reset GPIO22; Audio-Codecs am selben I²C | Pinbelegung GPIO22/23 als Ausgangspunkt; I²C-Bus 1 teilen |
+| Unterstützte Panels | nur 7" 1024 × 600 (EK79007) und 800 × 1280 (ILI9881C) | Treiber und Init-Sequenz für das 6,8" fehlen (O15) |
+| DSI | BSP: 2 Lanes, 600 Mbit/s je Lane | reicht für 480 × 1280 bei 60 Hz |
+| 6,8" MIPI | Wiki-Tabelle: 480 × 1280, Touch «Cap (I2C)», für RPi und P4, Touch-Signale über das FPC. Eine Viewe-Produktseite nennt dagegen kein Touch | Variante mit Touch über die Bestellnummer klären |
+| 6,8" HDMI | UEDX48128068L-HMD: Touch über USB, 300 cd/m², AA 60 × 160 mm, Aussenmass 66 × 181 mm | nicht für dieses Projekt |
+| Weitere Unterlagen | Schaltplan Board und Core-Modul, 3D-Modell Core-Modul, Datenblätter aller Chips, LVGL-9-Beispiel (`12_7inch_lvgl_demo_v9`) | Vorlage für M3 |
+
+### 6.2 Fragen an Viewe (O15)
+
+Erste Anfrage gesendet (Bestellnummer mit Touch, 2 Lanes, FPC, Hintergrundbeleuchtung, Touch-INT, ESP-IDF-Komponente, Datenblatt). Nachfrage nach den Befunden 6.1: Punkte 1–5. Offen sind alle Punkte, bis Viewe antwortet.
+
+1. Bestellnummer der 6,8"-MIPI-Version **mit** kapazitivem Touch; Touch-IC und I²C-Adresse
+2. Führt das Panel Touch-INT heraus, und wie wird es am ESP32-P4-Pi-VIEWE angeschlossen, da FPC1 es nicht führt?
+3. Versorgung der Hintergrundbeleuchtung, da FPC1 nur 3,3 V führt; Ein/Aus über GPIO; Stromaufnahme mit Hintergrundbeleuchtung an und aus. Dimmen nicht nötig
+4. LCD-Reset: über FPC1 oder eigene Leitung?
+5. Treiber-IC, Init-Sequenz und Timing für ESP-IDF `esp_lcd` mit 2 Lanes
+6. Passt das FPC direkt auf FPC1 oder braucht es ein Zwischenkabel; Datenblatt und Zeichnung mit FPC-Belegung
+7. Preis und Lieferzeit
 
 Rückfall bei negativer Antwort: Newhaven NHD-6.8 mit Adapterplatine nach Anhang A.
 
@@ -246,8 +264,8 @@ Rückfall bei negativer Antwort: Newhaven NHD-6.8 mit Adapterplatine nach Anhang
 | O8 | D+ an T32b/29? | nur loggen |
 | O10 | MQTT über Access Point des Cerbo | Rückfall Switch |
 | O14 | Geschwindigkeitssignal | Flankenzähler SM-I-009 (gelöst, am Fahrzeug bestätigen) |
-| O15 | Viewe: Bestellnummer MIPI-Version, 2-Lane-Betrieb, FPC, Hintergrundbeleuchtung, Touch-INT, Init-Sequenz | Anfrage gesendet; Rückfall Newhaven + Adapter |
-| O16 | Belegung DSI-Stecker und 5-V-Einspeisung ESP32-P4-Pi-VIEWE | Viewe-Schaltplan auf GitHub |
+| O15 | Viewe: Bestellnummer MIPI-Version mit Touch, Touch-INT und LCD-Reset (nicht auf FPC1), Versorgung und Ein/Aus der Hintergrundbeleuchtung, Init-Sequenz 6,8" (Abschnitt 6.2) | Anfrage gesendet, Nachfrage nach 6.2; Rückfall Newhaven + Adapter |
+| O16 | 5-V-Einspeisung ESP32-P4-Pi-VIEWE über den Header | Belegung FPC1 geklärt (6.1); Einspeisung im Schaltplan prüfen |
 | O17 | Brauchen die Sequent-Karten 3,3 V vom Header? Eigene Pull-ups auf SDA/SCL? Adresse SM-H-001, Interrupt-Pin SM-I-009 | Schaltpläne Sequent |
 | O18 | Schaltet das Relaismodul sicher mit 3,3-V-Logik? | am Tisch prüfen; sonst Transistorstufe |
 | O19 | Ruhestrom P4 mit WLAN im Parkbetrieb | Prüfstand; Ziel unter 1 W |
