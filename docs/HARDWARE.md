@@ -227,7 +227,9 @@ Quelle: github.com/VIEWESMART, Repositories `ESP32-P4-Core` (Schaltplan `SCH_ESP
 | 6,8" HDMI | UEDX48128068L-HMD: Touch über USB, 300 cd/m², AA 60 × 160 mm, Aussenmass 66 × 181 mm | nicht für dieses Projekt |
 | Weitere Unterlagen | Schaltplan Board und Core-Modul, 3D-Modell Core-Modul, Datenblätter aller Chips, LVGL-9-Beispiel (`12_7inch_lvgl_demo_v9`) | Vorlage für M3 |
 
-### 6.2 Anfrage an Viewe (O15)
+### 6.2 Fragen an Viewe (O15)
+
+Erste Anfrage gesendet (Bestellnummer mit Touch, 2 Lanes, FPC, Hintergrundbeleuchtung, Touch-INT, ESP-IDF-Komponente, Datenblatt). Nachfrage nach den Befunden 6.1: Punkte 1–5. Offen sind alle Punkte, bis Viewe antwortet.
 
 1. Bestellnummer der 6,8"-MIPI-Version **mit** kapazitivem Touch; Touch-IC und I²C-Adresse
 2. Führt das Panel Touch-INT heraus, und wie wird es am ESP32-P4-Pi-VIEWE angeschlossen, da FPC1 es nicht führt?
@@ -262,7 +264,7 @@ Rückfall bei negativer Antwort: Newhaven NHD-6.8 mit Adapterplatine nach Anhang
 | O8 | D+ an T32b/29? | nur loggen |
 | O10 | MQTT über Access Point des Cerbo | Rückfall Switch |
 | O14 | Geschwindigkeitssignal | Flankenzähler SM-I-009 (gelöst, am Fahrzeug bestätigen) |
-| O15 | Viewe: Bestellnummer MIPI-Version mit Touch, Touch-INT und LCD-Reset (nicht auf FPC1), Versorgung und Ein/Aus der Hintergrundbeleuchtung, Init-Sequenz 6,8" (Abschnitt 6.2) | Anfrage nach 6.2; Rückfall Newhaven + Adapter |
+| O15 | Viewe: Bestellnummer MIPI-Version mit Touch, Touch-INT und LCD-Reset (nicht auf FPC1), Versorgung und Ein/Aus der Hintergrundbeleuchtung, Init-Sequenz 6,8" (Abschnitt 6.2) | Anfrage gesendet, Nachfrage nach 6.2; Rückfall Newhaven + Adapter |
 | O16 | 5-V-Einspeisung ESP32-P4-Pi-VIEWE über den Header | Belegung FPC1 geklärt (6.1); Einspeisung im Schaltplan prüfen |
 | O17 | Brauchen die Sequent-Karten 3,3 V vom Header? Eigene Pull-ups auf SDA/SCL? Adresse SM-H-001, Interrupt-Pin SM-I-009 | Schaltpläne Sequent |
 | O18 | Schaltet das Relaismodul sicher mit 3,3-V-Logik? | am Tisch prüfen; sonst Transistorstufe |
