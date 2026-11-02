@@ -45,7 +45,7 @@ Die Unit ersetzt das Bedienteil E153. Die Original-Steuergeräte bleiben im Fahr
 | Victron | Cerbo GX | WLAN (C6) am Access Point des Cerbo, MQTT |
 | Service | Router im Camper | Ethernet des Boards |
 
-Noch offen bei Viewe (Hardware O15): Bestellnummer der MIPI-Version, 2-Lane-Betrieb, Hintergrundbeleuchtung per PWM, Touch-INT über das FPC, Init-Sequenz. Rückfall: Newhaven NHD-6.8 (Treiber NV3051F-L, Touch FT5426G). Der Display-Treiber muss deshalb hinter einer eigenen Schnittstelle liegen (Kapitel 3).
+Noch offen bei Viewe (Hardware O15, HARDWARE 6.2): Bestellnummer der MIPI-Version mit Touch, Touch-INT und LCD-Reset (nicht auf dem Display-Stecker FPC1), Versorgung und Ein/Aus der Hintergrundbeleuchtung, Init-Sequenz für das 6,8" (in Viewes Repositories nicht vorhanden). Rückfall: Newhaven NHD-6.8 (Treiber NV3051F-L, Touch FT5426G). Der Display-Treiber muss deshalb hinter einer eigenen Schnittstelle liegen (Kapitel 3).
 
 ### 2.2 Werkzeuge
 
@@ -157,7 +157,7 @@ H1–H4 über GPIO, stromlos = alle Segmente überbrückt = Basiswiderstand. Wel
 ### 4.4 Anzeige und Touch
 
 - Viewe-Komponente `esp_lcd_dsi` mit der Init-Sequenz für das 6,8"-Panel. Nativ 480 × 1280 hochkant; LVGL arbeitet quer mit 1280 × 480. Drehung über den PPA des P4 oder die Rotation des Panels, je nachdem, was die Init-Sequenz anbietet.
-- Hintergrundbeleuchtung: PWM laut Viewe-Antwort. Bis zur Klärung `set_brightness` nur an/aus.
+- Hintergrundbeleuchtung: an/aus genügt (Entscheid Daniel 2.11.2026, Dimmen nicht nötig). `set_brightness` dimmt nur, wenn das Panel es ohne Zusatzaufwand kann. Wecken: Touch-INT nur mit eigener Leitung (HARDWARE 6.1); sonst Touch aus Light Sleep zyklisch abfragen.
 - Touch: Controller laut Viewe-Datenblatt, INT als Weckquelle aus Light Sleep.
 
 ---
@@ -269,7 +269,7 @@ Vorlage: die aktuelle Weboberfläche aus v1, abgelegt in `ui/reference/web_v1/` 
 - Schrift: mit `lv_font_conv` erzeugen, inkl. ä ö ü Ä Ö Ü ° – ‹ und Ziffern mit fester Breite.
 - Dachtasten: Antippen startet die Fahrt, die Oberfläche sendet die Laufmeldung im 100-ms-Takt bis Endlage, STOPP oder Berührung; im Rückfall Halten nur solange der Finger liegt (Grundlage für S3).
 - Erste Berührung nach dem Aufwecken: Summer, Display an, keine Bedienung.
-- Helligkeit: Regler wirkt, sobald PWM geklärt ist; vorher nur an/aus.
+- Helligkeit: Regler wirkt nur, wenn das Panel dimmbar ist; sonst an/aus (Dimmen nicht nötig).
 
 **Abnahme:** Jede Seite des Prototyps läuft im Host-Simulator. Zustandswechsel erscheinen innert 200 ms. Auf dem Gerät mindestens 30 Bilder/s beim Seitenwechsel.
 
@@ -338,7 +338,7 @@ M1 und M2 laufen ohne Hardware und können sofort beginnen.
 | O7 | Kennlinien G817, G249, G120, G126, Heizungs-Sollwert | `TODO_MEASURE`, «nicht kalibriert» |
 | O8 | D+ an T32b/29? | nur loggen |
 | O11 | Unterspannungsschwelle | 11,8 V für 60 s |
-| O15 | Viewe: MIPI-Version, 2 Lanes, PWM, Touch-INT, Init-Sequenz | `display_t`-Schnittstelle, Rückfall `display_nhd68` |
+| O15 | Viewe: MIPI-Version mit Touch, Touch-INT, Hintergrundbeleuchtung ein/aus, Init-Sequenz 6,8" | `display_t`-Schnittstelle, Rückfall `display_nhd68` |
 | O16 | Belegung DSI-Stecker und 5-V-Einspeisung des Boards | Viewe-Schaltplan |
 | O17 | SM-H-001: Adresse, eigene Pull-ups, 3,3 V vom Header, Relais-Abschaltung ohne Kommunikation (S11) | Sequent-Repository und Schaltplan |
 | O19 | Ruhestrom P4 mit WLAN | messen in M7 |

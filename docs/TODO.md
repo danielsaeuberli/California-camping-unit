@@ -30,5 +30,5 @@ Kleinere Punkte:
 - Heizung: zehn Stufen am T2p, Regelrichtung, Zuordnung T6ap/2 und /3 (O23).
 - Dach: Wahrheitstabelle T32b/14/15, Richtung K1/K2, Pumpen-Nachlauf (O6).
 - Geschwindigkeit T32b/3, D+ T32b/29, 58d, Tankgeber G120/G126, G249.
-- Viewe: MIPI-Version, 2 Lanes, PWM, Touch-INT, Init-Sequenz (O15).
+- Viewe: MIPI-Version mit Touch, Touch-INT und LCD-Reset (nicht auf FPC1), Hintergrundbeleuchtung ein/aus, Init-Sequenz 6,8" (O15, Anfrage HARDWARE 6.2).
 - Cerbo: MQTT über den Access Point (O10).
